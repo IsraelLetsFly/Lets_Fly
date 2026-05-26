@@ -7,392 +7,275 @@
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-/* ══ RESET & BASE ══ */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+:root{
+  --bg:#0d1117;--bg2:#161b27;--bg3:#1e2636;--bg4:#263045;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
+  --accent:#3b82f6;--accent2:#1d4ed8;--accentg:linear-gradient(135deg,#3b82f6,#6366f1);
+  --green:#10b981;--gold:#f59e0b;--coral:#ef4444;--purple:#8b5cf6;
+  --text:#e2e8f0;--textm:#94a3b8;--textd:#475569;
+  --nav-h:58px;--r:14px;--rsm:9px;--shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+body.light{
+  --bg:#f1f5f9;--bg2:#fff;--bg3:#e8eef6;--bg4:#dde5f0;
+  --border:rgba(0,0,0,0.07);--border2:rgba(0,0,0,0.14);
+  --text:#0f172a;--textm:#475569;--textd:#94a3b8;--shadow:0 4px 24px rgba(0,0,0,0.1);
+}
+body{font-family:'Rubik','Heebo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+body[dir="rtl"]{font-family:'Heebo','Rubik',sans-serif}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:5px}
 
-/* ══ THEME VARIABLES ══ */
-:root {
-  --bg:      #0d1117;
-  --bg2:     #161b27;
-  --bg3:     #1e2636;
-  --bg4:     #263045;
-  --border:  rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.14);
-  --accent:  #3b82f6;
-  --accent2: #1d4ed8;
-  --accentg: linear-gradient(135deg,#3b82f6,#6366f1);
-  --green:   #10b981;
-  --gold:    #f59e0b;
-  --coral:   #ef4444;
-  --purple:  #8b5cf6;
-  --text:    #e2e8f0;
-  --textm:   #94a3b8;
-  --textd:   #475569;
-  --nav-h:   58px;
-  --r:       14px;
-  --rsm:     9px;
-  --shadow:  0 4px 24px rgba(0,0,0,0.4);
-}
-body.light {
-  --bg:      #f1f5f9;
-  --bg2:     #ffffff;
-  --bg3:     #e8eef6;
-  --bg4:     #dde5f0;
-  --border:  rgba(0,0,0,0.07);
-  --border2: rgba(0,0,0,0.14);
-  --text:    #0f172a;
-  --textm:   #475569;
-  --textd:   #94a3b8;
-  --shadow:  0 4px 24px rgba(0,0,0,0.1);
-}
+/* LOADING */
+#loading{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.spinner{width:40px;height:40px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-logo{font-size:28px;font-weight:800;background:var(--accentg);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 
-body {
-  font-family: 'Rubik', 'Heebo', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  overflow-x: hidden;
-  transition: background 0.3s, color 0.3s;
-}
-body[dir="rtl"] { font-family: 'Heebo', 'Rubik', sans-serif; }
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:500;height:var(--nav-h);background:rgba(13,17,23,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:6px}
+body.light nav{background:rgba(241,245,249,0.92)}
+.nav-logo{font-size:22px;font-weight:800;letter-spacing:-.5px;background:var(--accentg);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;cursor:pointer;margin-inline-end:10px;white-space:nowrap}
+.nav-trip-name{font-size:13px;font-weight:600;color:var(--textm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.nav-sections{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.nav-sections::-webkit-scrollbar{display:none}
+.nav-right{margin-inline-start:auto;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.nb{background:none;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;color:var(--textm);padding:5px 9px;border-radius:var(--rsm);transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:4px}
+.nb:hover{background:var(--bg3);color:var(--text)}
+.nb.active{background:rgba(59,130,246,0.15);color:var(--accent)}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--accentg);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;cursor:pointer;flex-shrink:0}
+.lang-btn{background:var(--bg3);border:1px solid var(--border2);border-radius:100px;padding:5px 10px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;color:var(--textm);transition:all .2s;white-space:nowrap}
+.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+.theme-btn{background:none;border:1px solid var(--border2);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;transition:all .2s;color:var(--textm)}
+.theme-btn:hover{border-color:var(--accent)}
 
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: var(--bg2); }
-::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 5px; }
+/* USER MENU */
+.user-menu{display:none;position:fixed;top:54px;inset-inline-end:16px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:8px;min-width:200px;z-index:600;box-shadow:var(--shadow);animation:fadeDown .15s ease}
+.user-menu.show{display:block}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.user-menu-email{padding:10px 12px;font-size:12px;color:var(--textm);border-bottom:1px solid var(--border);margin-bottom:6px}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--textm);border-radius:var(--rsm);cursor:pointer;transition:all .15s;text-align:start}
+.menu-item:hover{background:var(--bg3);color:var(--text)}
+.menu-item.danger:hover{background:rgba(239,68,68,.1);color:var(--coral)}
 
-/* ══ LOADING ══ */
-#loading {
-  position: fixed; inset: 0; z-index: 9999;
-  background: var(--bg);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-}
-.spinner {
-  width: 40px; height: 40px;
-  border: 3px solid var(--border2);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.75s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading-logo {
-  font-size: 28px; font-weight: 800;
-  background: var(--accentg);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-}
+/* AUTH */
+#auth-screen{min-height:100vh;display:none;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 20% 30%,rgba(59,130,246,.12) 0%,transparent 55%),radial-gradient(ellipse at 80% 70%,rgba(99,102,241,.1) 0%,transparent 55%),var(--bg)}
+#auth-screen.show{display:flex}
+.auth-box{width:100%;max-width:400px;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:40px 36px;box-shadow:var(--shadow);animation:fadeUp .4s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.auth-logo{font-size:32px;font-weight:800;letter-spacing:-1px;background:var(--accentg);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
+.auth-tagline{font-size:13px;color:var(--textm);margin-bottom:28px}
+.auth-tabs{display:flex;gap:3px;background:var(--bg3);border-radius:var(--rsm);padding:3px;margin-bottom:24px}
+.auth-tab{flex:1;padding:8px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--textm);border-radius:7px;cursor:pointer;transition:all .2s}
+.auth-tab.active{background:var(--bg4);color:var(--text)}
+.auth-alert{border-radius:var(--rsm);padding:10px 14px;font-size:13px;margin-bottom:12px;display:none}
+.auth-err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--coral)}
+.auth-ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:var(--green)}
 
-/* ══ NAVBAR ══ */
-nav {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
-  height: var(--nav-h);
-  background: rgba(13,17,23,0.92);
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center;
-  padding: 0 20px; gap: 6px;
-}
-body.light nav { background: rgba(241,245,249,0.92); }
+/* INPUTS */
+.inp{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rsm);padding:11px 14px;font-family:inherit;font-size:14px;color:var(--text);outline:none;transition:border-color .2s}
+.inp:focus{border-color:var(--accent)}
+.inp::placeholder{color:var(--textd)}
+select.inp{cursor:pointer}
+textarea.inp{resize:vertical;min-height:80px}
+.field{margin-bottom:12px}
+.field-label{font-size:12px;font-weight:600;color:var(--textm);margin-bottom:5px}
 
-.nav-logo {
-  font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
-  background: var(--accentg);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-  cursor: pointer; margin-inline-end: 10px; white-space: nowrap;
-}
-.nav-trip-name {
-  font-size: 13px; font-weight: 600; color: var(--textm);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;
-}
-.nav-right { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; }
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;font-size:14px;font-weight:600;padding:11px 22px;border-radius:100px;border:none;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--accentg);color:#fff;width:100%}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,130,246,.35)}
+.btn-google{width:100%;background:var(--bg3);border:1.5px solid var(--border2);color:var(--text);margin-bottom:6px}
+.btn-google:hover{border-color:var(--accent);background:rgba(59,130,246,.06)}
+.btn-outline{background:transparent;border:1.5px solid var(--border2);color:var(--textm)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-ghost{background:transparent;border:none;color:var(--textm);font-size:13px;padding:8px 12px}
+.btn-ghost:hover{color:var(--text)}
+.btn-danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--coral)}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+.btn-sm{padding:7px 14px;font-size:12px}
+.btn-icon{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rsm);padding:7px 12px;cursor:pointer;font-size:13px;font-family:inherit;color:var(--textm);transition:all .15s}
+.btn-icon:hover{border-color:var(--accent);color:var(--accent)}
+.divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--textd);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
 
-.nb {
-  background: none; border: none; cursor: pointer;
-  font-family: inherit; font-size: 13px; font-weight: 500;
-  color: var(--textm); padding: 6px 10px; border-radius: var(--rsm);
-  transition: all 0.15s; white-space: nowrap; display: flex; align-items: center; gap: 5px;
-}
-.nb:hover { background: var(--bg3); color: var(--text); }
-.nb.active { background: rgba(59,130,246,0.15); color: var(--accent); }
+/* APP */
+#app{display:none;padding-top:var(--nav-h);min-height:100vh}
+.page{display:none;padding:24px 20px 80px;max-width:900px;margin:0 auto;animation:fadeUp .2s ease}
+.page.active{display:block}
+.page-header{margin-bottom:20px}
+.page-title{font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--textm)}
 
-.icon-btn {
-  background: none; border: 1px solid var(--border2); cursor: pointer;
-  width: 34px; height: 34px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; color: var(--textm); transition: all 0.15s;
-}
-.icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,0.08); }
+/* TRIPS GRID */
+.trips-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.trip-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
+.trip-card:hover{border-color:rgba(59,130,246,.4);transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.3)}
+.trip-cover{height:80px;display:flex;align-items:center;justify-content:center;font-size:44px;position:relative}
+.trip-cover-bg{position:absolute;inset:0;background:linear-gradient(135deg,var(--c1),var(--c2));opacity:.7}
+.trip-cover-emoji{position:relative;z-index:1}
+.trip-card-body{padding:13px 15px}
+.trip-card-name{font-size:15px;font-weight:700;margin-bottom:4px}
+.trip-card-meta{font-size:11px;color:var(--textm);margin-bottom:9px;line-height:1.5}
+.trip-card-tags{display:flex;gap:5px;flex-wrap:wrap}
+.trip-card-actions{position:absolute;top:7px;inset-inline-end:7px;display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.trip-card:hover .trip-card-actions{opacity:1}
+.tc-btn{background:rgba(0,0,0,.55);border:none;color:#fff;width:27px;height:27px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.tc-btn:hover{background:rgba(0,0,0,.8)}
+.new-card{min-height:185px;border:2px dashed var(--border2);background:transparent;border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:all .2s;color:var(--textm)}
+.new-card:hover{border-color:var(--accent);color:var(--accent);background:rgba(59,130,246,.04)}
+.new-card-icon{font-size:30px}
+.new-card-label{font-size:13px;font-weight:600}
 
-.avatar {
-  width: 34px; height: 34px; border-radius: 50%;
-  background: var(--accentg);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
-  position: relative; flex-shrink: 0;
-}
+/* TAG */
+.tag{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:100px}
+.tag-blue{background:rgba(59,130,246,.12);color:var(--accent)}
+.tag-green{background:rgba(16,185,129,.12);color:var(--green)}
+.tag-gold{background:rgba(245,158,11,.12);color:var(--gold)}
+.tag-purple{background:rgba(139,92,246,.12);color:var(--purple)}
+.tag-coral{background:rgba(239,68,68,.12);color:var(--coral)}
 
-/* ══ USER MENU ══ */
-.user-menu {
-  display: none; position: fixed; top: 54px; inset-inline-end: 16px;
-  background: var(--bg2); border: 1px solid var(--border2);
-  border-radius: var(--r); padding: 8px; min-width: 200px;
-  z-index: 600; box-shadow: var(--shadow);
-  animation: fadeDown 0.15s ease;
-}
-.user-menu.show { display: block; }
-@keyframes fadeDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
-.user-menu-email { padding: 10px 12px; font-size: 12px; color: var(--textm); border-bottom: 1px solid var(--border); margin-bottom: 6px; }
-.menu-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 9px 12px; border: none; background: none;
-  font-family: inherit; font-size: 13px; font-weight: 500; color: var(--textm);
-  border-radius: var(--rsm); cursor: pointer; transition: all 0.15s; text-align: start;
-}
-.menu-item:hover { background: var(--bg3); color: var(--text); }
-.menu-item.danger:hover { background: rgba(239,68,68,0.1); color: var(--coral); }
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:12px}
+.card-title{font-size:14px;font-weight:700;margin-bottom:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-title-left{display:flex;align-items:center;gap:7px}
 
-/* ══ AUTH SCREEN ══ */
-#auth-screen {
-  min-height: 100vh; display: none;
-  align-items: center; justify-content: center; padding: 20px;
-  background:
-    radial-gradient(ellipse at 20% 30%, rgba(59,130,246,0.12) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 70%, rgba(99,102,241,0.1) 0%, transparent 55%),
-    var(--bg);
-}
-#auth-screen.show { display: flex; }
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:26px;animation:fadeUp .25s ease}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:20px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
-.auth-box {
-  width: 100%; max-width: 400px;
-  background: var(--bg2); border: 1px solid var(--border2);
-  border-radius: 20px; padding: 40px 36px;
-  box-shadow: var(--shadow);
-  animation: fadeUp 0.4s ease;
-}
-@keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+/* EMOJI PICKER */
+.emoji-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ep{font-size:24px;background:var(--bg3);border:2px solid transparent;border-radius:var(--rsm);width:42px;height:42px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.ep:hover,.ep.sel{border-color:var(--accent);background:rgba(59,130,246,.1)}
 
-.auth-logo {
-  font-size: 32px; font-weight: 800; letter-spacing: -1px;
-  background: var(--accentg);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-  margin-bottom: 4px;
-}
-.auth-tagline { font-size: 13px; color: var(--textm); margin-bottom: 28px; }
+/* TOAST */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);color:var(--text);padding:10px 20px;border-radius:100px;font-size:13px;font-weight:500;z-index:9000;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
 
-.auth-tabs {
-  display: flex; gap: 3px;
-  background: var(--bg3); border-radius: var(--rsm);
-  padding: 3px; margin-bottom: 24px;
-}
-.auth-tab {
-  flex: 1; padding: 8px; border: none; background: none;
-  font-family: inherit; font-size: 13px; font-weight: 600;
-  color: var(--textm); border-radius: 7px; cursor: pointer; transition: all 0.2s;
-}
-.auth-tab.active { background: var(--bg4); color: var(--text); }
+/* COUNTDOWN */
+.countdown-box{background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(99,102,241,.1));border:1px solid rgba(59,130,246,.2);border-radius:var(--r);padding:24px;text-align:center;margin-bottom:14px}
+.cd-days{font-size:64px;font-weight:800;line-height:1;background:var(--accentg);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.cd-lbl{font-size:13px;color:var(--textm);margin-top:4px}
+.cd-date{font-size:14px;font-weight:600;margin-top:8px}
+.cd-hms{display:flex;justify-content:center;gap:18px;margin-top:12px;direction:ltr}
+.cd-unit{text-align:center}
+.cd-num{font-size:24px;font-weight:700;color:var(--accent)}
+.cd-unit-lbl{font-size:10px;color:var(--textm)}
 
-.inp {
-  width: 100%; background: var(--bg3);
-  border: 1px solid var(--border2); border-radius: var(--rsm);
-  padding: 11px 14px; font-family: inherit; font-size: 14px;
-  color: var(--text); outline: none; transition: border-color 0.2s;
-}
-.inp:focus { border-color: var(--accent); }
-.inp::placeholder { color: var(--textd); }
-select.inp { cursor: pointer; }
-textarea.inp { resize: vertical; min-height: 80px; }
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
+.stat-num{font-size:28px;font-weight:800;line-height:1;margin-bottom:3px}
+.stat-lbl{font-size:11px;color:var(--textm)}
 
-.field { margin-bottom: 12px; }
-.field-label { font-size: 12px; font-weight: 600; color: var(--textm); margin-bottom: 5px; }
+/* PROGRESS */
+.pbar-bg{background:var(--bg4);border-radius:100px;height:7px;overflow:hidden}
+.pbar-fill{height:7px;border-radius:100px;background:var(--accentg);transition:width .6s ease}
+.pbar-row{display:flex;justify-content:space-between;font-size:12px;color:var(--textm);margin-bottom:6px}
 
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  font-family: inherit; font-size: 14px; font-weight: 600;
-  padding: 11px 22px; border-radius: 100px; border: none; cursor: pointer; transition: all 0.2s;
-}
-.btn-primary { background: var(--accentg); color: #fff; width: 100%; }
-.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.35); }
-.btn-google {
-  width: 100%; background: var(--bg3); border: 1.5px solid var(--border2);
-  color: var(--text); margin-bottom: 6px;
-}
-.btn-google:hover { border-color: var(--accent); background: rgba(59,130,246,0.06); }
-.btn-outline { background: transparent; border: 1.5px solid var(--border2); color: var(--textm); }
-.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-.btn-ghost { background: transparent; border: none; color: var(--textm); font-size: 13px; padding: 8px 12px; }
-.btn-ghost:hover { color: var(--text); }
-.btn-danger { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--coral); }
-.btn-danger:hover { background: rgba(239,68,68,0.2); }
-.btn-sm { padding: 7px 14px; font-size: 12px; }
-.btn-block { width: 100%; }
+/* TODO */
+.cat-head{font-size:11px;font-weight:700;color:var(--textd);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 7px}
+.todo-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:6px;cursor:pointer;transition:all .15s}
+.todo-item:hover{border-color:var(--border2)}
+.todo-item.done{opacity:.55}
+.todo-item.done .todo-txt{text-decoration:line-through;color:var(--textm)}
+.todo-chk{width:19px;height:19px;border-radius:6px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;transition:all .2s}
+.todo-item.done .todo-chk{background:var(--green);border-color:var(--green);color:var(--bg)}
+.todo-txt{font-size:13px;flex:1}
+.todo-del{opacity:0;background:none;border:none;color:var(--textd);cursor:pointer;font-size:16px;padding:0 2px;transition:opacity .15s}
+.todo-item:hover .todo-del{opacity:1}
+.add-row{display:flex;gap:7px;margin-top:8px}
+.add-row input{flex:1}
+.add-row button{flex-shrink:0;width:38px;height:38px;border-radius:var(--rsm);border:none;background:var(--accent);color:#fff;font-size:20px;cursor:pointer;transition:background .2s}
+.add-row button:hover{background:var(--accent2)}
 
-.divider { display: flex; align-items: center; gap: 10px; margin: 14px 0; color: var(--textd); font-size: 12px; }
-.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+/* FLIGHTS / HOTELS */
+.item-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.item-header{padding:13px 16px;background:var(--bg4);display:flex;align-items:center;gap:10px;cursor:pointer}
+.item-title{font-size:14px;font-weight:700;flex:1}
+.item-body{padding:14px 16px;display:none}
+.item-card.open .item-body{display:block}
+.item-row{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;font-size:13px}
+.item-row:last-child{margin-bottom:0}
+.item-lbl{font-size:11px;font-weight:600;color:var(--textd);text-transform:uppercase;min-width:90px;flex-shrink:0}
+.item-val{color:var(--text)}
+.del-btn{background:none;border:none;color:var(--textd);cursor:pointer;font-size:17px;padding:0;margin-inline-start:auto;flex-shrink:0}
+.del-btn:hover{color:var(--coral)}
 
-.auth-alert {
-  border-radius: var(--rsm); padding: 10px 14px; font-size: 13px; margin-bottom: 12px; display: none;
-}
-.auth-err { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--coral); }
-.auth-ok  { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); color: var(--green); }
+/* ITINERARY */
+.itin-day{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.itin-header{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer}
+.itin-day-num{font-size:12px;font-weight:700;color:var(--accent);min-width:44px}
+.itin-day-title{font-size:14px;font-weight:600;flex:1}
+.itin-day-meta{font-size:11px;color:var(--textm)}
+.itin-body{padding:0 16px 14px;display:none}
+.itin-day.open .itin-body{display:block}
+.itin-block{display:flex;gap:12px;margin-top:10px;font-size:13px}
+.itin-time{font-weight:700;color:var(--accent);min-width:65px;font-size:12px;flex-shrink:0}
+.itin-text{color:var(--textm);flex:1;line-height:1.6}
+.itin-note{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rsm);padding:9px 12px;font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:10px;resize:vertical;min-height:56px;transition:border-color .2s}
+.itin-note:focus{border-color:var(--accent)}
 
-/* ══ APP ══ */
-#app { display: none; padding-top: var(--nav-h); min-height: 100vh; }
-#app.show { display: block; }
+/* BUDGET */
+.bsum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.bsum-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;text-align:center}
+.bsum-num{font-size:22px;font-weight:800;margin-bottom:2px}
+.bsum-lbl{font-size:11px;color:var(--textm)}
+.btable{width:100%;border-collapse:collapse}
+.btable th{font-size:11px;font-weight:700;color:var(--textd);text-transform:uppercase;letter-spacing:.6px;padding:7px 10px;text-align:start;border-bottom:1px solid var(--border)}
+.btable td{padding:9px 10px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+.btable tr:last-child td{border-bottom:none}
+.btable tr:hover td{background:var(--bg3)}
+.budget-inp{background:none;border:none;font-family:inherit;font-size:13px;color:var(--text);outline:none;width:100%}
+.status-pill{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:100px;cursor:pointer;white-space:nowrap}
+.sp-planned{background:rgba(59,130,246,.12);color:var(--accent)}
+.sp-booked{background:rgba(245,158,11,.12);color:var(--gold)}
+.sp-paid{background:rgba(16,185,129,.12);color:var(--green)}
 
-/* ══ PAGES ══ */
-.page { display: none; padding: 28px 20px 80px; max-width: 900px; margin: 0 auto; animation: fadeUp 0.2s ease; }
-.page.active { display: block; }
+/* CURRENCY */
+.conv-wrap{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:end;margin-bottom:12px}
+.conv-result{font-size:30px;font-weight:800;color:var(--green);min-height:44px;display:flex;align-items:center}
+.swap-btn{width:38px;height:38px;border-radius:50%;background:var(--bg3);border:1.5px solid var(--border2);color:var(--textm);font-size:17px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.swap-btn:hover{border-color:var(--accent);color:var(--accent)}
 
-.page-header { margin-bottom: 24px; }
-.page-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
-.page-sub { font-size: 13px; color: var(--textm); }
+/* TRANSPORT */
+.transport-item{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}
+.transport-item:last-child{border-bottom:none}
+.transport-icon{font-size:22px;width:34px;text-align:center;flex-shrink:0}
+.ti-title{font-size:14px;font-weight:600;margin-bottom:3px}
+.ti-desc{font-size:12px;color:var(--textm);line-height:1.6}
 
-/* ══ TRIPS GRID ══ */
-.trips-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
-}
+/* EMERGENCY */
+.em-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.em-title{font-size:12px;font-weight:700;color:var(--textm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:12px}
+.em-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.em-row:last-child{margin-bottom:0}
+.em-icon{font-size:18px;width:28px;text-align:center;flex-shrink:0}
+.em-lbl{font-size:11px;color:var(--textd);margin-bottom:2px}
+.em-inp{background:none;border:none;border-bottom:1px solid var(--border2);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:100%;padding-bottom:3px;transition:border-color .2s}
+.em-inp:focus{border-bottom-color:var(--accent)}
 
-.trip-card {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--r); overflow: hidden;
-  cursor: pointer; transition: all 0.2s; position: relative;
+/* RESPONSIVE */
+@media(max-width:640px){
+  .trips-grid{grid-template-columns:1fr 1fr}
+  .grid2{grid-template-columns:1fr}
+  nav{padding:0 10px;gap:3px}
+  .page{padding:18px 12px 80px}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .bsum{grid-template-columns:1fr 1fr 1fr}
+  .nav-trip-name{max-width:80px}
 }
-.trip-card:hover { border-color: rgba(59,130,246,0.4); transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
-
-.trip-cover {
-  height: 90px; display: flex; align-items: center; justify-content: center;
-  font-size: 48px; position: relative;
-}
-.trip-cover-bg {
-  position: absolute; inset: 0;
-  background: linear-gradient(135deg, var(--c1), var(--c2));
-  opacity: 0.7;
-}
-.trip-cover-emoji { position: relative; z-index: 1; }
-
-.trip-card-body { padding: 14px 16px; }
-.trip-card-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-.trip-card-meta { font-size: 12px; color: var(--textm); margin-bottom: 10px; line-height: 1.5; }
-.trip-card-tags { display: flex; gap: 5px; flex-wrap: wrap; }
-
-.tag {
-  display: inline-flex; align-items: center; gap: 3px;
-  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 100px;
-}
-.tag-blue   { background: rgba(59,130,246,0.12); color: var(--accent); }
-.tag-green  { background: rgba(16,185,129,0.12); color: var(--green); }
-.tag-gold   { background: rgba(245,158,11,0.12); color: var(--gold); }
-.tag-purple { background: rgba(139,92,246,0.12); color: var(--purple); }
-
-.trip-card-actions {
-  position: absolute; top: 8px; inset-inline-end: 8px;
-  display: flex; gap: 5px; opacity: 0; transition: opacity 0.2s;
-}
-.trip-card:hover .trip-card-actions { opacity: 1; }
-.tc-btn {
-  background: rgba(0,0,0,0.55); border: none; color: #fff;
-  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
-  font-size: 13px; display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s;
-}
-.tc-btn:hover { background: rgba(0,0,0,0.8); }
-
-.new-card {
-  min-height: 196px; border: 2px dashed var(--border2);
-  background: transparent; border-radius: var(--r);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 10px; cursor: pointer; transition: all 0.2s; color: var(--textm);
-}
-.new-card:hover { border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,0.04); }
-.new-card-icon { font-size: 32px; }
-.new-card-label { font-size: 14px; font-weight: 600; }
-
-/* ══ CARD ══ */
-.card {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 18px 20px; margin-bottom: 14px;
-}
-.card-title {
-  font-size: 14px; font-weight: 700; margin-bottom: 14px;
-  display: flex; align-items: center; gap: 7px;
-}
-
-/* ══ MODAL ══ */
-.overlay {
-  display: none; position: fixed; inset: 0; z-index: 800;
-  background: rgba(0,0,0,0.65); backdrop-filter: blur(5px);
-  align-items: center; justify-content: center; padding: 20px;
-}
-.overlay.show { display: flex; }
-.modal {
-  background: var(--bg2); border: 1px solid var(--border2);
-  border-radius: 20px; width: 100%; max-width: 500px;
-  max-height: 90vh; overflow-y: auto; padding: 28px;
-  animation: fadeUp 0.25s ease;
-}
-.modal-title { font-size: 19px; font-weight: 800; margin-bottom: 22px; }
-.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 22px; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-.emoji-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.ep {
-  font-size: 26px; background: var(--bg3); border: 2px solid transparent;
-  border-radius: var(--rsm); width: 44px; height: 44px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
-}
-.ep:hover, .ep.sel { border-color: var(--accent); background: rgba(59,130,246,0.1); }
-
-/* ══ TOAST ══ */
-.toast {
-  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
-  background: var(--bg4); border: 1px solid var(--border2);
-  color: var(--text); padding: 10px 20px; border-radius: 100px;
-  font-size: 13px; font-weight: 500; z-index: 9000;
-  opacity: 0; transition: opacity 0.25s; pointer-events: none; white-space: nowrap;
-}
-.toast.show { opacity: 1; }
-
-/* ══ LANG TOGGLE ══ */
-.lang-btn {
-  background: var(--bg3); border: 1px solid var(--border2);
-  border-radius: 100px; padding: 5px 11px; cursor: pointer;
-  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--textm);
-  transition: all 0.2s; white-space: nowrap;
-}
-.lang-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-/* ══ THEME TOGGLE ══ */
-.theme-btn {
-  background: none; border: 1px solid var(--border2);
-  border-radius: 50%; width: 34px; height: 34px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; cursor: pointer; transition: all 0.2s; color: var(--textm);
-}
-.theme-btn:hover { border-color: var(--accent); }
-
-/* ══ RESPONSIVE ══ */
-@media (max-width: 640px) {
-  .trips-grid { grid-template-columns: 1fr 1fr; }
-  .grid2 { grid-template-columns: 1fr; }
-  nav { padding: 0 12px; gap: 4px; }
-  .page { padding: 20px 14px 80px; }
-  .nb span.label { display: none; }
-}
-@media (max-width: 400px) {
-  .trips-grid { grid-template-columns: 1fr; }
-}
+@media(max-width:400px){.trips-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
-<!-- LOADING -->
-<div id="loading">
-  <div class="loading-logo">✈️ LetsFly</div>
-  <div class="spinner"></div>
-</div>
-
-<!-- TOAST -->
+<div id="loading"><div class="loading-logo">✈️ LetsFly</div><div class="spinner"></div></div>
 <div class="toast" id="toast"></div>
 
 <!-- USER MENU -->
@@ -407,65 +290,41 @@ textarea.inp { resize: vertical; min-height: 80px; }
   <div class="auth-box">
     <div class="auth-logo">✈️ LetsFly</div>
     <div class="auth-tagline" data-t="tagline">Plan smarter. Fly better.</div>
-
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
       <button class="lang-btn" onclick="toggleLang()" id="auth-lang-btn">🌐 עברית</button>
     </div>
-
     <div class="auth-tabs">
       <button class="auth-tab active" id="tab-login" onclick="switchTab('login')" data-t="signIn">Sign In</button>
       <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')" data-t="createAccount">Create Account</button>
     </div>
-
     <div class="auth-alert auth-err" id="auth-err"></div>
-    <div class="auth-alert auth-ok"  id="auth-ok"></div>
-
-    <!-- Google -->
+    <div class="auth-alert auth-ok" id="auth-ok"></div>
     <button class="btn btn-google" onclick="googleLogin()">
       <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
       <span data-t="continueGoogle">Continue with Google</span>
     </button>
-
     <div class="divider"><span data-t="orEmail">or with email</span></div>
-
-    <!-- Login form -->
     <div id="form-login">
-      <div class="field">
-        <div class="field-label" data-t="email">Email</div>
-        <input class="inp" id="l-email" type="email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="field">
-        <div class="field-label" data-t="password">Password</div>
-        <input class="inp" id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
+      <div class="field"><div class="field-label" data-t="email">Email</div><input class="inp" id="l-email" type="email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="field"><div class="field-label" data-t="password">Password</div><input class="inp" id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-primary" onclick="doLogin()"><span data-t="signIn">Sign In</span> →</button>
     </div>
-
-    <!-- Signup form -->
     <div id="form-signup" style="display:none">
-      <div class="field">
-        <div class="field-label" data-t="fullName">Full Name</div>
-        <input class="inp" id="s-name" type="text" placeholder="Your name">
-      </div>
-      <div class="field">
-        <div class="field-label" data-t="email">Email</div>
-        <input class="inp" id="s-email" type="email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="field">
-        <div class="field-label" data-t="password">Password</div>
-        <input class="inp" id="s-pass" type="password" placeholder="Min 6 characters" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()">
-      </div>
+      <div class="field"><div class="field-label" data-t="fullName">Full Name</div><input class="inp" id="s-name" type="text" placeholder="Your name"></div>
+      <div class="field"><div class="field-label" data-t="email">Email</div><input class="inp" id="s-email" type="email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="field"><div class="field-label" data-t="password">Password</div><input class="inp" id="s-pass" type="password" placeholder="Min 6 characters" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()"></div>
       <button class="btn btn-primary" onclick="doSignup()"><span data-t="createAccount">Create Account</span> →</button>
     </div>
   </div>
 </div>
 
-<!-- APP -->
+<!-- NAVBAR -->
 <nav id="navbar" style="display:none">
   <div class="nav-logo" onclick="goHome()">✈️ LetsFly</div>
   <div class="nav-trip-name" id="nav-trip-name"></div>
+  <div class="nav-sections" id="nav-sections" style="display:none"></div>
   <div class="nav-right">
-    <span id="save-status" style="font-size:12px;color:var(--textm);display:none"></span>
+    <span id="save-ind" style="font-size:11px;color:var(--textm);display:none">💾</span>
     <button class="lang-btn" onclick="toggleLang()" id="app-lang-btn">🌐 עברית</button>
     <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
     <div class="avatar" id="avatar" onclick="toggleMenu()"></div>
@@ -473,85 +332,43 @@ textarea.inp { resize: vertical; min-height: 80px; }
 </nav>
 
 <div id="app">
-
-  <!-- HOME PAGE -->
+  <!-- HOME -->
   <div class="page active" id="page-home">
     <div class="page-header">
       <div class="page-title" id="home-title">My Trips</div>
       <div class="page-sub" data-t="homeSubtitle">Plan, organize and share your adventures</div>
     </div>
-    <div class="trips-grid" id="trips-grid">
-      <div style="color:var(--textm);font-size:14px;padding:20px" data-t="loadingTrips">Loading...</div>
-    </div>
+    <div class="trips-grid" id="trips-grid"></div>
   </div>
 
-  <!-- TRIP DASHBOARD (placeholder for Stage 2) -->
+  <!-- TRIP -->
   <div class="page" id="page-trip">
-    <div class="page-header">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
-        <button class="btn btn-ghost btn-sm" onclick="goHome()">← <span data-t="back">Back</span></button>
-      </div>
-      <div class="page-title" id="trip-page-title"></div>
-      <div class="page-sub" id="trip-page-sub"></div>
-    </div>
-    <div class="card" style="text-align:center;padding:48px 20px;border-style:dashed">
-      <div style="font-size:48px;margin-bottom:12px">🚧</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:6px" data-t="comingSoon">Coming in Stage 2</div>
-      <div style="font-size:13px;color:var(--textm)" data-t="stage2Desc">Flights, hotels, itinerary, budget, packing and more!</div>
-    </div>
+    <!-- sections injected by JS -->
   </div>
-
 </div>
 
-<!-- NEW TRIP MODAL -->
+<!-- MODALS -->
 <div class="overlay" id="modal-new">
   <div class="modal">
     <div class="modal-title" data-t="newTrip">✈️ New Trip</div>
-    <div class="field">
-      <div class="field-label" data-t="tripName">Trip Name *</div>
-      <input class="inp" id="nt-name" placeholder="e.g. Thailand 2026">
-    </div>
+    <div class="field"><div class="field-label" data-t="tripName">Trip Name *</div><input class="inp" id="nt-name" placeholder="e.g. Thailand 2026"></div>
     <div class="grid2">
-      <div class="field">
-        <div class="field-label" data-t="startDate">Start Date *</div>
-        <input class="inp" id="nt-start" type="date">
-      </div>
-      <div class="field">
-        <div class="field-label" data-t="endDate">End Date *</div>
-        <input class="inp" id="nt-end" type="date">
-      </div>
+      <div class="field"><div class="field-label" data-t="startDate">Start Date *</div><input class="inp" id="nt-start" type="date"></div>
+      <div class="field"><div class="field-label" data-t="endDate">End Date *</div><input class="inp" id="nt-end" type="date"></div>
     </div>
-    <div class="field">
-      <div class="field-label" data-t="destinations">Destinations</div>
-      <input class="inp" id="nt-dest" placeholder="e.g. Phuket, Bangkok">
-    </div>
+    <div class="field"><div class="field-label" data-t="destinations">Destinations</div><input class="inp" id="nt-dest" placeholder="e.g. Phuket, Bangkok"></div>
     <div class="grid2">
-      <div class="field">
-        <div class="field-label" data-t="travelers">Travelers</div>
-        <input class="inp" id="nt-travelers" type="number" min="1" value="2">
-      </div>
-      <div class="field">
-        <div class="field-label" data-t="currency">Currency</div>
+      <div class="field"><div class="field-label" data-t="travelers">Travelers</div><input class="inp" id="nt-travelers" type="number" min="1" value="2"></div>
+      <div class="field"><div class="field-label" data-t="currency">Currency</div>
         <select class="inp" id="nt-currency">
-          <option value="USD">$ USD</option>
-          <option value="EUR">€ EUR</option>
-          <option value="ILS">₪ ILS</option>
-          <option value="GBP">£ GBP</option>
-          <option value="THB">฿ THB</option>
-          <option value="JPY">¥ JPY</option>
-          <option value="AUD">A$ AUD</option>
+          <option value="USD">$ USD</option><option value="EUR">€ EUR</option><option value="ILS">₪ ILS</option>
+          <option value="GBP">£ GBP</option><option value="THB">฿ THB</option><option value="JPY">¥ JPY</option><option value="AUD">A$ AUD</option>
         </select>
       </div>
     </div>
-    <div class="field">
-      <div class="field-label" data-t="notes">Notes</div>
-      <textarea class="inp" id="nt-notes" placeholder="Any notes..."></textarea>
-    </div>
-    <div class="field">
-      <div class="field-label" data-t="tripIcon">Trip Icon</div>
-      <div class="emoji-row" id="emoji-picker">
-        🌴🏝️🗺️🏔️🌊🏙️🌍🇯🇵🇹🇭🇬🇷🇮🇹🇫🇷🇺🇸🇬🇧🇪🇸🇵🇹🇲🇽🇧🇷🇦🇺🏕️⛷️🤿🚢✈️🧳🎌🌺🏖️🦁🐘🗼🗽🕌
-      </div>
+    <div class="field"><div class="field-label" data-t="notes">Notes</div><textarea class="inp" id="nt-notes" placeholder="Any notes..."></textarea></div>
+    <div class="field"><div class="field-label" data-t="tripIcon">Trip Icon</div>
+      <div class="emoji-row" id="emoji-picker">🌴🏝️🗺️🏔️🌊🏙️🌍🇯🇵🇹🇭🇬🇷🇮🇹🇫🇷🇺🇸🇬🇧🇪🇸🇵🇹🇲🇽🇧🇷🇦🇺🏕️⛷️🤿🚢✈️🧳🎌🌺🏖️🦁🐘🗼🗽🕌</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-new')" data-t="cancel">Cancel</button>
@@ -560,11 +377,10 @@ textarea.inp { resize: vertical; min-height: 80px; }
   </div>
 </div>
 
-<!-- DELETE MODAL -->
 <div class="overlay" id="modal-delete">
   <div class="modal" style="max-width:360px">
     <div class="modal-title" data-t="deleteTrip">🗑️ Delete Trip?</div>
-    <p style="font-size:14px;color:var(--textm);margin-bottom:4px" data-t="deleteWarn">This will permanently delete the trip and all its data. Cannot be undone.</p>
+    <p style="font-size:14px;color:var(--textm);margin-bottom:4px" data-t="deleteWarn">This will permanently delete the trip and all its data.</p>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-delete')" data-t="cancel">Cancel</button>
       <button class="btn btn-danger" onclick="confirmDelete()" data-t="delete">Delete</button>
@@ -572,451 +388,867 @@ textarea.inp { resize: vertical; min-height: 80px; }
   </div>
 </div>
 
+<div class="overlay" id="modal-add">
+  <div class="modal" id="modal-add-inner"></div>
+</div>
+
 <script>
-// ══════════════════════════════════════════════════════
-// SUPABASE
-// ══════════════════════════════════════════════════════
-const SB_URL = 'https://peqseinicyynggnqnimc.supabase.co';
-const SB_KEY = 'sb_publishable_KEcpcc9mptTU3ydvH_LvhQ_x-6-uNun';
-const sb = supabase.createClient(SB_URL, SB_KEY);
+const SB_URL='https://peqseinicyynggnqnimc.supabase.co';
+const SB_KEY='sb_publishable_KEcpcc9mptTU3ydvH_LvhQ_x-6-uNun';
+const sb=supabase.createClient(SB_URL,SB_KEY);
 
-// ══════════════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════════════
-let currentUser = null;
-let currentTrip = null;
-let selectedEmoji = '🌴';
-let deleteTripId = null;
-let lang = localStorage.getItem('lf-lang') || 'en';
-let theme = localStorage.getItem('lf-theme') || 'dark';
+let currentUser=null,currentTrip=null,tripData={},currentSec='dashboard';
+let selectedEmoji='🌴',deleteTripId=null,saveTimer=null,cdInterval=null,convRates={};
+let lang=localStorage.getItem('lf-lang')||'en';
+let theme=localStorage.getItem('lf-theme')||'dark';
 
-// ══════════════════════════════════════════════════════
-// TRANSLATIONS
-// ══════════════════════════════════════════════════════
-const T = {
-  en: {
-    tagline: 'Plan smarter. Fly better.',
-    signIn: 'Sign In',
-    createAccount: 'Create Account',
-    continueGoogle: 'Continue with Google',
-    orEmail: 'or with email',
-    email: 'Email',
-    password: 'Password',
-    fullName: 'Full Name',
-    myTrips: 'My Trips',
-    signOut: 'Sign Out',
-    homeSubtitle: 'Plan, organize and share your adventures',
-    loadingTrips: 'Loading...',
-    newTrip: '✈️ New Trip',
-    tripName: 'Trip Name *',
-    startDate: 'Start Date *',
-    endDate: 'End Date *',
-    destinations: 'Destinations',
-    travelers: 'Travelers',
-    currency: 'Currency',
-    notes: 'Notes',
-    tripIcon: 'Trip Icon',
-    cancel: 'Cancel',
-    create: 'Create Trip',
-    deleteTrip: '🗑️ Delete Trip?',
-    deleteWarn: 'This will permanently delete the trip and all its data. Cannot be undone.',
-    delete: 'Delete',
-    back: 'Back',
-    comingSoon: 'Coming in Stage 2',
-    stage2Desc: 'Flights, hotels, itinerary, budget, packing and more!',
-    nights: 'nights',
-    travelers2: 'travelers',
-    planNewTrip: 'Plan a New Trip',
-    noTrips: "You don't have any trips yet.",
-    greeting: 'My Trips',
+// ── TRANSLATIONS ──
+const T={
+  en:{
+    tagline:'Plan smarter. Fly better.',signIn:'Sign In',createAccount:'Create Account',
+    continueGoogle:'Continue with Google',orEmail:'or with email',email:'Email',password:'Password',
+    fullName:'Full Name',myTrips:'My Trips',signOut:'Sign Out',
+    homeSubtitle:'Plan, organize and share your adventures',
+    newTrip:'✈️ New Trip',tripName:'Trip Name *',startDate:'Start Date *',endDate:'End Date *',
+    destinations:'Destinations',travelers:'Travelers',currency:'Currency',notes:'Notes',
+    tripIcon:'Trip Icon',cancel:'Cancel',create:'Create Trip',
+    deleteTrip:'🗑️ Delete Trip?',deleteWarn:'This will permanently delete the trip and all its data.',
+    delete:'Delete',back:'← Back',nights:'nights',travelers2:'travelers',
+    planNewTrip:'Plan a New Trip',greeting:'My Trips',
+    secDashboard:'Dashboard',secTasks:'Tasks',secFlights:'Flights',secHotels:'Hotels',
+    secItinerary:'Itinerary',secBudget:'Budget',secCurrency:'Currency',
+    secTransport:'Transport',secEmergency:'Emergency',
+    daysLeft:'days until departure',tripInProgress:'Trip in progress!',tripDone:'Trip completed!',
+    tasksDone:'Done',tasksLeft:'Left',tripDays:'Days',budgetItems:'Budget Items',
+    addFlight:'+ Add Flight',addHotel:'+ Add Hotel',addDay:'+ Add Day',
+    addBudget:'+ Add Item',addTransport:'+ Add',
+    noFlights:'No flights yet. Add your first! ✈️',noHotels:'No hotels yet. Add your accommodation! 🏨',
+    noItinerary:'No days yet. Start building your itinerary! 📅',
+    noBudget:'No budget items yet. 💰',noTransport:'No transport info yet. 🚗',
+    from:'From',to:'To',departure:'Departure',arrival:'Arrival',flightNum:'Flight #',
+    airline:'Airline',confirmation:'Confirmation #',
+    hotelName:'Hotel Name',destination:'Destination / City',checkIn:'Check-In',checkOut:'Check-Out',
+    totalCost:'Total Cost',specialReq:'Special Requests',
+    dayNum:'Day Number',date:'Date',title:'Title',city:'City',
+    activities:'Activities (one per line, use "HH:MM | activity")',
+    description:'Description',category:'Category',status:'Status',
+    planned:'Planned',booked:'Booked',paid:'Paid',
+    totalBudget:'Total',totalPaid:'Paid',remaining:'Remaining',
+    type:'Type',tipNotes:'Notes / Tips',
+    emMedical:'Medical & Insurance',emContacts:'Emergency Contacts',
+    emLocal:'Local Emergency Numbers',emDocs:'Passport & Documents',
+    save:'Save',
   },
-  he: {
-    tagline: 'תכנן חכם. טוס טוב יותר.',
-    signIn: 'כניסה',
-    createAccount: 'צור חשבון',
-    continueGoogle: 'המשך עם Google',
-    orEmail: 'או עם אימייל',
-    email: 'אימייל',
-    password: 'סיסמה',
-    fullName: 'שם מלא',
-    myTrips: 'הטיולים שלי',
-    signOut: 'התנתקות',
-    homeSubtitle: 'תכנן, ארגן ושתף את ההרפתקאות שלך',
-    loadingTrips: 'טוען...',
-    newTrip: '✈️ טיול חדש',
-    tripName: 'שם הטיול *',
-    startDate: 'תאריך יציאה *',
-    endDate: 'תאריך חזרה *',
-    destinations: 'יעדים',
-    travelers: 'נוסעים',
-    currency: 'מטבע',
-    notes: 'הערות',
-    tripIcon: 'אייקון טיול',
-    cancel: 'ביטול',
-    create: 'צור טיול',
-    deleteTrip: '🗑️ מחק טיול?',
-    deleteWarn: 'הטיול וכל הנתונים שלו יימחקו לצמיתות. לא ניתן לשחזר.',
-    delete: 'מחק',
-    back: 'חזור',
-    comingSoon: 'בקרוב — שלב 2',
-    stage2Desc: 'טיסות, מלונות, לוז, תקציב, אריזה ועוד!',
-    nights: 'לילות',
-    travelers2: 'נוסעים',
-    planNewTrip: 'תכנן טיול חדש',
-    noTrips: 'אין לך טיולים עדיין.',
-    greeting: 'הטיולים שלי',
+  he:{
+    tagline:'תכנן חכם. טוס טוב יותר.',signIn:'כניסה',createAccount:'צור חשבון',
+    continueGoogle:'המשך עם Google',orEmail:'או עם אימייל',email:'אימייל',password:'סיסמה',
+    fullName:'שם מלא',myTrips:'הטיולים שלי',signOut:'התנתקות',
+    homeSubtitle:'תכנן, ארגן ושתף את ההרפתקאות שלך',
+    newTrip:'✈️ טיול חדש',tripName:'שם הטיול *',startDate:'תאריך יציאה *',endDate:'תאריך חזרה *',
+    destinations:'יעדים',travelers:'נוסעים',currency:'מטבע',notes:'הערות',
+    tripIcon:'אייקון טיול',cancel:'ביטול',create:'צור טיול',
+    deleteTrip:'🗑️ מחק טיול?',deleteWarn:'הטיול וכל הנתונים שלו יימחקו לצמיתות.',
+    delete:'מחק',back:'→ חזור',nights:'לילות',travelers2:'נוסעים',
+    planNewTrip:'תכנן טיול חדש',greeting:'הטיולים שלי',
+    secDashboard:'דשבורד',secTasks:'משימות',secFlights:'טיסות',secHotels:'מלונות',
+    secItinerary:'לו"ז',secBudget:'תקציב',secCurrency:'המרה',
+    secTransport:'תחבורה',secEmergency:'חירום',
+    daysLeft:'ימים עד היציאה',tripInProgress:'הטיול מתנהל!',tripDone:'הטיול הסתיים!',
+    tasksDone:'הושלמו',tasksLeft:'נשאר',tripDays:'ימים',budgetItems:'פריטי תקציב',
+    addFlight:'+ הוסף טיסה',addHotel:'+ הוסף מלון',addDay:'+ הוסף יום',
+    addBudget:'+ הוסף פריט',addTransport:'+ הוסף',
+    noFlights:'אין טיסות עדיין. הוסף את הראשונה! ✈️',noHotels:'אין מלונות עדיין. 🏨',
+    noItinerary:'אין ימים עדיין. התחל לבנות את הלו"ז! 📅',
+    noBudget:'אין פריטי תקציב עדיין. 💰',noTransport:'אין מידע תחבורה עדיין. 🚗',
+    from:'מ',to:'אל',departure:'יציאה',arrival:'הגעה',flightNum:'מספר טיסה',
+    airline:'חברת תעופה',confirmation:'מספר הזמנה',
+    hotelName:'שם המלון',destination:'יעד / עיר',checkIn:'צ\'ק-אין',checkOut:'צ\'ק-אאוט',
+    totalCost:'עלות כוללת',specialReq:'בקשות מיוחדות',
+    dayNum:'מספר יום',date:'תאריך',title:'כותרת',city:'עיר',
+    activities:'פעילויות (שורה אחת לפעילות, השתמש ב"HH:MM | פעילות")',
+    description:'תיאור',category:'קטגוריה',status:'סטטוס',
+    planned:'מתוכנן',booked:'הוזמן',paid:'שולם',
+    totalBudget:'סה"כ',totalPaid:'שולם',remaining:'נותר',
+    type:'סוג',tipNotes:'הערות / טיפים',
+    emMedical:'רפואה וביטוח',emContacts:'אנשי קשר לחירום',
+    emLocal:'מספרי חירום מקומיים',emDocs:'דרכון ומסמכים',
+    save:'שמור',
   }
 };
+const t=k=>(T[lang]&&T[lang][k])||T.en[k]||k;
 
-function t(key) { return (T[lang] && T[lang][key]) || T.en[key] || key; }
-
-function applyLang() {
-  const isHe = lang === 'he';
-  document.documentElement.lang = lang;
-  document.documentElement.dir = isHe ? 'rtl' : 'ltr';
-  document.body.dir = isHe ? 'rtl' : 'ltr';
-
-  // Update all data-t elements
-  document.querySelectorAll('[data-t]').forEach(el => {
-    const key = el.getAttribute('data-t');
-    el.textContent = t(key);
-  });
-
-  // Update lang buttons
-  const nextLang = isHe ? 'English' : 'עברית';
-  document.querySelectorAll('.lang-btn').forEach(b => b.innerHTML = `🌐 ${nextLang}`);
-
-  // Update home title
-  if (currentUser) {
-    const name = currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || '';
-    document.getElementById('home-title').textContent = name ? `👋 ${name}` : t('greeting');
+// ── LANG & THEME ──
+function applyLang(){
+  const isHe=lang==='he';
+  document.documentElement.lang=lang;
+  document.documentElement.dir=isHe?'rtl':'ltr';
+  document.body.dir=isHe?'rtl':'ltr';
+  document.querySelectorAll('[data-t]').forEach(el=>el.textContent=t(el.getAttribute('data-t')));
+  document.querySelectorAll('.lang-btn').forEach(b=>b.innerHTML=`🌐 ${isHe?'English':'עברית'}`);
+  if(currentUser){
+    const name=currentUser.user_metadata?.full_name||currentUser.email?.split('@')[0]||'';
+    document.getElementById('home-title').textContent=name?`👋 ${name}`:t('greeting');
   }
-  localStorage.setItem('lf-lang', lang);
+  localStorage.setItem('lf-lang',lang);
+  if(currentTrip) buildNavSections();
 }
-
-function toggleLang() {
-  lang = lang === 'en' ? 'he' : 'en';
-  applyLang();
-  if (currentUser) loadTrips();
+function toggleLang(){lang=lang==='en'?'he':'en';applyLang();if(currentUser)loadTrips();}
+function applyTheme(){
+  const isL=theme==='light';document.body.classList.toggle('light',isL);
+  const b=document.getElementById('theme-btn');if(b)b.textContent=isL?'☀️':'🌙';
+  localStorage.setItem('lf-theme',theme);
 }
+function toggleTheme(){theme=theme==='dark'?'light':'dark';applyTheme();}
 
-// ══════════════════════════════════════════════════════
-// THEME
-// ══════════════════════════════════════════════════════
-function applyTheme() {
-  const isLight = theme === 'light';
-  document.body.classList.toggle('light', isLight);
-  const btn = document.getElementById('theme-btn');
-  if (btn) btn.textContent = isLight ? '☀️' : '🌙';
-  localStorage.setItem('lf-theme', theme);
-}
-function toggleTheme() {
-  theme = theme === 'dark' ? 'light' : 'dark';
-  applyTheme();
-}
-
-// ══════════════════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════════════════
-async function init() {
-  applyTheme();
-  applyLang();
-
-  // Handle OAuth redirect — Supabase puts session in URL hash
-  if (window.location.hash && window.location.hash.includes('access_token')) {
-    const { data: { session }, error } = await sb.auth.getSession();
-    if (session) {
-      currentUser = session.user;
-      // Clean up the URL
-      history.replaceState(null, '', window.location.pathname);
-      showApp();
-      return;
-    }
+// ── INIT ──
+async function init(){
+  applyTheme();applyLang();
+  if(window.location.hash&&window.location.hash.includes('access_token')){
+    const{data:{session}}=await sb.auth.getSession();
+    if(session){currentUser=session.user;history.replaceState(null,'',window.location.pathname);showApp();return;}
   }
-
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    showApp();
-  } else {
-    showAuth();
-  }
-
-  sb.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      currentUser = session.user;
-      history.replaceState(null, '', window.location.pathname);
-      showApp();
-    }
-    else if (event === 'SIGNED_OUT') { currentUser = null; showAuth(); }
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){currentUser=session.user;showApp();}else{showAuth();}
+  sb.auth.onAuthStateChange((ev,s)=>{
+    if(ev==='SIGNED_IN'&&s){currentUser=s.user;history.replaceState(null,'',window.location.pathname);showApp();}
+    else if(ev==='SIGNED_OUT'){currentUser=null;showAuth();}
   });
 }
 
-function showAuth() {
+function showAuth(){
   hide('loading');
   document.getElementById('auth-screen').classList.add('show');
-  document.getElementById('navbar').style.display = 'none';
-  document.getElementById('app').style.display = 'none';
+  document.getElementById('navbar').style.display='none';
+  document.getElementById('app').style.display='none';
 }
-
-function showApp() {
+function showApp(){
   hide('loading');
   document.getElementById('auth-screen').classList.remove('show');
-  document.getElementById('navbar').style.display = 'flex';
-  document.getElementById('app').style.display = 'block';
-
-  const email = currentUser.email || '';
-  const initial = (currentUser.user_metadata?.full_name || email)[0]?.toUpperCase() || '?';
-  document.getElementById('avatar').textContent = initial;
-  document.getElementById('user-email').textContent = email;
-
-  const name = currentUser.user_metadata?.full_name || email.split('@')[0] || '';
-  document.getElementById('home-title').textContent = name ? `👋 ${name}` : t('greeting');
-
-  applyLang();
-  goHome();
+  document.getElementById('navbar').style.display='flex';
+  document.getElementById('app').style.display='block';
+  const email=currentUser.email||'';
+  const init=(currentUser.user_metadata?.full_name||email)[0]?.toUpperCase()||'?';
+  document.getElementById('avatar').textContent=init;
+  document.getElementById('user-email').textContent=email;
+  const name=currentUser.user_metadata?.full_name||email.split('@')[0]||'';
+  document.getElementById('home-title').textContent=name?`👋 ${name}`:t('greeting');
+  applyLang();goHome();
 }
 
-// ══════════════════════════════════════════════════════
-// AUTH ACTIONS
-// ══════════════════════════════════════════════════════
-function switchTab(tab) {
-  const isLogin = tab === 'login';
-  document.getElementById('tab-login').classList.toggle('active', isLogin);
-  document.getElementById('tab-signup').classList.toggle('active', !isLogin);
-  document.getElementById('form-login').style.display = isLogin ? 'block' : 'none';
-  document.getElementById('form-signup').style.display = isLogin ? 'none' : 'block';
+// ── AUTH ──
+function switchTab(tab){
+  const isL=tab==='login';
+  document.getElementById('tab-login').classList.toggle('active',isL);
+  document.getElementById('tab-signup').classList.toggle('active',!isL);
+  document.getElementById('form-login').style.display=isL?'block':'none';
+  document.getElementById('form-signup').style.display=isL?'none':'block';
   clearAlerts();
 }
-
-function clearAlerts() {
-  ['auth-err','auth-ok'].forEach(id => { document.getElementById(id).style.display='none'; });
-}
-function showErr(msg) { const e=document.getElementById('auth-err'); e.textContent=msg; e.style.display='block'; }
-function showOk(msg)  { const e=document.getElementById('auth-ok');  e.textContent=msg; e.style.display='block'; }
-
-async function doLogin() {
+function clearAlerts(){['auth-err','auth-ok'].forEach(id=>document.getElementById(id).style.display='none');}
+function showErr(m){const e=document.getElementById('auth-err');e.textContent=m;e.style.display='block';}
+function showOk(m){const e=document.getElementById('auth-ok');e.textContent=m;e.style.display='block';}
+async function doLogin(){
   clearAlerts();
-  const email = document.getElementById('l-email').value.trim();
-  const pass  = document.getElementById('l-pass').value;
-  if (!email || !pass) return showErr('Please fill in all fields');
-  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if (error) showErr(error.message);
+  const email=document.getElementById('l-email').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  if(!email||!pass)return showErr('Please fill in all fields');
+  const{error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error)showErr(error.message);
 }
-
-async function doSignup() {
+async function doSignup(){
   clearAlerts();
-  const name  = document.getElementById('s-name').value.trim();
-  const email = document.getElementById('s-email').value.trim();
-  const pass  = document.getElementById('s-pass').value;
-  if (!name || !email || !pass) return showErr('Please fill in all fields');
-  if (pass.length < 6) return showErr('Password must be at least 6 characters');
-  const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name } } });
-  if (error) showErr(error.message);
-  else showOk('Account created! Check your email to confirm, then sign in.');
+  const name=document.getElementById('s-name').value.trim();
+  const email=document.getElementById('s-email').value.trim();
+  const pass=document.getElementById('s-pass').value;
+  if(!name||!email||!pass)return showErr('Please fill in all fields');
+  if(pass.length<6)return showErr('Password must be at least 6 characters');
+  const{error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name}}});
+  if(error)showErr(error.message);else showOk('Account created! Check your email to confirm.');
 }
-
-async function googleLogin() {
-  const { error } = await sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: 'https://israelletsfly.github.io/trip_platform' }
-  });
-  if (error) showErr(error.message);
+async function googleLogin(){
+  const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:'https://israelletsfly.github.io/trip_platform'}});
+  if(error)showErr(error.message);
 }
+async function doLogout(){closeMenu();await sb.auth.signOut();}
 
-async function doLogout() {
-  closeMenu();
-  await sb.auth.signOut();
+// ── NAVIGATION ──
+function goHome(){
+  currentTrip=null;tripData={};
+  if(cdInterval){clearInterval(cdInterval);cdInterval=null;}
+  document.getElementById('nav-trip-name').textContent='';
+  document.getElementById('nav-sections').style.display='none';
+  document.getElementById('nav-sections').innerHTML='';
+  showPage('page-home');loadTrips();
 }
-
-// ══════════════════════════════════════════════════════
-// NAVIGATION
-// ══════════════════════════════════════════════════════
-function goHome() {
-  currentTrip = null;
-  document.getElementById('nav-trip-name').textContent = '';
-  showPage('page-home');
-  loadTrips();
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById(id);if(el)el.classList.add('active');
 }
-
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const el = document.getElementById(id);
-  if (el) el.classList.add('active');
-}
-
-function openTrip(trip) {
-  currentTrip = trip;
-  document.getElementById('nav-trip-name').textContent = trip.emoji + ' ' + trip.name;
-  document.getElementById('trip-page-title').textContent = trip.emoji + ' ' + trip.name;
-  const nights = calcNights(trip.start_date, trip.end_date);
-  document.getElementById('trip-page-sub').textContent =
-    `📅 ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)} · ${nights} ${t('nights')} · ${trip.travelers || 1} ${t('travelers2')}`;
+function openTrip(trip){
+  currentTrip=trip;tripData=trip.data||{};
+  document.getElementById('nav-trip-name').textContent=trip.emoji+' '+trip.name;
+  buildTripPage();
+  buildNavSections();
+  document.getElementById('nav-sections').style.display='flex';
   showPage('page-trip');
+  showSec('dashboard');
 }
 
-// ══════════════════════════════════════════════════════
-// TRIPS
-// ══════════════════════════════════════════════════════
-async function loadTrips() {
-  const grid = document.getElementById('trips-grid');
-  grid.innerHTML = `<div style="color:var(--textm);font-size:14px;padding:20px">${t('loadingTrips')}</div>`;
+const SECTIONS=[
+  {id:'dashboard',icon:'📊',key:'secDashboard'},
+  {id:'tasks',icon:'✅',key:'secTasks'},
+  {id:'flights',icon:'✈️',key:'secFlights'},
+  {id:'hotels',icon:'🏨',key:'secHotels'},
+  {id:'itinerary',icon:'📅',key:'secItinerary'},
+  {id:'budget',icon:'💰',key:'secBudget'},
+  {id:'currency',icon:'💱',key:'secCurrency'},
+  {id:'transport',icon:'🚗',key:'secTransport'},
+  {id:'emergency',icon:'📞',key:'secEmergency'},
+];
 
-  const { data, error } = await sb.from('trips')
-    .select('*').eq('user_id', currentUser.id)
-    .order('created_at', { ascending: false });
+function buildNavSections(){
+  const ns=document.getElementById('nav-sections');
+  ns.innerHTML=SECTIONS.map(s=>`<button class="nb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}')">${s.icon} ${t(s.key)}</button>`).join('');
+}
 
-  if (error) { grid.innerHTML = `<div style="color:var(--coral);padding:20px">Error: ${error.message}</div>`; return; }
+function buildTripPage(){
+  const p=document.getElementById('page-trip');
+  p.innerHTML=`<div class="page-header">
+    <button class="btn btn-ghost btn-sm" onclick="goHome()" style="margin-bottom:8px">${t('back')}</button>
+    <div class="page-title">${currentTrip.emoji} ${currentTrip.name}</div>
+    <div class="page-sub">📅 ${fmtDate(currentTrip.start_date)} → ${fmtDate(currentTrip.end_date)} · ${calcNights(currentTrip.start_date,currentTrip.end_date)} ${t('nights')} · ${currentTrip.travelers||1} ${t('travelers2')}</div>
+  </div>
+  <div id="sec-content"></div>`;
+}
 
-  grid.innerHTML = '';
+function showSec(sec){
+  currentSec=sec;
+  document.querySelectorAll('.nb[onclick]').forEach(b=>{
+    const m=b.getAttribute('onclick').match(/showSec\('(\w+)'\)/);
+    if(m)b.classList.toggle('active',m[1]===sec);
+  });
+  renderSec(sec);
+}
 
-  const colors = [
-    ['#1e3a5f','#0f2a4a'], ['#1a3a2a','#0f2a1a'], ['#3a1a2a','#2a0f1a'],
-    ['#2a2a1a','#1a1a0f'], ['#1a1a3a','#0f0f2a'], ['#2a1a1a','#1a0f0f'],
-  ];
+function renderSec(sec){
+  const el=document.getElementById('sec-content');
+  if(!el)return;
+  switch(sec){
+    case 'dashboard': el.innerHTML=renderDashboard();startCountdown();updateStats();break;
+    case 'tasks':     el.innerHTML=renderTasks();break;
+    case 'flights':   el.innerHTML=renderFlights();break;
+    case 'hotels':    el.innerHTML=renderHotels();break;
+    case 'itinerary': el.innerHTML=renderItinerary();break;
+    case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();break;
+    case 'currency':  el.innerHTML=renderCurrency();fetchRates();break;
+    case 'transport': el.innerHTML=renderTransport();break;
+    case 'emergency': el.innerHTML=renderEmergency();break;
+  }
+}
 
-  (data || []).forEach((trip, i) => {
-    const nights = calcNights(trip.start_date, trip.end_date);
-    const [c1, c2] = colors[i % colors.length];
-    const card = document.createElement('div');
-    card.className = 'trip-card';
-    card.innerHTML = `
-      <div class="trip-cover">
-        <div class="trip-cover-bg" style="--c1:${c1};--c2:${c2}"></div>
-        <div class="trip-cover-emoji">${trip.emoji || '🌍'}</div>
+// ── SAVE ──
+function saveData(){
+  if(!currentTrip)return;
+  const ind=document.getElementById('save-ind');if(ind)ind.style.display='inline';
+  if(saveTimer)clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    await sb.from('trips').update({data:tripData}).eq('id',currentTrip.id).eq('user_id',currentUser.id);
+    if(ind)ind.style.display='none';
+  },900);
+}
+
+// ── DASHBOARD ──
+function renderDashboard(){
+  const todos=tripData.todos||[];
+  const done=todos.filter(t=>t.done).length;
+  const nights=calcNights(currentTrip.start_date,currentTrip.end_date);
+  const budgetItems=(tripData.budget||[]).length;
+  const pct=todos.length?Math.round(done/todos.length*100):0;
+  return`<div class="countdown-box">
+    <div class="cd-days" id="cd-days">—</div>
+    <div class="cd-lbl" id="cd-lbl">${t('daysLeft')}</div>
+    <div class="cd-date" id="cd-date">✈️ ${fmtDate(currentTrip.start_date)}${currentTrip.destination?' · '+currentTrip.destination:''}</div>
+    <div class="cd-hms">
+      <div class="cd-unit"><div class="cd-num" id="cd-h">00</div><div class="cd-unit-lbl">hrs</div></div>
+      <div class="cd-unit"><div class="cd-num" id="cd-m">00</div><div class="cd-unit-lbl">min</div></div>
+      <div class="cd-unit"><div class="cd-num" id="cd-s">00</div><div class="cd-unit-lbl">sec</div></div>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="st-done">${done}</div><div class="stat-lbl">${t('tasksDone')}</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--coral)" id="st-left">${todos.length-done}</div><div class="stat-lbl">${t('tasksLeft')}</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--accent)">${nights}</div><div class="stat-lbl">${t('tripDays')}</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--gold)">${budgetItems}</div><div class="stat-lbl">${t('budgetItems')}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title"><div class="card-title-left">📊 ${lang==='he'?'התקדמות':'Progress'}</div><span style="font-size:13px;font-weight:700" id="prog-pct">${pct}%</span></div>
+    <div class="pbar-bg"><div class="pbar-fill" id="prog-fill" style="width:${pct}%"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-title"><div class="card-title-left">ℹ️ ${lang==='he'?'פרטי הטיול':'Trip Details'}</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('destinations')}</div>${currentTrip.destination||'—'}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('travelers')}</div>${currentTrip.travelers||1}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('currency')}</div>${currentTrip.currency||'USD'}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('notes')}</div>${currentTrip.notes||'—'}</div>
+    </div>
+  </div>`;
+}
+
+function startCountdown(){
+  if(cdInterval)clearInterval(cdInterval);
+  if(!currentTrip.start_date)return;
+  function tick(){
+    const dep=new Date(currentTrip.start_date+'T00:00:00');
+    const now=new Date();
+    const diff=dep-now;
+    const dEl=document.getElementById('cd-days');
+    if(!dEl)return clearInterval(cdInterval);
+    if(diff>0){
+      dEl.textContent=Math.floor(diff/86400000);
+      document.getElementById('cd-h').textContent=String(Math.floor(diff/3600000)%24).padStart(2,'0');
+      document.getElementById('cd-m').textContent=String(Math.floor(diff/60000)%60).padStart(2,'0');
+      document.getElementById('cd-s').textContent=String(Math.floor(diff/1000)%60).padStart(2,'0');
+    } else {
+      const end=currentTrip.end_date?new Date(currentTrip.end_date+'T00:00:00'):null;
+      dEl.textContent=end&&now<end?'🛫':'🎉';
+      document.getElementById('cd-lbl').textContent=end&&now<end?t('tripInProgress'):t('tripDone');
+    }
+  }
+  tick();cdInterval=setInterval(tick,1000);
+}
+
+function updateStats(){
+  const todos=tripData.todos||[];
+  const done=todos.filter(t=>t.done).length;
+  const pct=todos.length?Math.round(done/todos.length*100):0;
+  ['st-done','st-left','prog-pct','prog-fill'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    if(id==='st-done')el.textContent=done;
+    if(id==='st-left')el.textContent=todos.length-done;
+    if(id==='prog-pct')el.textContent=pct+'%';
+    if(id==='prog-fill')el.style.width=pct+'%';
+  });
+}
+
+// ── TASKS ──
+const TODO_CATS=()=>lang==='he'
+  ?['הכנות לפני הטיול','מסמכים','בריאות','קניות','במהלך הטיול','אחרי הטיול']
+  :['Pre-Trip Prep','Documents','Health','Shopping','During Trip','Post-Trip'];
+
+function renderTasks(){
+  const todos=tripData.todos||[];
+  const cats=TODO_CATS();
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="page-title" style="font-size:20px">✅ ${t('secTasks')}</div>
+  </div>`;
+  cats.forEach(cat=>{
+    const items=todos.filter(i=>i.cat===cat);
+    html+=`<div class="cat-head">${cat}</div>`;
+    items.forEach(item=>{
+      html+=`<div class="todo-item${item.done?' done':''}" onclick="toggleTodo('${item.id}')">
+        <div class="todo-chk">${item.done?'✓':''}</div>
+        <div class="todo-txt">${item.text}</div>
+        <button class="todo-del" onclick="event.stopPropagation();delTodo('${item.id}')">×</button>
+      </div>`;
+    });
+    const safeId=cat.replace(/[^a-zA-Z0-9]/g,'_');
+    html+=`<div class="add-row"><input class="inp" id="ti-${safeId}" placeholder="${lang==='he'?'הוסף משימה...':'Add task...'}" onkeydown="if(event.key==='Enter')addTodo('${cat}')"><button onclick="addTodo('${cat}')">+</button></div>`;
+  });
+  return html;
+}
+function toggleTodo(id){
+  const todos=tripData.todos||[];
+  const item=todos.find(i=>i.id===id);if(item)item.done=!item.done;
+  tripData.todos=todos;saveData();renderSec('tasks');updateStats();
+}
+function delTodo(id){tripData.todos=(tripData.todos||[]).filter(i=>i.id!==id);saveData();renderSec('tasks');updateStats();}
+function addTodo(cat){
+  const safeId=cat.replace(/[^a-zA-Z0-9]/g,'_');
+  const inp=document.getElementById('ti-'+safeId);
+  const text=inp?.value.trim();if(!text)return;
+  if(!tripData.todos)tripData.todos=[];
+  tripData.todos.push({id:uid(),text,cat,done:false});
+  saveData();renderSec('tasks');updateStats();
+}
+
+// ── FLIGHTS ──
+function renderFlights(){
+  const flights=tripData.flights||[];
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="page-title" style="font-size:20px">✈️ ${t('secFlights')}</div>
+    <button class="btn btn-outline btn-sm" onclick="openAddModal('flight')">${t('addFlight')}</button>
+  </div>`;
+  if(!flights.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noFlights')}</div>`;
+  flights.forEach(f=>{
+    html+=`<div class="item-card" id="fc-${f.id}">
+      <div class="item-header" onclick="document.getElementById('fc-${f.id}').classList.toggle('open')">
+        <span style="font-size:20px">✈️</span>
+        <div class="item-title">${f.from||'?'} → ${f.to||'?'}</div>
+        <span class="tag tag-blue" style="font-size:11px">${f.airline||''}</span>
+        <button class="del-btn" onclick="event.stopPropagation();delFlight('${f.id}')">×</button>
       </div>
-      <div class="trip-card-actions">
-        <button class="tc-btn" onclick="event.stopPropagation();askDelete('${trip.id}')" title="Delete">🗑️</button>
+      <div class="item-body">
+        ${f.depTime?`<div class="item-row"><span class="item-lbl">${t('departure')}</span><span class="item-val">${f.depTime}</span></div>`:''}
+        ${f.arrTime?`<div class="item-row"><span class="item-lbl">${t('arrival')}</span><span class="item-val">${f.arrTime}</span></div>`:''}
+        ${f.flightNum?`<div class="item-row"><span class="item-lbl">${t('flightNum')}</span><span class="item-val">${f.flightNum}</span></div>`:''}
+        ${f.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val">${f.conf}</span></div>`:''}
+        ${f.notes?`<div class="item-row"><span class="item-lbl">${t('notes')}</span><span class="item-val" style="color:var(--textm)">${f.notes}</span></div>`:''}
       </div>
+    </div>`;
+  });
+  return html;
+}
+function delFlight(id){tripData.flights=(tripData.flights||[]).filter(f=>f.id!==id);saveData();renderSec('flights');}
+
+// ── HOTELS ──
+function renderHotels(){
+  const hotels=tripData.hotels||[];
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="page-title" style="font-size:20px">🏨 ${t('secHotels')}</div>
+    <button class="btn btn-outline btn-sm" onclick="openAddModal('hotel')">${t('addHotel')}</button>
+  </div>`;
+  if(!hotels.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noHotels')}</div>`;
+  hotels.forEach(h=>{
+    html+=`<div class="item-card" id="hc-${h.id}">
+      <div class="item-header" onclick="document.getElementById('hc-${h.id}').classList.toggle('open')">
+        <span style="font-size:20px">🏨</span>
+        <div>
+          <div class="item-title">${h.name}</div>
+          ${h.dest?`<div style="font-size:11px;color:var(--textm)">${h.dest}</div>`:''}
+        </div>
+        <button class="del-btn" onclick="event.stopPropagation();delHotel('${h.id}')">×</button>
+      </div>
+      <div class="item-body">
+        ${h.checkIn?`<div class="item-row"><span class="item-lbl">${t('checkIn')}</span><span class="item-val">${h.checkIn}</span></div>`:''}
+        ${h.checkOut?`<div class="item-row"><span class="item-lbl">${t('checkOut')}</span><span class="item-val">${h.checkOut}</span></div>`:''}
+        ${h.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val">${h.conf}</span></div>`:''}
+        ${h.cost?`<div class="item-row"><span class="item-lbl">${t('totalCost')}</span><span class="item-val">${h.cost} ${currentTrip.currency||''}</span></div>`:''}
+        ${h.notes?`<div class="item-row"><span class="item-lbl">${t('specialReq')}</span><span class="item-val" style="color:var(--textm)">${h.notes}</span></div>`:''}
+      </div>
+    </div>`;
+  });
+  return html;
+}
+function delHotel(id){tripData.hotels=(tripData.hotels||[]).filter(h=>h.id!==id);saveData();renderSec('hotels');}
+
+// ── ITINERARY ──
+function renderItinerary(){
+  const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="page-title" style="font-size:20px">📅 ${t('secItinerary')}</div>
+    <button class="btn btn-outline btn-sm" onclick="openAddModal('day')">${t('addDay')}</button>
+  </div>`;
+  if(!days.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noItinerary')}</div>`;
+  days.forEach(day=>{
+    html+=`<div class="itin-day" id="iday-${day.id}">
+      <div class="itin-header" onclick="document.getElementById('iday-${day.id}').classList.toggle('open')">
+        <div class="itin-day-num">${lang==='he'?'יום':'Day'} ${day.num}</div>
+        <div class="itin-day-title">${day.title||''}</div>
+        <div class="itin-day-meta">${day.date||''} ${day.city?'· '+day.city:''}</div>
+        <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
+      </div>
+      <div class="itin-body">
+        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div></div>`).join('')}
+        <textarea class="itin-note" placeholder="${lang==='he'?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${day.note||''}</textarea>
+      </div>
+    </div>`;
+  });
+  return html;
+}
+function delDay(id){tripData.days=(tripData.days||[]).filter(d=>d.id!==id);saveData();renderSec('itinerary');}
+function saveDayNote(id,val){const d=(tripData.days||[]).find(d=>d.id===id);if(d){d.note=val;saveData();}}
+
+// ── BUDGET ──
+function renderBudget(){
+  const items=tripData.budget||[];
+  const cur=currentTrip.currency||'USD';
+  return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="page-title" style="font-size:20px">💰 ${t('secBudget')}</div>
+    <button class="btn btn-outline btn-sm" onclick="openAddModal('budget')">${t('addBudget')}</button>
+  </div>
+  <div class="bsum">
+    <div class="bsum-card"><div class="bsum-num" style="color:var(--accent)" id="bsum-total">0</div><div class="bsum-lbl">${t('totalBudget')} (${cur})</div></div>
+    <div class="bsum-card"><div class="bsum-num" style="color:var(--green)" id="bsum-paid">0</div><div class="bsum-lbl">${t('totalPaid')}</div></div>
+    <div class="bsum-card"><div class="bsum-num" style="color:var(--gold)" id="bsum-rem">0</div><div class="bsum-lbl">${t('remaining')}</div></div>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    ${!items.length?`<div style="text-align:center;padding:30px;color:var(--textm)">${t('noBudget')}</div>`:`
+    <table class="btable">
+      <thead><tr><th>${t('description')}</th><th>${t('category')}</th><th>${lang==='he'?'סכום':'Amount'} (${cur})</th><th>${t('status')}</th><th></th></tr></thead>
+      <tbody>${items.map(item=>`
+        <tr>
+          <td><input class="budget-inp" value="${item.desc||''}" onchange="updBudget('${item.id}','desc',this.value)"></td>
+          <td style="color:var(--textm);font-size:12px">${item.cat||''}</td>
+          <td style="font-weight:700">${parseFloat(item.amount||0).toFixed(0)}</td>
+          <td><span class="status-pill sp-${item.status||'planned'}" onclick="cycleStatus('${item.id}')">${statusLabel(item.status)}</span></td>
+          <td><button class="del-btn" onclick="delBudget('${item.id}')">×</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`}
+  </div>`;
+}
+function updateBudgetSums(){
+  const items=tripData.budget||[];
+  const total=items.reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const paid=items.filter(i=>i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const tEl=document.getElementById('bsum-total');const pEl=document.getElementById('bsum-paid');const rEl=document.getElementById('bsum-rem');
+  if(tEl)tEl.textContent=total.toFixed(0);if(pEl)pEl.textContent=paid.toFixed(0);if(rEl)rEl.textContent=(total-paid).toFixed(0);
+}
+function statusLabel(s){return s==='paid'?`✅ ${t('paid')}`:s==='booked'?`📋 ${t('booked')}`:` ${t('planned')}`;}
+function cycleStatus(id){
+  const item=(tripData.budget||[]).find(i=>i.id===id);if(!item)return;
+  const ss=['planned','booked','paid'];
+  item.status=ss[(ss.indexOf(item.status||'planned')+1)%ss.length];
+  saveData();renderSec('budget');updateBudgetSums();
+}
+function updBudget(id,key,val){const item=(tripData.budget||[]).find(i=>i.id===id);if(item){item[key]=val;saveData();updateBudgetSums();}}
+function delBudget(id){tripData.budget=(tripData.budget||[]).filter(i=>i.id!==id);saveData();renderSec('budget');}
+
+// ── CURRENCY ──
+function renderCurrency(){
+  return`<div class="page-title" style="font-size:20px;margin-bottom:16px">💱 ${t('secCurrency')}</div>
+  <div class="card">
+    <div class="conv-wrap">
+      <div><div class="field-label">${lang==='he'?'סכום':'Amount'}</div><input class="inp" id="cv-amt" type="number" placeholder="100" oninput="doConvert()" style="font-size:20px;font-weight:700"></div>
+      <div style="padding-bottom:2px"><button class="swap-btn" onclick="swapCurr()">⇄</button></div>
+      <div><div class="field-label">${lang==='he'?'תוצאה':'Result'}</div><div class="conv-result" id="cv-res">—</div></div>
+    </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><div class="field-label">${t('from')}</div>
+        <select class="inp" id="cv-from" onchange="doConvert()">
+          <option value="USD">🇺🇸 USD</option><option value="EUR">🇪🇺 EUR</option><option value="ILS">🇮🇱 ILS</option>
+          <option value="GBP">🇬🇧 GBP</option><option value="THB">🇹🇭 THB</option><option value="JPY">🇯🇵 JPY</option>
+          <option value="AUD">🇦🇺 AUD</option><option value="CAD">🇨🇦 CAD</option><option value="CHF">🇨🇭 CHF</option>
+        </select>
+      </div>
+      <div><div class="field-label">${t('to')}</div>
+        <select class="inp" id="cv-to" onchange="doConvert()">
+          <option value="ILS">🇮🇱 ILS</option><option value="USD">🇺🇸 USD</option><option value="EUR">🇪🇺 EUR</option>
+          <option value="GBP">🇬🇧 GBP</option><option value="THB">🇹🇭 THB</option><option value="JPY">🇯🇵 JPY</option>
+          <option value="AUD">🇦🇺 AUD</option><option value="CAD">🇨🇦 CAD</option><option value="CHF">🇨🇭 CHF</option>
+        </select>
+      </div>
+    </div>
+    <div id="cv-rate" style="font-size:12px;color:var(--textd)">Loading rates...</div>
+  </div>`;
+}
+async function fetchRates(){
+  try{const r=await fetch('https://open.er-api.com/v6/latest/USD');const d=await r.json();if(d.rates){convRates=d.rates;doConvert();}}
+  catch(e){const el=document.getElementById('cv-rate');if(el)el.textContent='Could not load rates';}
+}
+function doConvert(){
+  const amt=parseFloat(document.getElementById('cv-amt')?.value)||0;
+  const from=document.getElementById('cv-from')?.value;
+  const to=document.getElementById('cv-to')?.value;
+  const res=document.getElementById('cv-res');const rate=document.getElementById('cv-rate');
+  if(!from||!to||!convRates[from]||!convRates[to]){if(res)res.textContent='—';return;}
+  const result=amt/convRates[from]*convRates[to];
+  if(res)res.textContent=result.toFixed(2)+' '+to;
+  if(rate)rate.textContent=`1 ${from} = ${(convRates[to]/convRates[from]).toFixed(4)} ${to}`;
+}
+function swapCurr(){
+  const f=document.getElementById('cv-from');const t=document.getElementById('cv-to');
+  if(!f||!t)return;const v=f.value;f.value=t.value;t.value=v;doConvert();
+}
+
+// ── TRANSPORT ──
+function renderTransport(){
+  const items=tripData.transport||[];
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="page-title" style="font-size:20px">🚗 ${t('secTransport')}</div>
+    <button class="btn btn-outline btn-sm" onclick="openAddModal('transport')">${t('addTransport')}</button>
+  </div><div class="card">`;
+  if(!items.length)return html+`<div style="text-align:center;padding:30px;color:var(--textm)">${t('noTransport')}</div></div>`;
+  items.forEach(item=>{
+    html+=`<div class="transport-item">
+      <div class="transport-icon">${item.type?.split(' ')[0]||'🚗'}</div>
+      <div style="flex:1">
+        <div class="ti-title">${item.type||''}</div>
+        <div class="ti-desc">${item.desc||''}</div>
+        ${item.notes?`<div class="ti-desc" style="margin-top:3px;color:var(--textd)">${item.notes}</div>`:''}
+      </div>
+      <button class="del-btn" onclick="delTransport('${item.id}')">×</button>
+    </div>`;
+  });
+  return html+'</div>';
+}
+function delTransport(id){tripData.transport=(tripData.transport||[]).filter(i=>i.id!==id);saveData();renderSec('transport');}
+
+// ── EMERGENCY ──
+function renderEmergency(){
+  const em=tripData.emergency||{};
+  const field=(key,lbl,ph)=>`<div class="em-row"><div style="flex:1"><div class="em-lbl">${lbl}</div><input class="em-inp" value="${em[key]||''}" placeholder="${ph||''}" onchange="saveEm('${key}',this.value)"></div></div>`;
+  return`<div class="page-title" style="font-size:20px;margin-bottom:16px">📞 ${t('secEmergency')}</div>
+  <div class="em-card"><div class="em-title">${t('emMedical')}</div>
+    ${field('insurance',lang==='he'?'פוליסת ביטוח':'Insurance Policy','Policy #')}
+    ${field('insuranceTel',lang==='he'?'קו חירום ביטוח':'Insurance Emergency Line','+1-800-...')}
+    ${field('bloodType',lang==='he'?'סוג דם':'Blood Type','A+, O-, ...')}
+    ${field('allergies',lang==='he'?'אלרגיות':'Allergies','None / ...')}
+  </div>
+  <div class="em-card"><div class="em-title">${t('emContacts')}</div>
+    ${field('ec1name',lang==='he'?'שם איש קשר 1':'Contact 1 Name','')}
+    ${field('ec1tel',lang==='he'?'טלפון איש קשר 1':'Contact 1 Phone','+...')}
+    ${field('ec2name',lang==='he'?'שם איש קשר 2':'Contact 2 Name','')}
+    ${field('ec2tel',lang==='he'?'טלפון איש קשר 2':'Contact 2 Phone','+...')}
+  </div>
+  <div class="em-card"><div class="em-title">${t('emLocal')}</div>
+    ${field('police',lang==='he'?'משטרה':'Police','112')}
+    ${field('ambulance',lang==='he'?'אמבולנס':'Ambulance','911')}
+    ${field('embassy',lang==='he'?'שגרירות':'Embassy / Consulate','')}
+  </div>
+  <div class="em-card"><div class="em-title">${t('emDocs')}</div>
+    ${field('passport',lang==='he'?'מספר דרכון':'Passport Number(s)','')}
+    ${field('bank',lang==='he'?'קו חירום בנק':'Bank Emergency Line','+...')}
+  </div>`;
+}
+function saveEm(key,val){if(!tripData.emergency)tripData.emergency={};tripData.emergency[key]=val;saveData();}
+
+// ── ADD MODALS ──
+function openAddModal(type){
+  const inner=document.getElementById('modal-add-inner');
+  const modal=document.getElementById('modal-add');
+  inner.innerHTML=getModalContent(type);
+  modal.classList.add('show');
+}
+
+function getModalContent(type){
+  
+    if(type==='hotel') return`
+    <div class="modal-title">🏨 ${lang==='he'?'הוסף מלון':'Add Hotel'}</div>
+    <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" placeholder="Marriott Bangkok"></div>
+    <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" placeholder="Bangkok"></div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('checkIn')}</div><input class="inp" id="ht-in" type="date"></div>
+      <div class="field"><div class="field-label">${t('checkOut')}</div><input class="inp" id="ht-out" type="date"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('confirmation')}</div><input class="inp" id="ht-conf" placeholder="BOOKING-XXX"></div>
+      <div class="field"><div class="field-label">${t('totalCost')}</div><input class="inp" id="ht-cost" type="number" placeholder="0"></div>
+    </div>
+    <div class="field"><div class="field-label">${t('specialReq')}</div><textarea class="inp" id="ht-notes" placeholder="..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="saveHotel()">${t('save')}</button>
+    </div>`;
+
+  if(type==='day') return`
+    <div class="modal-title">📅 ${lang==='he'?'הוסף יום':'Add Day'}</div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('dayNum')}</div><input class="inp" id="dy-num" type="number" placeholder="1" min="1"></div>
+      <div class="field"><div class="field-label">${t('date')}</div><input class="inp" id="dy-date" type="date"></div>
+    </div>
+    <div class="field"><div class="field-label">${t('title')}</div><input class="inp" id="dy-title" placeholder="${lang==='he'?'יום הגעה':'Arrival Day'} 🌴"></div>
+    <div class="field"><div class="field-label">${t('city')}</div><input class="inp" id="dy-city" placeholder="Bangkok"></div>
+    <div class="field"><div class="field-label">${t('activities')}</div><textarea class="inp" id="dy-blocks" placeholder="09:00 | Breakfast&#10;11:00 | Temple visit&#10;18:00 | Sunset" style="min-height:110px"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="saveDay()">${t('save')}</button>
+    </div>`;
+
+  if(type==='budget') return`
+    <div class="modal-title">💰 ${lang==='he'?'הוסף פריט':'Add Budget Item'}</div>
+    <div class="field"><div class="field-label">${t('description')}</div><input class="inp" id="bd-desc" placeholder="${lang==='he'?'כרטיסי טיסה':'Flight tickets'}"></div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${lang==='he'?'סכום':'Amount'} (${currentTrip.currency||'USD'})</div><input class="inp" id="bd-amt" type="number" placeholder="0"></div>
+      <div class="field"><div class="field-label">${t('category')}</div>
+        <select class="inp" id="bd-cat">
+          <option>✈️ ${lang==='he'?'טיסות':'Flights'}</option>
+          <option>🏨 ${lang==='he'?'מלונות':'Hotels'}</option>
+          <option>🍜 ${lang==='he'?'אוכל':'Food'}</option>
+          <option>🚗 ${lang==='he'?'תחבורה':'Transport'}</option>
+          <option>🎫 ${lang==='he'?'פעילויות':'Activities'}</option>
+          <option>🛍️ ${lang==='he'?'קניות':'Shopping'}</option>
+          <option>💊 ${lang==='he'?'בריאות':'Health'}</option>
+          <option>📱 ${lang==='he'?'אחר':'Other'}</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><div class="field-label">${t('status')}</div>
+      <select class="inp" id="bd-status">
+        <option value="planned">${t('planned')}</option>
+        <option value="booked">${t('booked')}</option>
+        <option value="paid">${t('paid')}</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="saveBudget()">${t('save')}</button>
+    </div>`;
+
+  if(type==='transport') return`
+    <div class="modal-title">🚗 ${lang==='he'?'הוסף תחבורה':'Add Transport'}</div>
+    <div class="field"><div class="field-label">${t('type')}</div>
+      <select class="inp" id="tr-type">
+        <option>🚗 ${lang==='he'?'מכונית / מונית':'Car / Taxi'}</option>
+        <option>🚌 ${lang==='he'?'אוטובוס':'Bus'}</option>
+        <option>🚂 ${lang==='he'?'רכבת':'Train'}</option>
+        <option>🛥️ ${lang==='he'?'מעבורת / סירה':'Ferry / Boat'}</option>
+        <option>📱 Grab / Uber</option>
+        <option>🚇 Metro / BTS</option>
+        <option>🛺 ${lang==='he'?'טוק-טוק':'Tuk-Tuk'}</option>
+        <option>🚐 ${lang==='he'?'שאטל / העברה':'Shuttle / Transfer'}</option>
+      </select>
+    </div>
+    <div class="field"><div class="field-label">${t('description')}</div><input class="inp" id="tr-desc" placeholder="${lang==='he'?'העברה מהשדה':'Airport transfer'}"></div>
+    <div class="field"><div class="field-label">${t('tipNotes')}</div><textarea class="inp" id="tr-notes" placeholder="..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="saveTransport()">${t('save')}</button>
+    </div>`;
+  return '';
+}
+
+function saveFlight(){
+  const from=document.getElementById('fl-from').value.trim().toUpperCase();
+  const to=document.getElementById('fl-to').value.trim().toUpperCase();
+  if(!from||!to)return toast('⚠️ Enter airports');
+  const dep=document.getElementById('fl-dep').value;
+  const arr=document.getElementById('fl-arr').value;
+  const f={id:uid(),from,to,
+    depTime:dep?new Date(dep).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'',
+    arrTime:arr?new Date(arr).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'',
+    flightNum:document.getElementById('fl-num').value.trim(),
+    airline:document.getElementById('fl-airline').value.trim(),
+    conf:document.getElementById('fl-conf').value.trim(),
+    notes:document.getElementById('fl-notes').value.trim()};
+  if(!tripData.flights)tripData.flights=[];
+  tripData.flights.push(f);saveData();closeModal('modal-add');renderSec('flights');toast('✅ Flight added');
+}
+
+function saveHotel(){
+  const name=document.getElementById('ht-name').value.trim();
+  if(!name)return toast('⚠️ Enter hotel name');
+  const h={id:uid(),name,dest:document.getElementById('ht-dest').value.trim(),
+    checkIn:document.getElementById('ht-in').value,checkOut:document.getElementById('ht-out').value,
+    conf:document.getElementById('ht-conf').value.trim(),cost:document.getElementById('ht-cost').value,
+    notes:document.getElementById('ht-notes').value.trim()};
+  if(!tripData.hotels)tripData.hotels=[];
+  tripData.hotels.push(h);saveData();closeModal('modal-add');renderSec('hotels');toast('✅ Hotel added');
+}
+
+function saveDay(){
+  const num=parseInt(document.getElementById('dy-num').value);
+  const title=document.getElementById('dy-title').value.trim();
+  if(!num||!title)return toast('⚠️ Enter day number and title');
+  const raw=document.getElementById('dy-blocks').value.trim();
+  const blocks=raw?raw.split('\n').filter(Boolean).map(l=>{
+    const p=l.split('|');return p.length>=2?{time:p[0].trim(),text:p.slice(1).join('|').trim()}:{time:'',text:l.trim()};
+  }):[];
+  const day={id:uid(),num,title,date:document.getElementById('dy-date').value,
+    city:document.getElementById('dy-city').value.trim(),blocks};
+  if(!tripData.days)tripData.days=[];
+  tripData.days.push(day);saveData();closeModal('modal-add');renderSec('itinerary');toast('✅ Day added');
+}
+
+function saveBudget(){
+  const desc=document.getElementById('bd-desc').value.trim();
+  if(!desc)return toast('⚠️ Enter description');
+  const item={id:uid(),desc,amount:parseFloat(document.getElementById('bd-amt').value)||0,
+    cat:document.getElementById('bd-cat').value,status:document.getElementById('bd-status').value};
+  if(!tripData.budget)tripData.budget=[];
+  tripData.budget.push(item);saveData();closeModal('modal-add');renderSec('budget');updateBudgetSums();toast('✅ Added');
+}
+
+function saveTransport(){
+  const tr={id:uid(),type:document.getElementById('tr-type').value,
+    desc:document.getElementById('tr-desc').value.trim(),notes:document.getElementById('tr-notes').value.trim()};
+  if(!tripData.transport)tripData.transport=[];
+  tripData.transport.push(tr);saveData();closeModal('modal-add');renderSec('transport');toast('✅ Added');
+}
+
+// ── TRIPS CRUD ──
+async function loadTrips(){
+  const grid=document.getElementById('trips-grid');
+  grid.innerHTML=`<div style="color:var(--textm);font-size:14px;padding:20px">Loading...</div>`;
+  const{data,error}=await sb.from('trips').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false});
+  if(error){grid.innerHTML=`<div style="color:var(--coral);padding:20px">Error: ${error.message}</div>`;return;}
+  grid.innerHTML='';
+  const colors=[['#1e3a5f','#0f2a4a'],['#1a3a2a','#0f2a1a'],['#3a1a2a','#2a0f1a'],
+    ['#2a2a1a','#1a1a0f'],['#1a1a3a','#0f0f2a'],['#2a1a1a','#1a0f0f']];
+  (data||[]).forEach((trip,i)=>{
+    const nights=calcNights(trip.start_date,trip.end_date);
+    const[c1,c2]=colors[i%colors.length];
+    const card=document.createElement('div');card.className='trip-card';
+    card.innerHTML=`
+      <div class="trip-cover"><div class="trip-cover-bg" style="--c1:${c1};--c2:${c2}"></div><div class="trip-cover-emoji">${trip.emoji||'🌍'}</div></div>
+      <div class="trip-card-actions"><button class="tc-btn" onclick="event.stopPropagation();askDelete('${trip.id}')">🗑️</button></div>
       <div class="trip-card-body">
         <div class="trip-card-name">${trip.name}</div>
-        <div class="trip-card-meta">
-          📅 ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)}<br>
-          ${nights} ${t('nights')} · ${trip.travelers || 1} ${t('travelers2')}
-        </div>
+        <div class="trip-card-meta">📅 ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)}<br>${nights} ${t('nights')} · ${trip.travelers||1} ${t('travelers2')}</div>
         <div class="trip-card-tags">
-          ${trip.destination ? `<span class="tag tag-blue">📍 ${trip.destination}</span>` : ''}
-          <span class="tag tag-green">${trip.currency || 'USD'}</span>
+          ${trip.destination?`<span class="tag tag-blue">📍 ${trip.destination}</span>`:''}
+          <span class="tag tag-green">${trip.currency||'USD'}</span>
         </div>
       </div>`;
-    card.addEventListener('click', () => openTrip(trip));
+    card.addEventListener('click',()=>openTrip(trip));
     grid.appendChild(card);
   });
-
-  // New trip card
-  const nc = document.createElement('div');
-  nc.className = 'new-card';
-  nc.innerHTML = `<div class="new-card-icon">＋</div><div class="new-card-label">${t('planNewTrip')}</div>`;
-  nc.addEventListener('click', () => openModal('modal-new'));
+  const nc=document.createElement('div');nc.className='new-card';
+  nc.innerHTML=`<div class="new-card-icon">＋</div><div class="new-card-label">${t('planNewTrip')}</div>`;
+  nc.addEventListener('click',()=>{initEmojiPicker();openModal('modal-new');});
   grid.appendChild(nc);
-
-  initEmojiPicker();
 }
 
-async function createTrip() {
-  const name  = document.getElementById('nt-name').value.trim();
-  const start = document.getElementById('nt-start').value;
-  const end   = document.getElementById('nt-end').value;
-  if (!name)         return toast('⚠️ ' + t('tripName'));
-  if (!start || !end) return toast('⚠️ ' + t('startDate'));
-
-  const { data, error } = await sb.from('trips').insert({
-    user_id:     currentUser.id,
-    name,
-    emoji:       selectedEmoji,
-    destination: document.getElementById('nt-dest').value.trim(),
-    start_date:  start,
-    end_date:    end,
-    travelers:   parseInt(document.getElementById('nt-travelers').value) || 1,
-    currency:    document.getElementById('nt-currency').value,
-    notes:       document.getElementById('nt-notes').value.trim(),
-    data:        {}
+async function createTrip(){
+  const name=document.getElementById('nt-name').value.trim();
+  const start=document.getElementById('nt-start').value;
+  const end=document.getElementById('nt-end').value;
+  if(!name)return toast('⚠️ '+t('tripName'));
+  if(!start||!end)return toast('⚠️ '+t('startDate'));
+  const{data,error}=await sb.from('trips').insert({
+    user_id:currentUser.id,name,emoji:selectedEmoji,
+    destination:document.getElementById('nt-dest').value.trim(),
+    start_date:start,end_date:end,
+    travelers:parseInt(document.getElementById('nt-travelers').value)||1,
+    currency:document.getElementById('nt-currency').value,
+    notes:document.getElementById('nt-notes').value.trim(),data:{}
   }).select().single();
-
-  if (error) return toast('❌ ' + error.message);
-  closeModal('modal-new');
-  clearNewForm();
-  toast('✅ ' + name);
-  openTrip(data);
+  if(error)return toast('❌ '+error.message);
+  closeModal('modal-new');clearNewForm();toast('✅ '+name);openTrip(data);
 }
 
-function clearNewForm() {
-  ['nt-name','nt-dest','nt-notes'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('nt-start').value = '';
-  document.getElementById('nt-end').value = '';
-  document.getElementById('nt-travelers').value = '2';
-  document.getElementById('nt-currency').value = 'USD';
+function clearNewForm(){
+  ['nt-name','nt-dest','nt-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('nt-start').value='';document.getElementById('nt-end').value='';
+  document.getElementById('nt-travelers').value='2';document.getElementById('nt-currency').value='USD';
 }
 
-function askDelete(id) { deleteTripId = id; openModal('modal-delete'); }
-
-async function confirmDelete() {
-  if (!deleteTripId) return;
-  const { error } = await sb.from('trips').delete().eq('id', deleteTripId).eq('user_id', currentUser.id);
-  closeModal('modal-delete');
-  deleteTripId = null;
-  if (error) return toast('❌ ' + error.message);
-  toast('🗑️ Deleted');
-  loadTrips();
+function askDelete(id){deleteTripId=id;openModal('modal-delete');}
+async function confirmDelete(){
+  if(!deleteTripId)return;
+  await sb.from('trips').delete().eq('id',deleteTripId).eq('user_id',currentUser.id);
+  closeModal('modal-delete');deleteTripId=null;toast('🗑️ Deleted');loadTrips();
 }
 
-// ══════════════════════════════════════════════════════
-// EMOJI PICKER
-// ══════════════════════════════════════════════════════
-function initEmojiPicker() {
-  const picker = document.getElementById('emoji-picker');
-  if (!picker || picker.dataset.init) return;
-  picker.dataset.init = '1';
-  const emojis = [...picker.textContent.trim()].filter(e => e.trim());
-  picker.innerHTML = '';
-  selectedEmoji = emojis[0];
-  emojis.forEach(em => {
-    const btn = document.createElement('button');
-    btn.className = 'ep' + (em === selectedEmoji ? ' sel' : '');
-    btn.textContent = em;
-    btn.onclick = () => {
-      selectedEmoji = em;
-      document.querySelectorAll('.ep').forEach(b => b.classList.remove('sel'));
-      btn.classList.add('sel');
-    };
-    picker.appendChild(btn);
+// ── EMOJI PICKER ──
+function initEmojiPicker(){
+  const picker=document.getElementById('emoji-picker');
+  if(!picker||picker.dataset.init)return;
+  picker.dataset.init='1';
+  const emojis=[...picker.textContent.trim()].filter(e=>e.trim());
+  picker.innerHTML='';selectedEmoji=emojis[0];
+  emojis.forEach(em=>{
+    const b=document.createElement('button');b.className='ep'+(em===selectedEmoji?' sel':'');b.textContent=em;
+    b.onclick=()=>{selectedEmoji=em;document.querySelectorAll('.ep').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');};
+    picker.appendChild(b);
   });
 }
 
-// ══════════════════════════════════════════════════════
-// UI HELPERS
-// ══════════════════════════════════════════════════════
-function openModal(id) { document.getElementById(id).classList.add('show'); }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('show'); }));
-
-function toggleMenu() { document.getElementById('user-menu').classList.toggle('show'); }
-function closeMenu()  { document.getElementById('user-menu').classList.remove('show'); }
-document.addEventListener('click', e => { if (!e.target.closest('#avatar') && !e.target.closest('#user-menu')) closeMenu(); });
-
-function hide(id) { document.getElementById(id).style.display = 'none'; }
-
+// ── HELPERS ──
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show');}));
+function toggleMenu(){document.getElementById('user-menu').classList.toggle('show');}
+function closeMenu(){document.getElementById('user-menu').classList.remove('show');}
+document.addEventListener('click',e=>{if(!e.target.closest('#avatar')&&!e.target.closest('#user-menu'))closeMenu();});
+function hide(id){document.getElementById(id).style.display='none';}
 let toastTimer;
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
-}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600);}
+function fmtDate(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString(lang==='he'?'he-IL':'en-US',{day:'numeric',month:'short',year:'numeric'});}
+function calcNights(s,e){if(!s||!e)return 0;return Math.max(0,Math.round((new Date(e)-new Date(s))/86400000));}
 
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d + 'T00:00:00').toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', { day:'numeric', month:'short', year:'numeric' });
-}
-
-function calcNights(s, e) {
-  if (!s || !e) return 0;
-  return Math.max(0, Math.round((new Date(e) - new Date(s)) / 86400000));
-}
-
-// ══════════════════════════════════════════════════════
-// START
-// ══════════════════════════════════════════════════════
 init();
 </script>
 </body>
