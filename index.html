@@ -1,843 +1,727 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>✈️ TripCraft — Your Travel Manager</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<title>✈️ LetsFly</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root {
-  --bg: #080c14;
-  --bg2: #0f1520;
-  --bg3: #161e2e;
-  --bg4: #1c2640;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.13);
-  --accent: #4f9cf9;
-  --accent2: #7c5cfc;
-  --accentg: linear-gradient(135deg, #4f9cf9, #7c5cfc);
-  --green: #22d3a5;
-  --gold: #f5c842;
-  --coral: #ff6b6b;
-  --text: #e8eef8;
-  --textm: #8a9ab8;
-  --textd: #4a5a78;
-  --r: 16px;
-  --rsm: 10px;
-  --shadow: 0 8px 40px rgba(0,0,0,0.5);
-}
-body.light {
-  --bg: #f0f4fa;
-  --bg2: #ffffff;
-  --bg3: #e8edf6;
-  --bg4: #dde4f0;
-  --border: rgba(0,0,0,0.07);
-  --border2: rgba(0,0,0,0.13);
-  --text: #0f1520;
-  --textm: #4a5a78;
-  --textd: #8a9ab8;
-  --shadow: 0 8px 40px rgba(0,0,0,0.1);
-}
-body.light .topbar { background: rgba(240,244,250,0.95); }
-body.light .auth-screen { background: radial-gradient(ellipse at 30% 20%, rgba(79,156,249,0.08) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(124,92,252,0.06) 0%, transparent 60%), var(--bg); }
-body.light .countdown { background: linear-gradient(135deg, rgba(79,156,249,0.07), rgba(124,92,252,0.07)); }
-body.light #auth-screen { background: radial-gradient(ellipse at 30% 20%, rgba(79,156,249,0.08) 0%, transparent 60%), var(--bg); }
+/* ══ RESET & BASE ══ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
-body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
-::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: var(--bg2); } ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
 
-/* ── AUTH SCREEN ── */
-#auth-screen {
+/* ══ THEME VARIABLES ══ */
+:root {
+  --bg:      #0d1117;
+  --bg2:     #161b27;
+  --bg3:     #1e2636;
+  --bg4:     #263045;
+  --border:  rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.14);
+  --accent:  #3b82f6;
+  --accent2: #1d4ed8;
+  --accentg: linear-gradient(135deg,#3b82f6,#6366f1);
+  --green:   #10b981;
+  --gold:    #f59e0b;
+  --coral:   #ef4444;
+  --purple:  #8b5cf6;
+  --text:    #e2e8f0;
+  --textm:   #94a3b8;
+  --textd:   #475569;
+  --nav-h:   58px;
+  --r:       14px;
+  --rsm:     9px;
+  --shadow:  0 4px 24px rgba(0,0,0,0.4);
+}
+body.light {
+  --bg:      #f1f5f9;
+  --bg2:     #ffffff;
+  --bg3:     #e8eef6;
+  --bg4:     #dde5f0;
+  --border:  rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.14);
+  --text:    #0f172a;
+  --textm:   #475569;
+  --textd:   #94a3b8;
+  --shadow:  0 4px 24px rgba(0,0,0,0.1);
+}
+
+body {
+  font-family: 'Rubik', 'Heebo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: radial-gradient(ellipse at 30% 20%, rgba(79,156,249,0.12) 0%, transparent 60%),
-              radial-gradient(ellipse at 70% 80%, rgba(124,92,252,0.1) 0%, transparent 60%),
-              var(--bg);
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
 }
+body[dir="rtl"] { font-family: 'Heebo', 'Rubik', sans-serif; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 5px; }
+
+/* ══ LOADING ══ */
+#loading {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-logo {
+  font-size: 28px; font-weight: 800;
+  background: var(--accentg);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* ══ NAVBAR ══ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+  height: var(--nav-h);
+  background: rgba(13,17,23,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 6px;
+}
+body.light nav { background: rgba(241,245,249,0.92); }
+
+.nav-logo {
+  font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
+  background: var(--accentg);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  cursor: pointer; margin-inline-end: 10px; white-space: nowrap;
+}
+.nav-trip-name {
+  font-size: 13px; font-weight: 600; color: var(--textm);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;
+}
+.nav-right { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; }
+
+.nb {
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  color: var(--textm); padding: 6px 10px; border-radius: var(--rsm);
+  transition: all 0.15s; white-space: nowrap; display: flex; align-items: center; gap: 5px;
+}
+.nb:hover { background: var(--bg3); color: var(--text); }
+.nb.active { background: rgba(59,130,246,0.15); color: var(--accent); }
+
+.icon-btn {
+  background: none; border: 1px solid var(--border2); cursor: pointer;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; color: var(--textm); transition: all 0.15s;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,0.08); }
+
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--accentg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
+  position: relative; flex-shrink: 0;
+}
+
+/* ══ USER MENU ══ */
+.user-menu {
+  display: none; position: fixed; top: 54px; inset-inline-end: 16px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--r); padding: 8px; min-width: 200px;
+  z-index: 600; box-shadow: var(--shadow);
+  animation: fadeDown 0.15s ease;
+}
+.user-menu.show { display: block; }
+@keyframes fadeDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+.user-menu-email { padding: 10px 12px; font-size: 12px; color: var(--textm); border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.menu-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 12px; border: none; background: none;
+  font-family: inherit; font-size: 13px; font-weight: 500; color: var(--textm);
+  border-radius: var(--rsm); cursor: pointer; transition: all 0.15s; text-align: start;
+}
+.menu-item:hover { background: var(--bg3); color: var(--text); }
+.menu-item.danger:hover { background: rgba(239,68,68,0.1); color: var(--coral); }
+
+/* ══ AUTH SCREEN ══ */
+#auth-screen {
+  min-height: 100vh; display: none;
+  align-items: center; justify-content: center; padding: 20px;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(59,130,246,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 70%, rgba(99,102,241,0.1) 0%, transparent 55%),
+    var(--bg);
+}
+#auth-screen.show { display: flex; }
+
 .auth-box {
-  width: 100%;
-  max-width: 420px;
-  background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: 24px;
-  padding: 48px 40px;
+  width: 100%; max-width: 400px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 20px; padding: 40px 36px;
   box-shadow: var(--shadow);
-  animation: fadeUp 0.5s ease;
+  animation: fadeUp 0.4s ease;
 }
-@keyframes fadeUp { from { opacity:0; transform: translateY(24px); } to { opacity:1; transform: translateY(0); } }
-.auth-logo { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; background: var(--accentg); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 6px; }
-.auth-sub { font-size: 14px; color: var(--textm); margin-bottom: 36px; }
-.auth-tabs { display: flex; gap: 4px; background: var(--bg3); border-radius: var(--rsm); padding: 4px; margin-bottom: 28px; }
-.auth-tab { flex: 1; padding: 8px; border: none; background: none; color: var(--textm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; border-radius: 7px; cursor: pointer; transition: all 0.2s; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+.auth-logo {
+  font-size: 32px; font-weight: 800; letter-spacing: -1px;
+  background: var(--accentg);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  margin-bottom: 4px;
+}
+.auth-tagline { font-size: 13px; color: var(--textm); margin-bottom: 28px; }
+
+.auth-tabs {
+  display: flex; gap: 3px;
+  background: var(--bg3); border-radius: var(--rsm);
+  padding: 3px; margin-bottom: 24px;
+}
+.auth-tab {
+  flex: 1; padding: 8px; border: none; background: none;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--textm); border-radius: 7px; cursor: pointer; transition: all 0.2s;
+}
 .auth-tab.active { background: var(--bg4); color: var(--text); }
-.inp { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--rsm); padding: 12px 16px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); outline: none; transition: border-color 0.2s; margin-bottom: 12px; }
+
+.inp {
+  width: 100%; background: var(--bg3);
+  border: 1px solid var(--border2); border-radius: var(--rsm);
+  padding: 11px 14px; font-family: inherit; font-size: 14px;
+  color: var(--text); outline: none; transition: border-color 0.2s;
+}
 .inp:focus { border-color: var(--accent); }
 .inp::placeholder { color: var(--textd); }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 100px; border: none; cursor: pointer; transition: all 0.2s; }
+select.inp { cursor: pointer; }
+textarea.inp { resize: vertical; min-height: 80px; }
+
+.field { margin-bottom: 12px; }
+.field-label { font-size: 12px; font-weight: 600; color: var(--textm); margin-bottom: 5px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  padding: 11px 22px; border-radius: 100px; border: none; cursor: pointer; transition: all 0.2s;
+}
 .btn-primary { background: var(--accentg); color: #fff; width: 100%; }
-.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,156,249,0.3); }
+.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.35); }
+.btn-google {
+  width: 100%; background: var(--bg3); border: 1.5px solid var(--border2);
+  color: var(--text); margin-bottom: 6px;
+}
+.btn-google:hover { border-color: var(--accent); background: rgba(59,130,246,0.06); }
 .btn-outline { background: transparent; border: 1.5px solid var(--border2); color: var(--textm); }
-.btn-outline:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,156,249,0.08); }
-.btn-ghost { background: transparent; border: none; color: var(--textm); padding: 8px 14px; font-size: 13px; }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-ghost { background: transparent; border: none; color: var(--textm); font-size: 13px; padding: 8px 12px; }
 .btn-ghost:hover { color: var(--text); }
-.btn-danger { background: rgba(255,107,107,0.15); border: 1px solid rgba(255,107,107,0.3); color: var(--coral); }
-.btn-danger:hover { background: rgba(255,107,107,0.25); }
-.auth-err { background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); color: var(--coral); border-radius: var(--rsm); padding: 10px 14px; font-size: 13px; margin-bottom: 14px; display: none; }
-.auth-msg { background: rgba(34,211,165,0.1); border: 1px solid rgba(34,211,165,0.3); color: var(--green); border-radius: var(--rsm); padding: 10px 14px; font-size: 13px; margin-bottom: 14px; display: none; }
-.divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--textd); font-size: 12px; }
+.btn-danger { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--coral); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+.btn-sm { padding: 7px 14px; font-size: 12px; }
+.btn-block { width: 100%; }
+
+.divider { display: flex; align-items: center; gap: 10px; margin: 14px 0; color: var(--textd); font-size: 12px; }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-/* ── APP SHELL ── */
-#app { display: none; min-height: 100vh; }
-
-/* TOP NAV */
-.topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 200; height: 60px; background: rgba(8,12,20,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; }
-.topbar-logo { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; background: var(--accentg); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; cursor: pointer; }
-.topbar-trip-name { font-size: 14px; font-weight: 600; color: var(--textm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
-.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.user-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accentg); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; flex-shrink: 0; }
-
-/* SIDEBAR */
-.layout { display: flex; padding-top: 60px; min-height: 100vh; }
-.sidebar { width: 220px; flex-shrink: 0; position: fixed; top: 60px; bottom: 0; left: 0; background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; }
-.sidebar-section { padding: 16px 12px 8px; font-size: 10px; font-weight: 700; color: var(--textd); text-transform: uppercase; letter-spacing: 1px; }
-.nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 14px; border: none; background: none; color: var(--textm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; border-radius: var(--rsm); cursor: pointer; transition: all 0.15s; margin: 1px 4px; width: calc(100% - 8px); text-align: left; }
-.nav-btn:hover { background: var(--bg3); color: var(--text); }
-.nav-btn.active { background: rgba(79,156,249,0.12); color: var(--accent); }
-.nav-btn .nb-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
-.sidebar-bottom { margin-top: auto; padding: 12px; border-top: 1px solid var(--border); }
-
-/* MAIN CONTENT */
-.main-content { margin-left: 220px; flex: 1; padding: 32px 28px 80px; max-width: calc(100vw - 220px); }
-
-/* ── TRIPS LIST PAGE ── */
-.page { display: none; animation: fadeIn 0.25s ease; }
-.page.active { display: block; }
-@keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
-.page-header { margin-bottom: 28px; }
-.page-title { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; margin-bottom: 6px; }
-.page-sub { font-size: 14px; color: var(--textm); }
-
-/* TRIPS GRID */
-.trips-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
-.trip-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative; }
-.trip-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 12px 40px rgba(79,156,249,0.15); }
-.trip-card-cover { height: 100px; display: flex; align-items: center; justify-content: center; font-size: 52px; }
-.trip-card-body { padding: 16px 18px; }
-.trip-card-name { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
-.trip-card-meta { font-size: 12px; color: var(--textm); margin-bottom: 12px; }
-.trip-card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 100px; }
-.tag-blue { background: rgba(79,156,249,0.12); color: var(--accent); }
-.tag-green { background: rgba(34,211,165,0.12); color: var(--green); }
-.tag-gold { background: rgba(245,200,66,0.12); color: var(--gold); }
-.tag-coral { background: rgba(255,107,107,0.12); color: var(--coral); }
-
-.new-trip-card { border: 2px dashed var(--border2); background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 200px; border-radius: var(--r); cursor: pointer; transition: all 0.2s; color: var(--textm); }
-.new-trip-card:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,156,249,0.05); }
-.new-trip-icon { font-size: 36px; }
-.new-trip-label { font-size: 14px; font-weight: 600; }
-
-/* CARD */
-.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 20px 22px; margin-bottom: 16px; }
-.card-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-
-/* MODAL */
-.modal-overlay { display: none; position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); align-items: center; justify-content: center; padding: 20px; }
-.modal-overlay.show { display: flex; }
-.modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: 20px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 32px; animation: fadeUp 0.3s ease; }
-.modal-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 24px; }
-.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
-.lbl { font-size: 12px; color: var(--textm); margin-bottom: 5px; font-weight: 500; }
-.irow { margin-bottom: 14px; }
-.igrid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-textarea.inp { min-height: 80px; resize: vertical; }
-.emoji-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.ep-btn { font-size: 28px; background: var(--bg3); border: 2px solid transparent; border-radius: var(--rsm); width: 48px; height: 48px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
-.ep-btn:hover, .ep-btn.selected { border-color: var(--accent); background: rgba(79,156,249,0.12); }
-
-/* DASHBOARD STATS */
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; text-align: center; }
-.stat-num { font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
-.stat-lbl { font-size: 12px; color: var(--textm); }
-
-/* COUNTDOWN */
-.countdown { background: linear-gradient(135deg, rgba(79,156,249,0.1), rgba(124,92,252,0.1)); border: 1px solid rgba(79,156,249,0.2); border-radius: var(--r); padding: 28px; text-align: center; margin-bottom: 20px; position: relative; overflow: hidden; }
-.countdown::before { content: ''; position: absolute; top: -40px; right: -40px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(124,92,252,0.15), transparent); border-radius: 50%; }
-.cd-days { font-family: 'Syne', sans-serif; font-size: 72px; font-weight: 800; line-height: 1; background: var(--accentg); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.cd-label { font-size: 14px; color: var(--textm); margin-top: 4px; }
-.cd-date { font-size: 16px; font-weight: 600; margin-top: 10px; }
-.cd-hms { display: flex; justify-content: center; gap: 20px; margin-top: 14px; direction: ltr; }
-.cd-hms-item { text-align: center; }
-.cd-hms-num { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 700; color: var(--accent); }
-.cd-hms-lbl { font-size: 11px; color: var(--textm); }
-
-/* PROGRESS */
-.pbar-bg { background: var(--bg4); border-radius: 100px; height: 8px; overflow: hidden; }
-.pbar-fill { height: 8px; border-radius: 100px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.6s ease; }
-.pbar-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--textm); margin-bottom: 6px; }
-
-/* TODO */
-.todo-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--rsm); margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
-.todo-item:hover { border-color: var(--border2); }
-.todo-item.done { opacity: 0.5; }
-.todo-item.done .todo-text { text-decoration: line-through; color: var(--textm); }
-.todo-check { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; font-size: 11px; }
-.todo-item.done .todo-check { background: var(--green); border-color: var(--green); color: var(--bg); }
-.todo-text { font-size: 14px; flex: 1; }
-.todo-del { opacity: 0; font-size: 18px; color: var(--textd); cursor: pointer; transition: opacity 0.15s; border: none; background: none; color: var(--textd); }
-.todo-item:hover .todo-del { opacity: 1; }
-.cat-head { font-size: 11px; font-weight: 700; color: var(--textd); text-transform: uppercase; letter-spacing: 1px; margin: 18px 0 8px; }
-.add-row { display: flex; gap: 8px; margin-top: 8px; }
-.add-row input { flex: 1; }
-.add-row button { flex-shrink: 0; width: 40px; height: 40px; border-radius: var(--rsm); border: none; background: var(--accent); color: #fff; font-size: 20px; cursor: pointer; transition: all 0.2s; }
-.add-row button:hover { background: var(--accent2); }
-
-/* FLIGHTS */
-.flight-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 14px; overflow: hidden; }
-.flight-header { padding: 14px 18px; background: var(--bg4); display: flex; align-items: center; gap: 12px; cursor: pointer; }
-.flight-route { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; }
-.flight-body { padding: 16px 18px; }
-.flight-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 13px; color: var(--textm); }
-.flight-row:last-child { margin-bottom: 0; }
-.flight-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
-.flight-time { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--text); min-width: 52px; font-size: 14px; }
-
-/* HOTELS */
-.hotel-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 14px; overflow: hidden; }
-.hotel-header { padding: 14px 18px; background: var(--bg4); display: flex; align-items: center; gap: 12px; }
-.hotel-name { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; }
-.hotel-body { padding: 16px 18px; }
-.hotel-row { display: flex; gap: 10px; margin-bottom: 8px; font-size: 13px; color: var(--textm); }
-.hotel-row .lbl { min-width: 90px; font-weight: 600; color: var(--textd); font-size: 11px; text-transform: uppercase; }
-.hotel-row span { color: var(--text); }
-
-/* ITINERARY */
-.itin-day { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 12px; overflow: hidden; }
-.itin-day-header { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; }
-.itin-day-num { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; color: var(--accent); min-width: 50px; }
-.itin-day-title { font-size: 15px; font-weight: 600; flex: 1; }
-.itin-day-date { font-size: 12px; color: var(--textm); }
-.itin-day-body { padding: 0 18px 16px; display: none; }
-.itin-day.open .itin-day-body { display: block; }
-.itin-block { display: flex; gap: 14px; margin-top: 12px; font-size: 13px; }
-.itin-time { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--accent); min-width: 70px; font-size: 12px; }
-.itin-text { color: var(--textm); flex: 1; line-height: 1.6; }
-.itin-notes { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--rsm); padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); outline: none; margin-top: 12px; resize: vertical; min-height: 60px; transition: border-color 0.2s; }
-.itin-notes:focus { border-color: var(--accent); }
-
-/* BUDGET */
-.budget-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-.bsum-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; text-align: center; }
-.bsum-num { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; margin-bottom: 2px; }
-.bsum-lbl { font-size: 11px; color: var(--textm); }
-.budget-table { width: 100%; border-collapse: collapse; }
-.budget-table th { font-size: 11px; font-weight: 700; color: var(--textd); text-transform: uppercase; letter-spacing: 0.8px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-.budget-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border); }
-.budget-table tr:last-child td { border-bottom: none; }
-.budget-table tr:hover td { background: var(--bg3); }
-.budget-inp { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); outline: none; width: 100%; }
-.status-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 100px; cursor: pointer; }
-.sp-planned { background: rgba(79,156,249,0.12); color: var(--accent); }
-.sp-booked { background: rgba(34,211,165,0.12); color: var(--green); }
-.sp-paid { background: rgba(245,200,66,0.12); color: var(--gold); }
-
-/* PACKING */
-.pack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 600px) { .pack-grid { grid-template-columns: 1fr; } }
-.pack-section { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
-.pack-section-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-.pack-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; cursor: pointer; }
-.pack-item:last-child { border-bottom: none; }
-.pack-item.packed .pack-text { text-decoration: line-through; color: var(--textd); }
-.pack-check { width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--border2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; }
-.pack-item.packed .pack-check { background: var(--green); border-color: var(--green); color: var(--bg); }
-
-/* EMERGENCY */
-.emergency-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; margin-bottom: 12px; }
-.emergency-title { font-size: 13px; font-weight: 700; color: var(--textm); margin-bottom: 12px; }
-.emergency-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.emergency-row:last-child { margin-bottom: 0; }
-.emergency-icon { font-size: 20px; width: 30px; text-align: center; flex-shrink: 0; }
-.emergency-info .el { font-size: 11px; color: var(--textd); }
-.emergency-info .ev { font-size: 14px; font-weight: 600; }
-
-/* CURRENCY */
-.conv-box { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: end; margin-bottom: 14px; }
-.conv-result { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: var(--green); display: flex; align-items: center; min-height: 48px; }
-.swap-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg3); border: 1.5px solid var(--border2); color: var(--textm); font-size: 18px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
-.swap-btn:hover { border-color: var(--accent); color: var(--accent); }
-select.inp { cursor: pointer; }
-
-/* TRANSPORT */
-.transport-item { display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
-.transport-item:last-child { border-bottom: none; }
-.transport-icon { font-size: 24px; width: 36px; text-align: center; flex-shrink: 0; }
-.transport-info .ti-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-.transport-info .ti-desc { font-size: 12px; color: var(--textm); line-height: 1.6; }
-
-/* DELETE TRIP */
-.trip-card-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; opacity: 0; transition: opacity 0.2s; }
-.trip-card:hover .trip-card-actions { opacity: 1; }
-.tc-action-btn { background: rgba(0,0,0,0.5); border: none; color: #fff; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-
-/* LOADING */
-.loading-overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: var(--bg); align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
-.loading-overlay.show { display: flex; }
-.spinner { width: 36px; height: 36px; border: 3px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* RESPONSIVE */
-@media (max-width: 768px) {
-  .sidebar { display: none; }
-  .main-content { margin-left: 0; max-width: 100vw; padding: 16px; }
-  .mobile-nav { display: flex; }
-  .igrid2 { grid-template-columns: 1fr; }
-  .budget-summary { grid-template-columns: 1fr 1fr; }
-  .pack-grid { grid-template-columns: 1fr; }
+.auth-alert {
+  border-radius: var(--rsm); padding: 10px 14px; font-size: 13px; margin-bottom: 12px; display: none;
 }
-.mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 200; background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 4px 20px; gap: 4px; overflow-x: auto; }
-.mnb { flex-shrink: 0; background: none; border: none; color: var(--textm); font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 500; padding: 6px 10px; border-radius: var(--rsm); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.mnb.active { color: var(--accent); }
-.mnb-icon { font-size: 18px; }
+.auth-err { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--coral); }
+.auth-ok  { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); color: var(--green); }
 
-/* TOAST */
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--bg4); border: 1px solid var(--border2); color: var(--text); padding: 10px 20px; border-radius: 100px; font-size: 13px; font-weight: 500; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+/* ══ APP ══ */
+#app { display: none; padding-top: var(--nav-h); min-height: 100vh; }
+#app.show { display: block; }
+
+/* ══ PAGES ══ */
+.page { display: none; padding: 28px 20px 80px; max-width: 900px; margin: 0 auto; animation: fadeUp 0.2s ease; }
+.page.active { display: block; }
+
+.page-header { margin-bottom: 24px; }
+.page-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: var(--textm); }
+
+/* ══ TRIPS GRID ══ */
+.trips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.trip-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden;
+  cursor: pointer; transition: all 0.2s; position: relative;
+}
+.trip-card:hover { border-color: rgba(59,130,246,0.4); transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
+
+.trip-cover {
+  height: 90px; display: flex; align-items: center; justify-content: center;
+  font-size: 48px; position: relative;
+}
+.trip-cover-bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  opacity: 0.7;
+}
+.trip-cover-emoji { position: relative; z-index: 1; }
+
+.trip-card-body { padding: 14px 16px; }
+.trip-card-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.trip-card-meta { font-size: 12px; color: var(--textm); margin-bottom: 10px; line-height: 1.5; }
+.trip-card-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+
+.tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 100px;
+}
+.tag-blue   { background: rgba(59,130,246,0.12); color: var(--accent); }
+.tag-green  { background: rgba(16,185,129,0.12); color: var(--green); }
+.tag-gold   { background: rgba(245,158,11,0.12); color: var(--gold); }
+.tag-purple { background: rgba(139,92,246,0.12); color: var(--purple); }
+
+.trip-card-actions {
+  position: absolute; top: 8px; inset-inline-end: 8px;
+  display: flex; gap: 5px; opacity: 0; transition: opacity 0.2s;
+}
+.trip-card:hover .trip-card-actions { opacity: 1; }
+.tc-btn {
+  background: rgba(0,0,0,0.55); border: none; color: #fff;
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  font-size: 13px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.tc-btn:hover { background: rgba(0,0,0,0.8); }
+
+.new-card {
+  min-height: 196px; border: 2px dashed var(--border2);
+  background: transparent; border-radius: var(--r);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; cursor: pointer; transition: all 0.2s; color: var(--textm);
+}
+.new-card:hover { border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,0.04); }
+.new-card-icon { font-size: 32px; }
+.new-card-label { font-size: 14px; font-weight: 600; }
+
+/* ══ CARD ══ */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 18px 20px; margin-bottom: 14px;
+}
+.card-title {
+  font-size: 14px; font-weight: 700; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 7px;
+}
+
+/* ══ MODAL ══ */
+.overlay {
+  display: none; position: fixed; inset: 0; z-index: 800;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(5px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+.overlay.show { display: flex; }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 20px; width: 100%; max-width: 500px;
+  max-height: 90vh; overflow-y: auto; padding: 28px;
+  animation: fadeUp 0.25s ease;
+}
+.modal-title { font-size: 19px; font-weight: 800; margin-bottom: 22px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 22px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.emoji-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ep {
+  font-size: 26px; background: var(--bg3); border: 2px solid transparent;
+  border-radius: var(--rsm); width: 44px; height: 44px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.ep:hover, .ep.sel { border-color: var(--accent); background: rgba(59,130,246,0.1); }
+
+/* ══ TOAST ══ */
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  background: var(--bg4); border: 1px solid var(--border2);
+  color: var(--text); padding: 10px 20px; border-radius: 100px;
+  font-size: 13px; font-weight: 500; z-index: 9000;
+  opacity: 0; transition: opacity 0.25s; pointer-events: none; white-space: nowrap;
+}
 .toast.show { opacity: 1; }
 
-/* INLINE INPUT EDIT */
-.editable { cursor: text; border-bottom: 1px dashed var(--border2); padding-bottom: 2px; transition: border-color 0.2s; min-width: 80px; display: inline-block; }
-.editable:focus { outline: none; border-bottom-color: var(--accent); }
+/* ══ LANG TOGGLE ══ */
+.lang-btn {
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 100px; padding: 5px 11px; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--textm);
+  transition: all 0.2s; white-space: nowrap;
+}
+.lang-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ══ THEME TOGGLE ══ */
+.theme-btn {
+  background: none; border: 1px solid var(--border2);
+  border-radius: 50%; width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; cursor: pointer; transition: all 0.2s; color: var(--textm);
+}
+.theme-btn:hover { border-color: var(--accent); }
+
+/* ══ RESPONSIVE ══ */
+@media (max-width: 640px) {
+  .trips-grid { grid-template-columns: 1fr 1fr; }
+  .grid2 { grid-template-columns: 1fr; }
+  nav { padding: 0 12px; gap: 4px; }
+  .page { padding: 20px 14px 80px; }
+  .nb span.label { display: none; }
+}
+@media (max-width: 400px) {
+  .trips-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
 
 <!-- LOADING -->
-<div id="loading-overlay" class="loading-overlay show">
+<div id="loading">
+  <div class="loading-logo">✈️ LetsFly</div>
   <div class="spinner"></div>
-  <div style="font-size:14px;color:var(--textm)">Loading TripCraft...</div>
-</div>
-
-<!-- AUTH SCREEN -->
-<div id="auth-screen" style="display:none">
-  <div class="auth-box">
-    <div class="auth-logo">✈️ TripCraft</div>
-    <div class="auth-sub">Your personal travel manager</div>
-
-    <div class="auth-tabs">
-      <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
-      <button class="auth-tab" onclick="switchAuthTab('signup')">Create Account</button>
-    </div>
-
-    <div id="auth-err" class="auth-err"></div>
-    <div id="auth-msg" class="auth-msg"></div>
-
-    <div id="login-form">
-      <button class="btn" onclick="doGoogleLogin()" style="width:100%;background:var(--bg3);border:1.5px solid var(--border2);color:var(--text);margin-bottom:4px;font-size:14px;gap:10px">
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Continue with Google
-      </button>
-      <div class="divider">or sign in with email</div>
-      <div class="irow">
-        <div class="lbl">Email</div>
-        <input class="inp" id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="irow">
-        <div class="lbl">Password</div>
-        <input class="inp" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      <button class="btn btn-primary" onclick="doLogin()">Sign In →</button>
-    </div>
-
-    <div id="signup-form" style="display:none">
-      <button class="btn" onclick="doGoogleLogin()" style="width:100%;background:var(--bg3);border:1.5px solid var(--border2);color:var(--text);margin-bottom:4px;font-size:14px;gap:10px">
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Continue with Google
-      </button>
-      <div class="divider">or create with email</div>
-      <div class="irow">
-        <div class="lbl">Full Name</div>
-        <input class="inp" id="signup-name" type="text" placeholder="Your name">
-      </div>
-      <div class="irow">
-        <div class="lbl">Email</div>
-        <input class="inp" id="signup-email" type="email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="irow">
-        <div class="lbl">Password</div>
-        <input class="inp" id="signup-pass" type="password" placeholder="At least 6 characters" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()">
-      </div>
-      <button class="btn btn-primary" onclick="doSignup()">Create Account →</button>
-    </div>
-  </div>
 </div>
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- USER MENU -->
+<div class="user-menu" id="user-menu">
+  <div class="user-menu-email" id="user-email"></div>
+  <button class="menu-item" onclick="goHome();closeMenu()">🏠 <span data-t="myTrips">My Trips</span></button>
+  <button class="menu-item danger" onclick="doLogout()">🚪 <span data-t="signOut">Sign Out</span></button>
+</div>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">✈️ LetsFly</div>
+    <div class="auth-tagline" data-t="tagline">Plan smarter. Fly better.</div>
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <button class="lang-btn" onclick="toggleLang()" id="auth-lang-btn">🌐 עברית</button>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')" data-t="signIn">Sign In</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')" data-t="createAccount">Create Account</button>
+    </div>
+
+    <div class="auth-alert auth-err" id="auth-err"></div>
+    <div class="auth-alert auth-ok"  id="auth-ok"></div>
+
+    <!-- Google -->
+    <button class="btn btn-google" onclick="googleLogin()">
+      <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      <span data-t="continueGoogle">Continue with Google</span>
+    </button>
+
+    <div class="divider"><span data-t="orEmail">or with email</span></div>
+
+    <!-- Login form -->
+    <div id="form-login">
+      <div class="field">
+        <div class="field-label" data-t="email">Email</div>
+        <input class="inp" id="l-email" type="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <div class="field-label" data-t="password">Password</div>
+        <input class="inp" id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()"><span data-t="signIn">Sign In</span> →</button>
+    </div>
+
+    <!-- Signup form -->
+    <div id="form-signup" style="display:none">
+      <div class="field">
+        <div class="field-label" data-t="fullName">Full Name</div>
+        <input class="inp" id="s-name" type="text" placeholder="Your name">
+      </div>
+      <div class="field">
+        <div class="field-label" data-t="email">Email</div>
+        <input class="inp" id="s-email" type="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <div class="field-label" data-t="password">Password</div>
+        <input class="inp" id="s-pass" type="password" placeholder="Min 6 characters" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()">
+      </div>
+      <button class="btn btn-primary" onclick="doSignup()"><span data-t="createAccount">Create Account</span> →</button>
+    </div>
+  </div>
+</div>
+
 <!-- APP -->
+<nav id="navbar" style="display:none">
+  <div class="nav-logo" onclick="goHome()">✈️ LetsFly</div>
+  <div class="nav-trip-name" id="nav-trip-name"></div>
+  <div class="nav-right">
+    <span id="save-status" style="font-size:12px;color:var(--textm);display:none"></span>
+    <button class="lang-btn" onclick="toggleLang()" id="app-lang-btn">🌐 עברית</button>
+    <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
+    <div class="avatar" id="avatar" onclick="toggleMenu()"></div>
+  </div>
+</nav>
+
 <div id="app">
 
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div class="topbar-logo" onclick="goHome()">✈️ TripCraft</div>
-    <div class="topbar-trip-name" id="topbar-trip-name"></div>
-    <div class="topbar-right">
-      <button class="btn btn-ghost" id="topbar-sync" style="display:none">💾 Saving...</button>
-      <button id="theme-btn" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:1.5px solid var(--border2);border-radius:100px;padding:5px 12px;cursor:pointer;font-size:15px;color:var(--textm);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">🌙</button>
-      <div class="user-avatar" id="user-avatar" onclick="toggleUserMenu()" title="Account"></div>
-      <div id="user-menu" style="display:none;position:fixed;top:55px;right:16px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:8px;min-width:180px;z-index:300;box-shadow:var(--shadow)">
-        <div style="padding:10px 14px;font-size:12px;color:var(--textm);border-bottom:1px solid var(--border);margin-bottom:6px" id="user-email-disp"></div>
-        <button class="nav-btn" onclick="goHome()"><span class="nb-icon">🏠</span> My Trips</button>
-        <button class="nav-btn btn-danger" onclick="doLogout()" style="color:var(--coral);margin-top:4px"><span class="nb-icon">🚪</span> Sign Out</button>
-      </div>
+  <!-- HOME PAGE -->
+  <div class="page active" id="page-home">
+    <div class="page-header">
+      <div class="page-title" id="home-title">My Trips</div>
+      <div class="page-sub" data-t="homeSubtitle">Plan, organize and share your adventures</div>
+    </div>
+    <div class="trips-grid" id="trips-grid">
+      <div style="color:var(--textm);font-size:14px;padding:20px" data-t="loadingTrips">Loading...</div>
     </div>
   </div>
 
-  <div class="layout">
-    <!-- SIDEBAR -->
-    <div class="sidebar" id="sidebar">
-      <div id="sidebar-home">
-        <div class="sidebar-section">Navigation</div>
-        <button class="nav-btn active" onclick="goHome()"><span class="nb-icon">🏠</span> My Trips</button>
+  <!-- TRIP DASHBOARD (placeholder for Stage 2) -->
+  <div class="page" id="page-trip">
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <button class="btn btn-ghost btn-sm" onclick="goHome()">← <span data-t="back">Back</span></button>
       </div>
-      <div id="sidebar-trip" style="display:none">
-        <div class="sidebar-section">Trip</div>
-        <button class="nav-btn active" data-sec="dashboard" onclick="showSec('dashboard',this)"><span class="nb-icon">📊</span> Dashboard</button>
-        <button class="nav-btn" data-sec="todo" onclick="showSec('todo',this)"><span class="nb-icon">✅</span> Tasks</button>
-        <button class="nav-btn" data-sec="flights" onclick="showSec('flights',this)"><span class="nb-icon">✈️</span> Flights</button>
-        <button class="nav-btn" data-sec="hotels" onclick="showSec('hotels',this)"><span class="nb-icon">🏨</span> Hotels</button>
-        <button class="nav-btn" data-sec="itinerary" onclick="showSec('itinerary',this)"><span class="nb-icon">📅</span> Itinerary</button>
-        <button class="nav-btn" data-sec="budget" onclick="showSec('budget',this)"><span class="nb-icon">💰</span> Budget</button>
-        <button class="nav-btn" data-sec="packing" onclick="showSec('packing',this)"><span class="nb-icon">🧳</span> Packing</button>
-        <button class="nav-btn" data-sec="currency" onclick="showSec('currency',this)"><span class="nb-icon">💱</span> Currency</button>
-        <button class="nav-btn" data-sec="transport" onclick="showSec('transport',this)"><span class="nb-icon">🚗</span> Transport</button>
-        <button class="nav-btn" data-sec="emergency" onclick="showSec('emergency',this)"><span class="nb-icon">📞</span> Emergency</button>
-        <div class="sidebar-bottom">
-          <button class="nav-btn" onclick="goHome()"><span class="nb-icon">←</span> All Trips</button>
-        </div>
-      </div>
+      <div class="page-title" id="trip-page-title"></div>
+      <div class="page-sub" id="trip-page-sub"></div>
     </div>
-
-    <!-- MAIN -->
-    <div class="main-content">
-
-      <!-- HOME PAGE -->
-      <div id="page-home" class="page active">
-        <div class="page-header">
-          <div class="page-title" id="home-greeting">My Trips</div>
-          <div class="page-sub">Plan, organize and manage all your adventures</div>
-        </div>
-        <div class="trips-grid" id="trips-grid">
-          <div style="text-align:center;color:var(--textm);font-size:14px;padding:40px">Loading trips...</div>
-        </div>
-      </div>
-
-      <!-- TRIP PAGE -->
-      <div id="page-trip" class="page">
-
-        <!-- DASHBOARD -->
-        <div id="sec-dashboard" class="page active">
-          <div class="countdown" id="cd-box">
-            <div class="cd-days" id="cd-days">—</div>
-            <div class="cd-label" id="cd-label">days until departure</div>
-            <div class="cd-date" id="cd-date"></div>
-            <div class="cd-hms">
-              <div class="cd-hms-item"><div class="cd-hms-num" id="cd-h">00</div><div class="cd-hms-lbl">hrs</div></div>
-              <div class="cd-hms-item"><div class="cd-hms-num" id="cd-m">00</div><div class="cd-hms-lbl">min</div></div>
-              <div class="cd-hms-item"><div class="cd-hms-num" id="cd-s">00</div><div class="cd-hms-lbl">sec</div></div>
-            </div>
-          </div>
-          <div class="stats-grid">
-            <div class="stat-card"><div class="stat-num" id="st-done" style="color:var(--green)">0</div><div class="stat-lbl">Tasks Done</div></div>
-            <div class="stat-card"><div class="stat-num" id="st-left" style="color:var(--coral)">0</div><div class="stat-lbl">Tasks Left</div></div>
-            <div class="stat-card"><div class="stat-num" id="st-days" style="color:var(--accent)">0</div><div class="stat-lbl">Trip Days</div></div>
-            <div class="stat-card"><div class="stat-num" id="st-budget" style="color:var(--gold)">0</div><div class="stat-lbl">Budget Items</div></div>
-          </div>
-          <div class="card">
-            <div class="card-title">📊 Trip Progress</div>
-            <div class="pbar-labels"><span id="prog-done-label">Tasks completed</span><span id="prog-pct">0%</span></div>
-            <div class="pbar-bg"><div class="pbar-fill" id="prog-fill" style="width:0%"></div></div>
-          </div>
-          <div class="card">
-            <div class="card-title">ℹ️ Trip Details</div>
-            <div id="trip-detail-render"></div>
-          </div>
-        </div>
-
-        <!-- TASKS -->
-        <div id="sec-todo" class="page" style="display:none">
-          <div class="page-header"><div class="page-title">✅ Tasks</div></div>
-          <div class="card">
-            <div id="todo-render"></div>
-          </div>
-        </div>
-
-        <!-- FLIGHTS -->
-        <div id="sec-flights" class="page" style="display:none">
-          <div class="page-header">
-            <div class="page-title">✈️ Flights</div>
-            <button class="btn btn-outline" onclick="openAddFlight()" style="margin-top:10px">+ Add Flight</button>
-          </div>
-          <div id="flights-render"></div>
-        </div>
-
-        <!-- HOTELS -->
-        <div id="sec-hotels" class="page" style="display:none">
-          <div class="page-header">
-            <div class="page-title">🏨 Hotels</div>
-            <button class="btn btn-outline" onclick="openAddHotel()" style="margin-top:10px">+ Add Hotel</button>
-          </div>
-          <div id="hotels-render"></div>
-        </div>
-
-        <!-- ITINERARY -->
-        <div id="sec-itinerary" class="page" style="display:none">
-          <div class="page-header">
-            <div class="page-title">📅 Itinerary</div>
-            <button class="btn btn-outline" onclick="openAddDay()" style="margin-top:10px">+ Add Day</button>
-          </div>
-          <div id="itinerary-render"></div>
-        </div>
-
-        <!-- BUDGET -->
-        <div id="sec-budget" class="page" style="display:none">
-          <div class="page-header">
-            <div class="page-title">💰 Budget</div>
-            <button class="btn btn-outline" onclick="openAddBudget()" style="margin-top:10px">+ Add Item</button>
-          </div>
-          <div class="budget-summary">
-            <div class="bsum-card"><div class="bsum-num" id="bud-total" style="color:var(--accent)">0</div><div class="bsum-lbl">Total Budget</div></div>
-            <div class="bsum-card"><div class="bsum-num" id="bud-paid" style="color:var(--green)">0</div><div class="bsum-lbl">Paid</div></div>
-            <div class="bsum-card"><div class="bsum-num" id="bud-left" style="color:var(--gold)">0</div><div class="bsum-lbl">Remaining</div></div>
-          </div>
-          <div class="card" style="overflow-x:auto">
-            <div id="budget-render"></div>
-          </div>
-        </div>
-
-        <!-- PACKING -->
-        <div id="sec-packing" class="page" style="display:none">
-          <div class="page-header"><div class="page-title">🧳 Packing List</div></div>
-          <div id="packing-render" class="pack-grid"></div>
-        </div>
-
-        <!-- CURRENCY -->
-        <div id="sec-currency" class="page" style="display:none">
-          <div class="page-header"><div class="page-title">💱 Currency Converter</div></div>
-          <div class="card">
-            <div class="conv-box">
-              <div>
-                <div class="lbl">Amount</div>
-                <input class="inp" id="conv-amount" type="number" placeholder="100" oninput="doConvert()" style="font-size:22px;font-weight:700">
-              </div>
-              <div style="padding-bottom:2px"><button class="swap-btn" onclick="swapCurr()">⇄</button></div>
-              <div>
-                <div class="lbl">Result</div>
-                <div class="conv-result" id="conv-result">—</div>
-              </div>
-            </div>
-            <div class="igrid2" style="gap:10px;margin-bottom:10px">
-              <div>
-                <div class="lbl">From</div>
-                <select class="inp" id="conv-from" onchange="doConvert()">
-                  <option value="USD">🇺🇸 USD</option>
-                  <option value="EUR">🇪🇺 EUR</option>
-                  <option value="ILS">🇮🇱 ILS</option>
-                  <option value="GBP">🇬🇧 GBP</option>
-                  <option value="THB">🇹🇭 THB</option>
-                  <option value="JPY">🇯🇵 JPY</option>
-                  <option value="AUD">🇦🇺 AUD</option>
-                  <option value="CAD">🇨🇦 CAD</option>
-                  <option value="CHF">🇨🇭 CHF</option>
-                  <option value="SGD">🇸🇬 SGD</option>
-                </select>
-              </div>
-              <div>
-                <div class="lbl">To</div>
-                <select class="inp" id="conv-to" onchange="doConvert()">
-                  <option value="ILS">🇮🇱 ILS</option>
-                  <option value="USD">🇺🇸 USD</option>
-                  <option value="EUR">🇪🇺 EUR</option>
-                  <option value="GBP">🇬🇧 GBP</option>
-                  <option value="THB">🇹🇭 THB</option>
-                  <option value="JPY">🇯🇵 JPY</option>
-                  <option value="AUD">🇦🇺 AUD</option>
-                  <option value="CAD">🇨🇦 CAD</option>
-                  <option value="CHF">🇨🇭 CHF</option>
-                  <option value="SGD">🇸🇬 SGD</option>
-                </select>
-              </div>
-            </div>
-            <div id="conv-rate" style="font-size:12px;color:var(--textd)"></div>
-          </div>
-        </div>
-
-        <!-- TRANSPORT -->
-        <div id="sec-transport" class="page" style="display:none">
-          <div class="page-header">
-            <div class="page-title">🚗 Transport</div>
-            <button class="btn btn-outline" onclick="openAddTransport()" style="margin-top:10px">+ Add</button>
-          </div>
-          <div class="card">
-            <div id="transport-render"></div>
-          </div>
-        </div>
-
-        <!-- EMERGENCY -->
-        <div id="sec-emergency" class="page" style="display:none">
-          <div class="page-header"><div class="page-title">📞 Emergency Info</div></div>
-          <div id="emergency-render"></div>
-        </div>
-
-      </div><!-- /page-trip -->
-    </div><!-- /main-content -->
-  </div><!-- /layout -->
-
-  <!-- MOBILE NAV -->
-  <div class="mobile-nav" id="mobile-nav-home">
-    <button class="mnb active" onclick="goHome()"><span class="mnb-icon">🏠</span>Home</button>
-  </div>
-  <div class="mobile-nav" id="mobile-nav-trip" style="display:none">
-    <button class="mnb active" data-sec="dashboard" onclick="showSec('dashboard',this)"><span class="mnb-icon">📊</span>Dash</button>
-    <button class="mnb" data-sec="todo" onclick="showSec('todo',this)"><span class="mnb-icon">✅</span>Tasks</button>
-    <button class="mnb" data-sec="flights" onclick="showSec('flights',this)"><span class="mnb-icon">✈️</span>Flights</button>
-    <button class="mnb" data-sec="hotels" onclick="showSec('hotels',this)"><span class="mnb-icon">🏨</span>Hotels</button>
-    <button class="mnb" data-sec="itinerary" onclick="showSec('itinerary',this)"><span class="mnb-icon">📅</span>Itin.</button>
-    <button class="mnb" data-sec="budget" onclick="showSec('budget',this)"><span class="mnb-icon">💰</span>Budget</button>
-    <button class="mnb" data-sec="packing" onclick="showSec('packing',this)"><span class="mnb-icon">🧳</span>Pack</button>
-    <button class="mnb" data-sec="currency" onclick="showSec('currency',this)"><span class="mnb-icon">💱</span>Conv.</button>
-    <button class="mnb" data-sec="emergency" onclick="showSec('emergency',this)"><span class="mnb-icon">📞</span>SOS</button>
+    <div class="card" style="text-align:center;padding:48px 20px;border-style:dashed">
+      <div style="font-size:48px;margin-bottom:12px">🚧</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px" data-t="comingSoon">Coming in Stage 2</div>
+      <div style="font-size:13px;color:var(--textm)" data-t="stage2Desc">Flights, hotels, itinerary, budget, packing and more!</div>
+    </div>
   </div>
 
-</div><!-- /app -->
+</div>
 
-<!-- MODALS -->
-
-<!-- New Trip Modal -->
-<div class="modal-overlay" id="modal-new-trip">
+<!-- NEW TRIP MODAL -->
+<div class="overlay" id="modal-new">
   <div class="modal">
-    <div class="modal-title">🌍 New Trip</div>
-    <div class="irow">
-      <div class="lbl">Trip Name *</div>
+    <div class="modal-title" data-t="newTrip">✈️ New Trip</div>
+    <div class="field">
+      <div class="field-label" data-t="tripName">Trip Name *</div>
       <input class="inp" id="nt-name" placeholder="e.g. Thailand 2026">
     </div>
-    <div class="igrid2">
-      <div class="irow">
-        <div class="lbl">Start Date *</div>
+    <div class="grid2">
+      <div class="field">
+        <div class="field-label" data-t="startDate">Start Date *</div>
         <input class="inp" id="nt-start" type="date">
       </div>
-      <div class="irow">
-        <div class="lbl">End Date *</div>
+      <div class="field">
+        <div class="field-label" data-t="endDate">End Date *</div>
         <input class="inp" id="nt-end" type="date">
       </div>
     </div>
-    <div class="irow">
-      <div class="lbl">Destination(s)</div>
-      <input class="inp" id="nt-dest" placeholder="e.g. Phuket, Koh Samui, Bangkok">
+    <div class="field">
+      <div class="field-label" data-t="destinations">Destinations</div>
+      <input class="inp" id="nt-dest" placeholder="e.g. Phuket, Bangkok">
     </div>
-    <div class="irow">
-      <div class="lbl">Number of Travelers</div>
-      <input class="inp" id="nt-travelers" type="number" placeholder="2" min="1" value="2">
-    </div>
-    <div class="irow">
-      <div class="lbl">Currency</div>
-      <select class="inp" id="nt-currency">
-        <option value="USD">USD $</option>
-        <option value="EUR">EUR €</option>
-        <option value="ILS">ILS ₪</option>
-        <option value="GBP">GBP £</option>
-        <option value="THB">THB ฿</option>
-        <option value="JPY">JPY ¥</option>
-        <option value="AUD">AUD $</option>
-      </select>
-    </div>
-    <div class="irow">
-      <div class="lbl">Notes</div>
-      <textarea class="inp" id="nt-notes" placeholder="Any notes about this trip..."></textarea>
-    </div>
-    <div class="irow">
-      <div class="lbl">Trip Icon</div>
-      <div class="emoji-picker" id="nt-emoji-picker">
-        🌴🏝️🗺️🏔️🌊🏙️🌍🇯🇵🇹🇭🇬🇷🇮🇹🇫🇷🇺🇸🇬🇧🇪🇸🇵🇹🇲🇽🇧🇷🇦🇺🇿🇦🎌🏕️⛷️🤿🚢✈️🧳
+    <div class="grid2">
+      <div class="field">
+        <div class="field-label" data-t="travelers">Travelers</div>
+        <input class="inp" id="nt-travelers" type="number" min="1" value="2">
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-new-trip')">Cancel</button>
-      <button class="btn btn-primary" onclick="createTrip()">Create Trip →</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add Flight Modal -->
-<div class="modal-overlay" id="modal-add-flight">
-  <div class="modal">
-    <div class="modal-title">✈️ Add Flight</div>
-    <div class="igrid2">
-      <div class="irow"><div class="lbl">From (IATA)</div><input class="inp" id="fl-from" placeholder="TLV"></div>
-      <div class="irow"><div class="lbl">To (IATA)</div><input class="inp" id="fl-to" placeholder="BKK"></div>
-    </div>
-    <div class="igrid2">
-      <div class="irow"><div class="lbl">Departure</div><input class="inp" id="fl-dep" type="datetime-local"></div>
-      <div class="irow"><div class="lbl">Arrival</div><input class="inp" id="fl-arr" type="datetime-local"></div>
-    </div>
-    <div class="igrid2">
-      <div class="irow"><div class="lbl">Flight Number</div><input class="inp" id="fl-num" placeholder="EK 371"></div>
-      <div class="irow"><div class="lbl">Airline</div><input class="inp" id="fl-airline" placeholder="Emirates"></div>
-    </div>
-    <div class="irow"><div class="lbl">Confirmation Number</div><input class="inp" id="fl-conf" placeholder="ABC123"></div>
-    <div class="irow"><div class="lbl">Notes</div><textarea class="inp" id="fl-notes" placeholder="Seat numbers, baggage info..."></textarea></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-flight')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveFlight()">Save Flight</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add Hotel Modal -->
-<div class="modal-overlay" id="modal-add-hotel">
-  <div class="modal">
-    <div class="modal-title">🏨 Add Hotel</div>
-    <div class="irow"><div class="lbl">Hotel Name *</div><input class="inp" id="ht-name" placeholder="Marriott Phuket"></div>
-    <div class="irow"><div class="lbl">Destination / City</div><input class="inp" id="ht-dest" placeholder="Phuket"></div>
-    <div class="igrid2">
-      <div class="irow"><div class="lbl">Check-In</div><input class="inp" id="ht-in" type="date"></div>
-      <div class="irow"><div class="lbl">Check-Out</div><input class="inp" id="ht-out" type="date"></div>
-    </div>
-    <div class="igrid2">
-      <div class="irow"><div class="lbl">Confirmation #</div><input class="inp" id="ht-conf" placeholder="BOOKING-XXX"></div>
-      <div class="irow"><div class="lbl">Total Cost</div><input class="inp" id="ht-cost" type="number" placeholder="0"></div>
-    </div>
-    <div class="irow"><div class="lbl">Special Requests</div><textarea class="inp" id="ht-notes" placeholder="Early check-in, crib, sea view..."></textarea></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-hotel')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveHotel()">Save Hotel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add Itinerary Day Modal -->
-<div class="modal-overlay" id="modal-add-day">
-  <div class="modal">
-    <div class="modal-title">📅 Add Day</div>
-    <div class="igrid2">
-      <div class="irow"><div class="lbl">Day Number</div><input class="inp" id="dy-num" type="number" placeholder="1" min="1"></div>
-      <div class="irow"><div class="lbl">Date</div><input class="inp" id="dy-date" type="date"></div>
-    </div>
-    <div class="irow"><div class="lbl">Title</div><input class="inp" id="dy-title" placeholder="Arrival day 🌴"></div>
-    <div class="irow"><div class="lbl">City / Destination</div><input class="inp" id="dy-city" placeholder="Phuket"></div>
-    <div class="irow">
-      <div class="lbl">Activities (one per line, optionally prefix with time e.g. "09:00 | Visit temple")</div>
-      <textarea class="inp" id="dy-blocks" placeholder="09:00 | Breakfast at hotel&#10;11:00 | Big Buddha visit&#10;18:00 | Sunset at Promthep Cape" style="min-height:120px"></textarea>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-day')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveDay()">Save Day</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add Budget Item Modal -->
-<div class="modal-overlay" id="modal-add-budget">
-  <div class="modal">
-    <div class="modal-title">💰 Add Budget Item</div>
-    <div class="irow"><div class="lbl">Description *</div><input class="inp" id="bd-desc" placeholder="Flight tickets"></div>
-    <div class="igrid2">
-      <div class="irow"><div class="lbl">Amount</div><input class="inp" id="bd-amount" type="number" placeholder="0"></div>
-      <div class="irow"><div class="lbl">Category</div>
-        <select class="inp" id="bd-cat">
-          <option value="✈️ Flights">✈️ Flights</option>
-          <option value="🏨 Hotels">🏨 Hotels</option>
-          <option value="🍜 Food">🍜 Food</option>
-          <option value="🚗 Transport">🚗 Transport</option>
-          <option value="🎫 Activities">🎫 Activities</option>
-          <option value="🛍️ Shopping">🛍️ Shopping</option>
-          <option value="💊 Health">💊 Health</option>
-          <option value="📱 Other">📱 Other</option>
+      <div class="field">
+        <div class="field-label" data-t="currency">Currency</div>
+        <select class="inp" id="nt-currency">
+          <option value="USD">$ USD</option>
+          <option value="EUR">€ EUR</option>
+          <option value="ILS">₪ ILS</option>
+          <option value="GBP">£ GBP</option>
+          <option value="THB">฿ THB</option>
+          <option value="JPY">¥ JPY</option>
+          <option value="AUD">A$ AUD</option>
         </select>
       </div>
     </div>
-    <div class="irow"><div class="lbl">Status</div>
-      <select class="inp" id="bd-status">
-        <option value="planned">Planned</option>
-        <option value="booked">Booked</option>
-        <option value="paid">Paid</option>
-      </select>
+    <div class="field">
+      <div class="field-label" data-t="notes">Notes</div>
+      <textarea class="inp" id="nt-notes" placeholder="Any notes..."></textarea>
     </div>
-    <div class="irow"><div class="lbl">Notes</div><input class="inp" id="bd-notes" placeholder="Optional notes"></div>
+    <div class="field">
+      <div class="field-label" data-t="tripIcon">Trip Icon</div>
+      <div class="emoji-row" id="emoji-picker">
+        🌴🏝️🗺️🏔️🌊🏙️🌍🇯🇵🇹🇭🇬🇷🇮🇹🇫🇷🇺🇸🇬🇧🇪🇸🇵🇹🇲🇽🇧🇷🇦🇺🏕️⛷️🤿🚢✈️🧳🎌🌺🏖️🦁🐘🗼🗽🕌
+      </div>
+    </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-budget')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveBudgetItem()">Add Item</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-new')" data-t="cancel">Cancel</button>
+      <button class="btn btn-primary" onclick="createTrip()" data-t="create">Create Trip</button>
     </div>
   </div>
 </div>
 
-<!-- Add Transport Modal -->
-<div class="modal-overlay" id="modal-add-transport">
-  <div class="modal">
-    <div class="modal-title">🚗 Add Transport</div>
-    <div class="irow"><div class="lbl">Type</div>
-      <select class="inp" id="tr-type">
-        <option>🚗 Car / Taxi</option>
-        <option>🚌 Bus</option>
-        <option>🚂 Train</option>
-        <option>🛥️ Ferry / Boat</option>
-        <option>🛺 Tuk-Tuk / Local</option>
-        <option>🚇 Metro / BTS</option>
-        <option>🛵 Scooter</option>
-        <option>📱 Grab / Uber</option>
-        <option>🚐 Transfer / Shuttle</option>
-        <option>🚲 Bicycle</option>
-      </select>
-    </div>
-    <div class="irow"><div class="lbl">Description</div><input class="inp" id="tr-desc" placeholder="Airport transfer — Phuket → Hotel"></div>
-    <div class="irow"><div class="lbl">Notes / Tips</div><textarea class="inp" id="tr-notes" placeholder="Price, booking info, tips..."></textarea></div>
+<!-- DELETE MODAL -->
+<div class="overlay" id="modal-delete">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title" data-t="deleteTrip">🗑️ Delete Trip?</div>
+    <p style="font-size:14px;color:var(--textm);margin-bottom:4px" data-t="deleteWarn">This will permanently delete the trip and all its data. Cannot be undone.</p>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-add-transport')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveTransport()">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- Delete Trip Modal -->
-<div class="modal-overlay" id="modal-delete-trip">
-  <div class="modal" style="max-width:380px">
-    <div class="modal-title">🗑️ Delete Trip?</div>
-    <p style="font-size:14px;color:var(--textm);margin-bottom:20px">This will permanently delete the trip and all its data. This cannot be undone.</p>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-delete-trip')">Cancel</button>
-      <button class="btn btn-danger" onclick="confirmDeleteTrip()">Delete Trip</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete')" data-t="cancel">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDelete()" data-t="delete">Delete</button>
     </div>
   </div>
 </div>
 
 <script>
-// ══════════════════════════════════════════════
-// SUPABASE INIT
-// ══════════════════════════════════════════════
-const SUPABASE_URL = 'https://peqseinicyynggnqnimc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_KEcpcc9mptTU3ydvH_LvhQ_x-6-uNun';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ══════════════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════════════
+const SB_URL = 'https://peqseinicyynggnqnimc.supabase.co';
+const SB_KEY = 'sb_publishable_KEcpcc9mptTU3ydvH_LvhQ_x-6-uNun';
+const sb = supabase.createClient(SB_URL, SB_KEY);
 
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
 let currentUser = null;
 let currentTrip = null;
-let tripData = {}; // all local data for current trip
-let saveTimer = null;
-let cdInterval = null;
-let convRates = {};
-let deleteTripId = null;
 let selectedEmoji = '🌴';
+let deleteTripId = null;
+let lang = localStorage.getItem('lf-lang') || 'en';
+let theme = localStorage.getItem('lf-theme') || 'dark';
 
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// TRANSLATIONS
+// ══════════════════════════════════════════════════════
+const T = {
+  en: {
+    tagline: 'Plan smarter. Fly better.',
+    signIn: 'Sign In',
+    createAccount: 'Create Account',
+    continueGoogle: 'Continue with Google',
+    orEmail: 'or with email',
+    email: 'Email',
+    password: 'Password',
+    fullName: 'Full Name',
+    myTrips: 'My Trips',
+    signOut: 'Sign Out',
+    homeSubtitle: 'Plan, organize and share your adventures',
+    loadingTrips: 'Loading...',
+    newTrip: '✈️ New Trip',
+    tripName: 'Trip Name *',
+    startDate: 'Start Date *',
+    endDate: 'End Date *',
+    destinations: 'Destinations',
+    travelers: 'Travelers',
+    currency: 'Currency',
+    notes: 'Notes',
+    tripIcon: 'Trip Icon',
+    cancel: 'Cancel',
+    create: 'Create Trip',
+    deleteTrip: '🗑️ Delete Trip?',
+    deleteWarn: 'This will permanently delete the trip and all its data. Cannot be undone.',
+    delete: 'Delete',
+    back: 'Back',
+    comingSoon: 'Coming in Stage 2',
+    stage2Desc: 'Flights, hotels, itinerary, budget, packing and more!',
+    nights: 'nights',
+    travelers2: 'travelers',
+    planNewTrip: 'Plan a New Trip',
+    noTrips: "You don't have any trips yet.",
+    greeting: 'My Trips',
+  },
+  he: {
+    tagline: 'תכנן חכם. טוס טוב יותר.',
+    signIn: 'כניסה',
+    createAccount: 'צור חשבון',
+    continueGoogle: 'המשך עם Google',
+    orEmail: 'או עם אימייל',
+    email: 'אימייל',
+    password: 'סיסמה',
+    fullName: 'שם מלא',
+    myTrips: 'הטיולים שלי',
+    signOut: 'התנתקות',
+    homeSubtitle: 'תכנן, ארגן ושתף את ההרפתקאות שלך',
+    loadingTrips: 'טוען...',
+    newTrip: '✈️ טיול חדש',
+    tripName: 'שם הטיול *',
+    startDate: 'תאריך יציאה *',
+    endDate: 'תאריך חזרה *',
+    destinations: 'יעדים',
+    travelers: 'נוסעים',
+    currency: 'מטבע',
+    notes: 'הערות',
+    tripIcon: 'אייקון טיול',
+    cancel: 'ביטול',
+    create: 'צור טיול',
+    deleteTrip: '🗑️ מחק טיול?',
+    deleteWarn: 'הטיול וכל הנתונים שלו יימחקו לצמיתות. לא ניתן לשחזר.',
+    delete: 'מחק',
+    back: 'חזור',
+    comingSoon: 'בקרוב — שלב 2',
+    stage2Desc: 'טיסות, מלונות, לוז, תקציב, אריזה ועוד!',
+    nights: 'לילות',
+    travelers2: 'נוסעים',
+    planNewTrip: 'תכנן טיול חדש',
+    noTrips: 'אין לך טיולים עדיין.',
+    greeting: 'הטיולים שלי',
+  }
+};
+
+function t(key) { return (T[lang] && T[lang][key]) || T.en[key] || key; }
+
+function applyLang() {
+  const isHe = lang === 'he';
+  document.documentElement.lang = lang;
+  document.documentElement.dir = isHe ? 'rtl' : 'ltr';
+  document.body.dir = isHe ? 'rtl' : 'ltr';
+
+  // Update all data-t elements
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const key = el.getAttribute('data-t');
+    el.textContent = t(key);
+  });
+
+  // Update lang buttons
+  const nextLang = isHe ? 'English' : 'עברית';
+  document.querySelectorAll('.lang-btn').forEach(b => b.innerHTML = `🌐 ${nextLang}`);
+
+  // Update home title
+  if (currentUser) {
+    const name = currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || '';
+    document.getElementById('home-title').textContent = name ? `👋 ${name}` : t('greeting');
+  }
+  localStorage.setItem('lf-lang', lang);
+}
+
+function toggleLang() {
+  lang = lang === 'en' ? 'he' : 'en';
+  applyLang();
+  if (currentUser) loadTrips();
+}
+
+// ══════════════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════════════
+function applyTheme() {
+  const isLight = theme === 'light';
+  document.body.classList.toggle('light', isLight);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = isLight ? '☀️' : '🌙';
+  localStorage.setItem('lf-theme', theme);
+}
+function toggleTheme() {
+  theme = theme === 'dark' ? 'light' : 'dark';
+  applyTheme();
+}
+
+// ══════════════════════════════════════════════════════
 // INIT
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 async function init() {
+  applyTheme();
+  applyLang();
+
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
@@ -845,161 +729,155 @@ async function init() {
   } else {
     showAuth();
   }
+
   sb.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      currentUser = session.user;
-      showApp();
-    } else if (event === 'SIGNED_OUT') {
-      currentUser = null;
-      showAuth();
-    }
+    if (event === 'SIGNED_IN' && session) { currentUser = session.user; showApp(); }
+    else if (event === 'SIGNED_OUT') { currentUser = null; showAuth(); }
   });
 }
 
 function showAuth() {
-  document.getElementById('loading-overlay').classList.remove('show');
-  document.getElementById('auth-screen').style.display = 'flex';
+  hide('loading');
+  document.getElementById('auth-screen').classList.add('show');
+  document.getElementById('navbar').style.display = 'none';
   document.getElementById('app').style.display = 'none';
 }
 
 function showApp() {
-  document.getElementById('loading-overlay').classList.remove('show');
-  document.getElementById('auth-screen').style.display = 'none';
+  hide('loading');
+  document.getElementById('auth-screen').classList.remove('show');
+  document.getElementById('navbar').style.display = 'flex';
   document.getElementById('app').style.display = 'block';
+
   const email = currentUser.email || '';
-  const initial = email[0].toUpperCase();
-  document.getElementById('user-avatar').textContent = initial;
-  document.getElementById('user-email-disp').textContent = email;
-  const name = currentUser.user_metadata?.full_name || email.split('@')[0];
-  document.getElementById('home-greeting').textContent = `👋 ${name}'s Trips`;
+  const initial = (currentUser.user_metadata?.full_name || email)[0]?.toUpperCase() || '?';
+  document.getElementById('avatar').textContent = initial;
+  document.getElementById('user-email').textContent = email;
+
+  const name = currentUser.user_metadata?.full_name || email.split('@')[0] || '';
+  document.getElementById('home-title').textContent = name ? `👋 ${name}` : t('greeting');
+
+  applyLang();
   goHome();
 }
 
-// ══════════════════════════════════════════════
-// AUTH
-// ══════════════════════════════════════════════
-function switchAuthTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0) === (tab==='login')));
-  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
-  document.getElementById('signup-form').style.display = tab === 'signup' ? 'block' : 'none';
-  clearAuthMessages();
+// ══════════════════════════════════════════════════════
+// AUTH ACTIONS
+// ══════════════════════════════════════════════════════
+function switchTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('tab-login').classList.toggle('active', isLogin);
+  document.getElementById('tab-signup').classList.toggle('active', !isLogin);
+  document.getElementById('form-login').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('form-signup').style.display = isLogin ? 'none' : 'block';
+  clearAlerts();
 }
 
-function clearAuthMessages() {
-  document.getElementById('auth-err').style.display = 'none';
-  document.getElementById('auth-msg').style.display = 'none';
+function clearAlerts() {
+  ['auth-err','auth-ok'].forEach(id => { document.getElementById(id).style.display='none'; });
 }
-
-function showAuthErr(msg) {
-  const el = document.getElementById('auth-err');
-  el.textContent = msg; el.style.display = 'block';
-}
-function showAuthMsg(msg) {
-  const el = document.getElementById('auth-msg');
-  el.textContent = msg; el.style.display = 'block';
-}
+function showErr(msg) { const e=document.getElementById('auth-err'); e.textContent=msg; e.style.display='block'; }
+function showOk(msg)  { const e=document.getElementById('auth-ok');  e.textContent=msg; e.style.display='block'; }
 
 async function doLogin() {
-  clearAuthMessages();
-  const email = document.getElementById('login-email').value.trim();
-  const pass = document.getElementById('login-pass').value;
-  if (!email || !pass) return showAuthErr('Please fill in all fields');
+  clearAlerts();
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  if (!email || !pass) return showErr('Please fill in all fields');
   const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if (error) showAuthErr(error.message);
+  if (error) showErr(error.message);
 }
 
 async function doSignup() {
-  clearAuthMessages();
-  const name = document.getElementById('signup-name').value.trim();
-  const email = document.getElementById('signup-email').value.trim();
-  const pass = document.getElementById('signup-pass').value;
-  if (!name || !email || !pass) return showAuthErr('Please fill in all fields');
-  if (pass.length < 6) return showAuthErr('Password must be at least 6 characters');
+  clearAlerts();
+  const name  = document.getElementById('s-name').value.trim();
+  const email = document.getElementById('s-email').value.trim();
+  const pass  = document.getElementById('s-pass').value;
+  if (!name || !email || !pass) return showErr('Please fill in all fields');
+  if (pass.length < 6) return showErr('Password must be at least 6 characters');
   const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name } } });
-  if (error) showAuthErr(error.message);
-  else showAuthMsg('Account created! Check your email to confirm, then sign in.');
+  if (error) showErr(error.message);
+  else showOk('Account created! Check your email to confirm, then sign in.');
+}
+
+async function googleLogin() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+  if (error) showErr(error.message);
 }
 
 async function doLogout() {
+  closeMenu();
   await sb.auth.signOut();
-  toggleUserMenu();
 }
 
-function toggleUserMenu() {
-  const m = document.getElementById('user-menu');
-  m.style.display = m.style.display === 'none' ? 'block' : 'none';
-}
-document.addEventListener('click', e => {
-  if (!e.target.closest('#user-avatar') && !e.target.closest('#user-menu')) {
-    document.getElementById('user-menu').style.display = 'none';
-  }
-});
-
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // NAVIGATION
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 function goHome() {
-  document.getElementById('page-home').classList.add('active');
-  document.getElementById('page-trip').classList.remove('active');
-  document.getElementById('sidebar-home').style.display = 'block';
-  document.getElementById('sidebar-trip').style.display = 'none';
-  document.getElementById('mobile-nav-home').style.display = 'flex';
-  document.getElementById('mobile-nav-trip').style.display = 'none';
-  document.getElementById('topbar-trip-name').textContent = '';
-  document.getElementById('topbar-sync').style.display = 'none';
-  if (cdInterval) { clearInterval(cdInterval); cdInterval = null; }
   currentTrip = null;
+  document.getElementById('nav-trip-name').textContent = '';
+  showPage('page-home');
   loadTrips();
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
 }
 
 function openTrip(trip) {
   currentTrip = trip;
-  tripData = trip.data || {};
-  document.getElementById('page-home').classList.remove('active');
-  document.getElementById('page-trip').classList.add('active');
-  document.getElementById('sidebar-home').style.display = 'none';
-  document.getElementById('sidebar-trip').style.display = 'flex';
-  document.getElementById('mobile-nav-home').style.display = 'none';
-  document.getElementById('mobile-nav-trip').style.display = 'flex';
-  document.getElementById('topbar-trip-name').textContent = trip.emoji + ' ' + trip.name;
-  document.getElementById('topbar-sync').style.display = 'none';
-  showSec('dashboard', document.querySelector('[data-sec="dashboard"]'));
+  document.getElementById('nav-trip-name').textContent = trip.emoji + ' ' + trip.name;
+  document.getElementById('trip-page-title').textContent = trip.emoji + ' ' + trip.name;
+  const nights = calcNights(trip.start_date, trip.end_date);
+  document.getElementById('trip-page-sub').textContent =
+    `📅 ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)} · ${nights} ${t('nights')} · ${trip.travelers || 1} ${t('travelers2')}`;
+  showPage('page-trip');
 }
 
-function showSec(sec, btn) {
-  document.querySelectorAll('#page-trip .page').forEach(p => { p.style.display = 'none'; p.classList.remove('active'); });
-  const el = document.getElementById('sec-' + sec);
-  if (el) { el.style.display = 'block'; el.classList.add('active'); }
-  document.querySelectorAll('.nav-btn[data-sec]').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.mnb[data-sec]').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  renderSection(sec);
-}
-
-// ══════════════════════════════════════════════
-// TRIPS CRUD
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// TRIPS
+// ══════════════════════════════════════════════════════
 async function loadTrips() {
   const grid = document.getElementById('trips-grid');
-  grid.innerHTML = '<div style="text-align:center;color:var(--textm);font-size:14px;padding:40px;grid-column:1/-1">Loading...</div>';
-  const { data, error } = await sb.from('trips').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
-  if (error) { grid.innerHTML = '<div style="color:var(--coral);padding:20px">Error loading trips: ' + error.message + '</div>'; return; }
+  grid.innerHTML = `<div style="color:var(--textm);font-size:14px;padding:20px">${t('loadingTrips')}</div>`;
+
+  const { data, error } = await sb.from('trips')
+    .select('*').eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  if (error) { grid.innerHTML = `<div style="color:var(--coral);padding:20px">Error: ${error.message}</div>`; return; }
+
   grid.innerHTML = '';
-  (data || []).forEach(trip => {
+
+  const colors = [
+    ['#1e3a5f','#0f2a4a'], ['#1a3a2a','#0f2a1a'], ['#3a1a2a','#2a0f1a'],
+    ['#2a2a1a','#1a1a0f'], ['#1a1a3a','#0f0f2a'], ['#2a1a1a','#1a0f0f'],
+  ];
+
+  (data || []).forEach((trip, i) => {
+    const nights = calcNights(trip.start_date, trip.end_date);
+    const [c1, c2] = colors[i % colors.length];
     const card = document.createElement('div');
     card.className = 'trip-card';
-    const nights = trip.start_date && trip.end_date ? Math.round((new Date(trip.end_date) - new Date(trip.start_date)) / 86400000) : '?';
-    const startFmt = trip.start_date ? new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD';
-    const colors = ['#1a2a3a','#1a2030','#1f1a30','#1a2a25','#2a1a1a'];
-    const ci = Math.abs(trip.id.charCodeAt(0) % colors.length);
     card.innerHTML = `
-      <div class="trip-card-cover" style="background:${colors[ci]}">${trip.emoji || '🌍'}</div>
+      <div class="trip-cover">
+        <div class="trip-cover-bg" style="--c1:${c1};--c2:${c2}"></div>
+        <div class="trip-cover-emoji">${trip.emoji || '🌍'}</div>
+      </div>
       <div class="trip-card-actions">
-        <button class="tc-action-btn" onclick="event.stopPropagation();promptDeleteTrip('${trip.id}')" title="Delete">🗑️</button>
+        <button class="tc-btn" onclick="event.stopPropagation();askDelete('${trip.id}')" title="Delete">🗑️</button>
       </div>
       <div class="trip-card-body">
         <div class="trip-card-name">${trip.name}</div>
-        <div class="trip-card-meta">📅 ${startFmt} · ${nights} nights · ${trip.travelers || 1} travelers</div>
+        <div class="trip-card-meta">
+          📅 ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)}<br>
+          ${nights} ${t('nights')} · ${trip.travelers || 1} ${t('travelers2')}
+        </div>
         <div class="trip-card-tags">
           ${trip.destination ? `<span class="tag tag-blue">📍 ${trip.destination}</span>` : ''}
           <span class="tag tag-green">${trip.currency || 'USD'}</span>
@@ -1008,624 +886,121 @@ async function loadTrips() {
     card.addEventListener('click', () => openTrip(trip));
     grid.appendChild(card);
   });
-  const newCard = document.createElement('div');
-  newCard.className = 'new-trip-card';
-  newCard.innerHTML = '<div class="new-trip-icon">＋</div><div class="new-trip-label">Plan a New Trip</div>';
-  newCard.addEventListener('click', () => openModal('modal-new-trip'));
-  grid.appendChild(newCard);
+
+  // New trip card
+  const nc = document.createElement('div');
+  nc.className = 'new-card';
+  nc.innerHTML = `<div class="new-card-icon">＋</div><div class="new-card-label">${t('planNewTrip')}</div>`;
+  nc.addEventListener('click', () => openModal('modal-new'));
+  grid.appendChild(nc);
+
   initEmojiPicker();
 }
 
+async function createTrip() {
+  const name  = document.getElementById('nt-name').value.trim();
+  const start = document.getElementById('nt-start').value;
+  const end   = document.getElementById('nt-end').value;
+  if (!name)         return toast('⚠️ ' + t('tripName'));
+  if (!start || !end) return toast('⚠️ ' + t('startDate'));
+
+  const { data, error } = await sb.from('trips').insert({
+    user_id:     currentUser.id,
+    name,
+    emoji:       selectedEmoji,
+    destination: document.getElementById('nt-dest').value.trim(),
+    start_date:  start,
+    end_date:    end,
+    travelers:   parseInt(document.getElementById('nt-travelers').value) || 1,
+    currency:    document.getElementById('nt-currency').value,
+    notes:       document.getElementById('nt-notes').value.trim(),
+    data:        {}
+  }).select().single();
+
+  if (error) return toast('❌ ' + error.message);
+  closeModal('modal-new');
+  clearNewForm();
+  toast('✅ ' + name);
+  openTrip(data);
+}
+
+function clearNewForm() {
+  ['nt-name','nt-dest','nt-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('nt-start').value = '';
+  document.getElementById('nt-end').value = '';
+  document.getElementById('nt-travelers').value = '2';
+  document.getElementById('nt-currency').value = 'USD';
+}
+
+function askDelete(id) { deleteTripId = id; openModal('modal-delete'); }
+
+async function confirmDelete() {
+  if (!deleteTripId) return;
+  const { error } = await sb.from('trips').delete().eq('id', deleteTripId).eq('user_id', currentUser.id);
+  closeModal('modal-delete');
+  deleteTripId = null;
+  if (error) return toast('❌ ' + error.message);
+  toast('🗑️ Deleted');
+  loadTrips();
+}
+
+// ══════════════════════════════════════════════════════
+// EMOJI PICKER
+// ══════════════════════════════════════════════════════
 function initEmojiPicker() {
-  const picker = document.getElementById('nt-emoji-picker');
-  if (!picker) return;
-  const emojis = picker.textContent.trim().split('');
+  const picker = document.getElementById('emoji-picker');
+  if (!picker || picker.dataset.init) return;
+  picker.dataset.init = '1';
+  const emojis = [...picker.textContent.trim()].filter(e => e.trim());
   picker.innerHTML = '';
-  selectedEmoji = '🌴';
+  selectedEmoji = emojis[0];
   emojis.forEach(em => {
     const btn = document.createElement('button');
-    btn.className = 'ep-btn' + (em === selectedEmoji ? ' selected' : '');
+    btn.className = 'ep' + (em === selectedEmoji ? ' sel' : '');
     btn.textContent = em;
     btn.onclick = () => {
       selectedEmoji = em;
-      document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
+      document.querySelectorAll('.ep').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel');
     };
     picker.appendChild(btn);
   });
 }
 
-async function createTrip() {
-  const name = document.getElementById('nt-name').value.trim();
-  const start = document.getElementById('nt-start').value;
-  const end = document.getElementById('nt-end').value;
-  if (!name) return showToast('Please enter a trip name');
-  if (!start || !end) return showToast('Please select dates');
-  const { data, error } = await sb.from('trips').insert({
-    user_id: currentUser.id,
-    name,
-    start_date: start,
-    end_date: end,
-    destination: document.getElementById('nt-dest').value.trim(),
-    travelers: parseInt(document.getElementById('nt-travelers').value) || 1,
-    currency: document.getElementById('nt-currency').value,
-    notes: document.getElementById('nt-notes').value.trim(),
-    emoji: selectedEmoji,
-    data: {}
-  }).select().single();
-  if (error) return showToast('Error: ' + error.message);
-  closeModal('modal-new-trip');
-  clearNewTripForm();
-  showToast('✅ Trip created!');
-  openTrip(data);
-}
-
-function clearNewTripForm() {
-  ['nt-name','nt-start','nt-end','nt-dest','nt-notes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('nt-travelers').value = '2';
-  document.getElementById('nt-currency').value = 'USD';
-}
-
-function promptDeleteTrip(id) {
-  deleteTripId = id;
-  openModal('modal-delete-trip');
-}
-
-async function confirmDeleteTrip() {
-  if (!deleteTripId) return;
-  const { error } = await sb.from('trips').delete().eq('id', deleteTripId).eq('user_id', currentUser.id);
-  closeModal('modal-delete-trip');
-  deleteTripId = null;
-  if (error) return showToast('Error: ' + error.message);
-  showToast('🗑️ Trip deleted');
-  loadTrips();
-}
-
-// ══════════════════════════════════════════════
-// SAVE TRIP DATA
-// ══════════════════════════════════════════════
-function saveData() {
-  if (!currentTrip) return;
-  document.getElementById('topbar-sync').style.display = 'inline-flex';
-  document.getElementById('topbar-sync').textContent = '💾 Saving...';
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    const { error } = await sb.from('trips').update({ data: tripData }).eq('id', currentTrip.id).eq('user_id', currentUser.id);
-    if (!error) {
-      document.getElementById('topbar-sync').textContent = '✅ Saved';
-      setTimeout(() => { document.getElementById('topbar-sync').style.display = 'none'; }, 2000);
-    } else {
-      document.getElementById('topbar-sync').textContent = '❌ Error';
-    }
-  }, 1000);
-}
-
-// ══════════════════════════════════════════════
-// SECTION RENDERERS
-// ══════════════════════════════════════════════
-function renderSection(sec) {
-  switch(sec) {
-    case 'dashboard': renderDashboard(); break;
-    case 'todo': renderTodo(); break;
-    case 'flights': renderFlights(); break;
-    case 'hotels': renderHotels(); break;
-    case 'itinerary': renderItinerary(); break;
-    case 'budget': renderBudget(); break;
-    case 'packing': renderPacking(); break;
-    case 'currency': fetchRates(); break;
-    case 'transport': renderTransport(); break;
-    case 'emergency': renderEmergency(); break;
-  }
-}
-
-// DASHBOARD
-function renderDashboard() {
-  // Countdown
-  if (currentTrip.start_date) {
-    const dep = new Date(currentTrip.start_date + 'T00:00:00');
-    const now = new Date();
-    if (dep > now) {
-      const diff = dep - now;
-      const days = Math.floor(diff / 86400000);
-      document.getElementById('cd-days').textContent = days;
-      document.getElementById('cd-label').textContent = 'days until departure';
-      document.getElementById('cd-date').textContent = '✈️ ' + dep.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' }) + (currentTrip.destination ? ' · ' + currentTrip.destination : '');
-      if (cdInterval) clearInterval(cdInterval);
-      cdInterval = setInterval(() => {
-        const d = new Date(currentTrip.start_date + 'T00:00:00') - new Date();
-        if (d < 0) { clearInterval(cdInterval); return; }
-        const h = Math.floor(d / 3600000) % 24, m = Math.floor(d / 60000) % 60, s = Math.floor(d / 1000) % 60;
-        document.getElementById('cd-h').textContent = String(h).padStart(2,'0');
-        document.getElementById('cd-m').textContent = String(m).padStart(2,'0');
-        document.getElementById('cd-s').textContent = String(s).padStart(2,'0');
-      }, 1000);
-    } else {
-      const end = currentTrip.end_date ? new Date(currentTrip.end_date + 'T00:00:00') : null;
-      if (end && now < end) {
-        document.getElementById('cd-days').textContent = '🛫';
-        document.getElementById('cd-label').textContent = 'Trip in progress!';
-      } else {
-        document.getElementById('cd-days').textContent = '🎉';
-        document.getElementById('cd-label').textContent = 'Trip completed!';
-      }
-      document.getElementById('cd-date').textContent = currentTrip.destination || '';
-    }
-  }
-  // Stats
-  const todos = tripData.todos || [];
-  const done = todos.filter(t => t.done).length;
-  const left = todos.length - done;
-  const nights = currentTrip.start_date && currentTrip.end_date ? Math.round((new Date(currentTrip.end_date) - new Date(currentTrip.start_date)) / 86400000) : 0;
-  const budgetItems = (tripData.budget || []).length;
-  document.getElementById('st-done').textContent = done;
-  document.getElementById('st-left').textContent = left;
-  document.getElementById('st-days').textContent = nights;
-  document.getElementById('st-budget').textContent = budgetItems;
-  const pct = todos.length ? Math.round(done / todos.length * 100) : 0;
-  document.getElementById('prog-fill').style.width = pct + '%';
-  document.getElementById('prog-pct').textContent = pct + '%';
-  // Trip detail
-  const d = document.getElementById('trip-detail-render');
-  d.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div><div class="lbl">Destination</div><div style="font-size:14px">${currentTrip.destination || '—'}</div></div>
-      <div><div class="lbl">Travelers</div><div style="font-size:14px">${currentTrip.travelers || 1} people</div></div>
-      <div><div class="lbl">Dates</div><div style="font-size:14px">${currentTrip.start_date || '—'} → ${currentTrip.end_date || '—'}</div></div>
-      <div><div class="lbl">Currency</div><div style="font-size:14px">${currentTrip.currency || 'USD'}</div></div>
-      ${currentTrip.notes ? `<div style="grid-column:1/-1"><div class="lbl">Notes</div><div style="font-size:13px;color:var(--textm)">${currentTrip.notes}</div></div>` : ''}
-    </div>`;
-}
-
-// TASKS
-function renderTodo() {
-  const todos = tripData.todos || [];
-  const cats = ['Pre-Trip Prep', 'Documents & Admin', 'Packing', 'At Destination', 'Post-Trip'];
-  const byCat = {};
-  cats.forEach(c => byCat[c] = todos.filter(t => t.cat === c));
-  const uncategorized = todos.filter(t => !t.cat || !cats.includes(t.cat));
-  if (uncategorized.length) byCat['Other'] = uncategorized;
-  const allCats = [...cats, ...(uncategorized.length ? ['Other'] : [])];
-  let html = '';
-  allCats.forEach(cat => {
-    const items = byCat[cat] || [];
-    if (items.length === 0 && cat !== 'Pre-Trip Prep') return;
-    html += `<div class="cat-head">${cat}</div>`;
-    items.forEach(item => {
-      html += `<div class="todo-item ${item.done ? 'done' : ''}" onclick="toggleTodo('${item.id}')">
-        <div class="todo-check">${item.done ? '✓' : ''}</div>
-        <div class="todo-text">${item.text}</div>
-        <button class="todo-del" onclick="event.stopPropagation();deleteTodo('${item.id}')">×</button>
-      </div>`;
-    });
-    html += `<div class="add-row"><input class="inp" placeholder="Add task..." id="todo-inp-${cat.replace(/\s/g,'-')}" onkeydown="if(event.key==='Enter')addTodo('${cat}')"><button onclick="addTodo('${cat}')">+</button></div>`;
-  });
-  document.getElementById('todo-render').innerHTML = html;
-  updateDashStats();
-}
-
-function toggleTodo(id) {
-  const todos = tripData.todos || [];
-  const t = todos.find(t => t.id === id);
-  if (t) { t.done = !t.done; tripData.todos = todos; saveData(); renderTodo(); }
-}
-
-function deleteTodo(id) {
-  tripData.todos = (tripData.todos || []).filter(t => t.id !== id);
-  saveData(); renderTodo();
-}
-
-function addTodo(cat) {
-  const safeId = cat.replace(/\s/g, '-');
-  const inp = document.getElementById('todo-inp-' + safeId);
-  const text = inp ? inp.value.trim() : '';
-  if (!text) return;
-  if (!tripData.todos) tripData.todos = [];
-  tripData.todos.push({ id: uid(), text, cat, done: false });
-  saveData(); renderTodo();
-}
-
-function updateDashStats() {
-  const todos = tripData.todos || [];
-  const done = todos.filter(t => t.done).length;
-  ['st-done','st-left','st-budget'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      if (id === 'st-done') el.textContent = done;
-      if (id === 'st-left') el.textContent = todos.length - done;
-      if (id === 'st-budget') el.textContent = (tripData.budget || []).length;
-    }
-  });
-}
-
-// FLIGHTS
-function renderFlights() {
-  const flights = tripData.flights || [];
-  const el = document.getElementById('flights-render');
-  if (!flights.length) { el.innerHTML = '<div class="card" style="text-align:center;color:var(--textm);padding:40px">No flights yet. Add your first flight! ✈️</div>'; return; }
-  el.innerHTML = flights.map(f => `
-    <div class="flight-card">
-      <div class="flight-header" onclick="this.parentElement.classList.toggle('open')">
-        <span style="font-size:20px">✈️</span>
-        <div class="flight-route">${f.from || '?'} → ${f.to || '?'}</div>
-        <span class="tag tag-blue" style="margin-left:auto">${f.airline || ''}</span>
-        <button onclick="event.stopPropagation();deleteFlight('${f.id}')" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:18px;margin-left:8px">×</button>
-      </div>
-      <div class="flight-body" style="display:none">
-        <div class="flight-row"><div class="flight-dot"></div><div class="flight-time">${f.depTime || '—'}</div><div>Departure · ${f.from || ''}</div></div>
-        <div class="flight-row"><div class="flight-dot" style="background:var(--green)"></div><div class="flight-time">${f.arrTime || '—'}</div><div>Arrival · ${f.to || ''}</div></div>
-        ${f.flightNum ? `<div class="flight-row" style="margin-top:8px"><div class="flight-dot" style="background:var(--textd)"></div><div>Flight: <strong>${f.flightNum}</strong></div></div>` : ''}
-        ${f.conf ? `<div class="flight-row"><div class="flight-dot" style="background:var(--textd)"></div><div>Confirmation: <strong>${f.conf}</strong></div></div>` : ''}
-        ${f.notes ? `<div class="flight-row"><div class="flight-dot" style="background:var(--textd)"></div><div style="color:var(--textm)">${f.notes}</div></div>` : ''}
-      </div>
-    </div>`).join('');
-  el.querySelectorAll('.flight-header').forEach(h => h.addEventListener('click', () => {
-    const body = h.nextElementSibling;
-    body.style.display = body.style.display === 'none' ? 'block' : 'none';
-  }));
-}
-
-function openAddFlight() { openModal('modal-add-flight'); }
-function saveFlight() {
-  const dep = document.getElementById('fl-dep').value;
-  const arr = document.getElementById('fl-arr').value;
-  const f = {
-    id: uid(),
-    from: document.getElementById('fl-from').value.trim().toUpperCase(),
-    to: document.getElementById('fl-to').value.trim().toUpperCase(),
-    depTime: dep ? new Date(dep).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
-    arrTime: arr ? new Date(arr).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
-    flightNum: document.getElementById('fl-num').value.trim(),
-    airline: document.getElementById('fl-airline').value.trim(),
-    conf: document.getElementById('fl-conf').value.trim(),
-    notes: document.getElementById('fl-notes').value.trim()
-  };
-  if (!f.from || !f.to) return showToast('Enter departure and arrival airports');
-  if (!tripData.flights) tripData.flights = [];
-  tripData.flights.push(f);
-  saveData(); closeModal('modal-add-flight'); renderFlights();
-  ['fl-from','fl-to','fl-dep','fl-arr','fl-num','fl-airline','fl-conf','fl-notes'].forEach(id => document.getElementById(id).value = '');
-  showToast('✅ Flight added');
-}
-function deleteFlight(id) { tripData.flights = (tripData.flights||[]).filter(f=>f.id!==id); saveData(); renderFlights(); }
-
-// HOTELS
-function renderHotels() {
-  const hotels = tripData.hotels || [];
-  const el = document.getElementById('hotels-render');
-  if (!hotels.length) { el.innerHTML = '<div class="card" style="text-align:center;color:var(--textm);padding:40px">No hotels yet. Add your accommodation! 🏨</div>'; return; }
-  el.innerHTML = hotels.map(h => `
-    <div class="hotel-card">
-      <div class="hotel-header">
-        <span style="font-size:20px">🏨</span>
-        <div>
-          <div class="hotel-name">${h.name}</div>
-          ${h.dest ? `<div style="font-size:12px;color:var(--textm)">${h.dest}</div>` : ''}
-        </div>
-        <button onclick="deleteHotel('${h.id}')" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:18px;margin-left:auto">×</button>
-      </div>
-      <div class="hotel-body">
-        ${h.checkIn ? `<div class="hotel-row"><div class="lbl">Check-In</div><span>${h.checkIn}</span></div>` : ''}
-        ${h.checkOut ? `<div class="hotel-row"><div class="lbl">Check-Out</div><span>${h.checkOut}</span></div>` : ''}
-        ${h.conf ? `<div class="hotel-row"><div class="lbl">Confirmation</div><span>${h.conf}</span></div>` : ''}
-        ${h.cost ? `<div class="hotel-row"><div class="lbl">Cost</div><span>${h.cost} ${currentTrip.currency || ''}</span></div>` : ''}
-        ${h.notes ? `<div class="hotel-row"><div class="lbl">Notes</div><span style="color:var(--textm)">${h.notes}</span></div>` : ''}
-      </div>
-    </div>`).join('');
-}
-
-function openAddHotel() { openModal('modal-add-hotel'); }
-function saveHotel() {
-  const name = document.getElementById('ht-name').value.trim();
-  if (!name) return showToast('Enter hotel name');
-  const h = {
-    id: uid(), name,
-    dest: document.getElementById('ht-dest').value.trim(),
-    checkIn: document.getElementById('ht-in').value,
-    checkOut: document.getElementById('ht-out').value,
-    conf: document.getElementById('ht-conf').value.trim(),
-    cost: document.getElementById('ht-cost').value,
-    notes: document.getElementById('ht-notes').value.trim()
-  };
-  if (!tripData.hotels) tripData.hotels = [];
-  tripData.hotels.push(h);
-  saveData(); closeModal('modal-add-hotel'); renderHotels();
-  ['ht-name','ht-dest','ht-in','ht-out','ht-conf','ht-cost','ht-notes'].forEach(id => document.getElementById(id).value = '');
-  showToast('✅ Hotel added');
-}
-function deleteHotel(id) { tripData.hotels = (tripData.hotels||[]).filter(h=>h.id!==id); saveData(); renderHotels(); }
-
-// ITINERARY
-function renderItinerary() {
-  const days = (tripData.days || []).sort((a,b) => (a.num||0) - (b.num||0));
-  const el = document.getElementById('itinerary-render');
-  if (!days.length) { el.innerHTML = '<div class="card" style="text-align:center;color:var(--textm);padding:40px">No itinerary days yet. Add your first day! 📅</div>'; return; }
-  el.innerHTML = days.map(day => `
-    <div class="itin-day" id="iday-${day.id}">
-      <div class="itin-day-header" onclick="document.getElementById('iday-${day.id}').classList.toggle('open')">
-        <div class="itin-day-num">Day ${day.num}</div>
-        <div class="itin-day-title">${day.title || 'Untitled'}</div>
-        <div class="itin-day-date">${day.date || ''} · ${day.city || ''}</div>
-        <button onclick="event.stopPropagation();deleteDay('${day.id}')" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:18px;margin-left:8px">×</button>
-      </div>
-      <div class="itin-day-body">
-        ${(day.blocks||[]).map(b => `<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div></div>`).join('')}
-        <textarea class="itin-notes" placeholder="Notes for this day..." onchange="saveDayNote('${day.id}',this.value)">${day.note||''}</textarea>
-      </div>
-    </div>`).join('');
-}
-
-function openAddDay() { openModal('modal-add-day'); }
-function saveDay() {
-  const num = parseInt(document.getElementById('dy-num').value);
-  const title = document.getElementById('dy-title').value.trim();
-  if (!num || !title) return showToast('Enter day number and title');
-  const blocksRaw = document.getElementById('dy-blocks').value.trim();
-  const blocks = blocksRaw ? blocksRaw.split('\n').filter(Boolean).map(line => {
-    const parts = line.split('|');
-    if (parts.length >= 2) return { time: parts[0].trim(), text: parts.slice(1).join('|').trim() };
-    return { time: '', text: line.trim() };
-  }) : [];
-  const day = { id: uid(), num, title, date: document.getElementById('dy-date').value, city: document.getElementById('dy-city').value.trim(), blocks };
-  if (!tripData.days) tripData.days = [];
-  tripData.days.push(day);
-  saveData(); closeModal('modal-add-day'); renderItinerary();
-  ['dy-num','dy-date','dy-title','dy-city','dy-blocks'].forEach(id => document.getElementById(id).value = '');
-  showToast('✅ Day added');
-}
-function deleteDay(id) { tripData.days = (tripData.days||[]).filter(d=>d.id!==id); saveData(); renderItinerary(); }
-function saveDayNote(id, val) { const d = (tripData.days||[]).find(d=>d.id===id); if(d){d.note=val;saveData();} }
-
-// BUDGET
-function renderBudget() {
-  const items = tripData.budget || [];
-  const cur = currentTrip.currency || 'USD';
-  const total = items.reduce((s,i) => s + parseFloat(i.amount||0), 0);
-  const paid = items.filter(i=>i.status==='paid').reduce((s,i) => s + parseFloat(i.amount||0), 0);
-  document.getElementById('bud-total').textContent = fmtMoney(total, cur);
-  document.getElementById('bud-paid').textContent = fmtMoney(paid, cur);
-  document.getElementById('bud-left').textContent = fmtMoney(total - paid, cur);
-  const el = document.getElementById('budget-render');
-  if (!items.length) { el.innerHTML = '<div style="text-align:center;color:var(--textm);padding:30px">No budget items yet. Add your first expense! 💰</div>'; return; }
-  el.innerHTML = `<table class="budget-table">
-    <thead><tr><th>Description</th><th>Category</th><th>Amount</th><th>Status</th><th></th></tr></thead>
-    <tbody>${items.map(item => `
-      <tr>
-        <td><input class="budget-inp" value="${item.desc||''}" onchange="updBudgetItem('${item.id}','desc',this.value)"></td>
-        <td style="color:var(--textm)">${item.cat||''}</td>
-        <td style="font-weight:600">${fmtMoney(item.amount||0, cur)}</td>
-        <td><span class="status-pill sp-${item.status||'planned'}" onclick="cycleStatus('${item.id}')">${statusLabel(item.status)}</span></td>
-        <td><button onclick="deleteBudgetItem('${item.id}')" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:16px">×</button></td>
-      </tr>`).join('')}
-    </tbody></table>`;
-}
-
-function fmtMoney(val, cur) { return parseFloat(val).toFixed(0) + ' ' + (cur||''); }
-function statusLabel(s) { return s === 'booked' ? '📋 Booked' : s === 'paid' ? '✅ Paid' : '📝 Planned'; }
-function cycleStatus(id) {
-  const item = (tripData.budget||[]).find(i=>i.id===id);
-  if (!item) return;
-  const statuses = ['planned','booked','paid'];
-  item.status = statuses[(statuses.indexOf(item.status||'planned') + 1) % statuses.length];
-  saveData(); renderBudget();
-}
-function updBudgetItem(id, key, val) { const item = (tripData.budget||[]).find(i=>i.id===id); if(item){item[key]=val;saveData();} }
-function deleteBudgetItem(id) { tripData.budget = (tripData.budget||[]).filter(i=>i.id!==id); saveData(); renderBudget(); }
-
-function openAddBudget() { openModal('modal-add-budget'); }
-function saveBudgetItem() {
-  const desc = document.getElementById('bd-desc').value.trim();
-  if (!desc) return showToast('Enter a description');
-  const item = { id: uid(), desc, amount: parseFloat(document.getElementById('bd-amount').value)||0, cat: document.getElementById('bd-cat').value, status: document.getElementById('bd-status').value, notes: document.getElementById('bd-notes').value.trim() };
-  if (!tripData.budget) tripData.budget = [];
-  tripData.budget.push(item);
-  saveData(); closeModal('modal-add-budget'); renderBudget();
-  ['bd-desc','bd-amount','bd-notes'].forEach(id => document.getElementById(id).value = '');
-  showToast('✅ Budget item added');
-}
-
-// PACKING
-const DEFAULT_PACK_CATS = [
-  { cat: '📄 Documents', items: ['Passport','Flight tickets','Travel insurance','Hotel confirmations','Driving license','Visa documents'] },
-  { cat: '👕 Clothing', items: ['T-shirts','Shorts / Pants','Swimwear','Light jacket','Underwear','Socks','Sandals','Sneakers','Evening outfit'] },
-  { cat: '🧴 Toiletries', items: ['Sunscreen SPF50+','After-sun lotion','Shampoo','Toothbrush & paste','Deodorant','Razor','Moisturizer'] },
-  { cat: '💊 Health & Safety', items: ['Travel first aid kit','Insect repellent','Antidiarrheal','Pain relievers','Antihistamine','Prescription medications','Thermometer'] },
-  { cat: '📱 Electronics', items: ['Phone + charger','Camera','Power bank','Universal adapter','Earphones/headphones','E-reader'] },
-  { cat: '🎒 Bag Essentials', items: ['Day backpack','Reusable water bottle','Sunglasses','Hat/Cap','Neck pillow','Eye mask'] },
-];
-
-function renderPacking() {
-  const packed = tripData.packed || {};
-  const customItems = tripData.customPack || {};
-  const el = document.getElementById('packing-render');
-  el.innerHTML = DEFAULT_PACK_CATS.map(cat => {
-    const customs = customItems[cat.cat] || [];
-    const allItems = [...cat.items, ...customs];
-    const doneCount = allItems.filter(i => packed[cat.cat + ':' + i]).length;
-    return `<div class="pack-section">
-      <div class="pack-section-title">${cat.cat} <span style="font-size:11px;color:var(--textm);margin-left:auto">${doneCount}/${allItems.length}</span></div>
-      ${allItems.map(item => {
-        const key = cat.cat + ':' + item;
-        return `<div class="pack-item ${packed[key] ? 'packed' : ''}" onclick="togglePack('${key}')">
-          <div class="pack-check">${packed[key] ? '✓' : ''}</div>
-          <div class="pack-text">${item}</div>
-        </div>`;
-      }).join('')}
-      <div class="add-row" style="margin-top:8px">
-        <input class="inp" style="font-size:12px;padding:6px 10px" placeholder="Add item..." id="pack-add-${cat.cat.replace(/\s/g,'_')}" onkeydown="if(event.key==='Enter')addPackItem('${cat.cat}')">
-        <button onclick="addPackItem('${cat.cat}')" style="height:34px;font-size:16px">+</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function togglePack(key) {
-  if (!tripData.packed) tripData.packed = {};
-  tripData.packed[key] = !tripData.packed[key];
-  saveData(); renderPacking();
-}
-function addPackItem(cat) {
-  const safeId = cat.replace(/\s/g, '_');
-  const inp = document.getElementById('pack-add-' + safeId);
-  const text = inp ? inp.value.trim() : '';
-  if (!text) return;
-  if (!tripData.customPack) tripData.customPack = {};
-  if (!tripData.customPack[cat]) tripData.customPack[cat] = [];
-  tripData.customPack[cat].push(text);
-  saveData(); renderPacking();
-}
-
-// CURRENCY
-async function fetchRates() {
-  document.getElementById('conv-rate').textContent = 'Loading rates...';
-  try {
-    const r = await fetch('https://open.er-api.com/v6/latest/USD');
-    const d = await r.json();
-    if (d.rates) { convRates = d.rates; doConvert(); }
-  } catch(e) { document.getElementById('conv-rate').textContent = 'Could not load rates'; }
-}
-function doConvert() {
-  const amount = parseFloat(document.getElementById('conv-amount').value) || 0;
-  const from = document.getElementById('conv-from').value;
-  const to = document.getElementById('conv-to').value;
-  if (!convRates[from] || !convRates[to]) { document.getElementById('conv-result').textContent = '—'; return; }
-  const result = amount / convRates[from] * convRates[to];
-  document.getElementById('conv-result').textContent = result.toFixed(2) + ' ' + to;
-  document.getElementById('conv-rate').textContent = `1 ${from} = ${(convRates[to]/convRates[from]).toFixed(4)} ${to}`;
-}
-function swapCurr() {
-  const f = document.getElementById('conv-from').value;
-  document.getElementById('conv-from').value = document.getElementById('conv-to').value;
-  document.getElementById('conv-to').value = f;
-  doConvert();
-}
-
-// TRANSPORT
-function renderTransport() {
-  const items = tripData.transport || [];
-  const el = document.getElementById('transport-render');
-  if (!items.length) { el.innerHTML = '<div style="text-align:center;color:var(--textm);padding:30px">No transport info yet. Add transfers, taxis, buses... 🚗</div>'; return; }
-  el.innerHTML = items.map(t => `
-    <div class="transport-item">
-      <div class="transport-icon">${t.type ? t.type.split(' ')[0] : '🚗'}</div>
-      <div class="transport-info" style="flex:1">
-        <div class="ti-title">${t.type || ''}</div>
-        <div class="ti-desc">${t.desc || ''}</div>
-        ${t.notes ? `<div class="ti-desc" style="margin-top:4px;color:var(--textd)">${t.notes}</div>` : ''}
-      </div>
-      <button onclick="deleteTransport('${t.id}')" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:18px">×</button>
-    </div>`).join('');
-}
-function openAddTransport() { openModal('modal-add-transport'); }
-function saveTransport() {
-  const t = { id: uid(), type: document.getElementById('tr-type').value, desc: document.getElementById('tr-desc').value.trim(), notes: document.getElementById('tr-notes').value.trim() };
-  if (!tripData.transport) tripData.transport = [];
-  tripData.transport.push(t);
-  saveData(); closeModal('modal-add-transport'); renderTransport();
-  ['tr-desc','tr-notes'].forEach(id => document.getElementById(id).value = '');
-  showToast('✅ Transport added');
-}
-function deleteTransport(id) { tripData.transport = (tripData.transport||[]).filter(t=>t.id!==id); saveData(); renderTransport(); }
-
-// EMERGENCY
-function renderEmergency() {
-  const data = tripData.emergency || {};
-  const el = document.getElementById('emergency-render');
-  el.innerHTML = `
-    <div class="emergency-card">
-      <div class="emergency-title">🏥 Medical & Insurance</div>
-      <div class="emergency-row"><div class="emergency-icon">🏥</div><div class="emergency-info"><div class="el">Travel Insurance Policy</div><input class="inp inp-sm" value="${data.insurance||''}" placeholder="Policy number..." onchange="saveEmergency('insurance',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">📞</div><div class="emergency-info"><div class="el">Insurance Emergency Line</div><input class="inp inp-sm" value="${data.insuranceTel||''}" placeholder="+1-800-..." onchange="saveEmergency('insuranceTel',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">💊</div><div class="emergency-info"><div class="el">Blood Type</div><input class="inp inp-sm" value="${data.bloodType||''}" placeholder="A+, O-, etc." onchange="saveEmergency('bloodType',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">⚠️</div><div class="emergency-info"><div class="el">Allergies / Medical Notes</div><input class="inp inp-sm" value="${data.allergies||''}" placeholder="None / Penicillin..." onchange="saveEmergency('allergies',this.value)"></div></div>
-    </div>
-    <div class="emergency-card">
-      <div class="emergency-title">📞 Emergency Contacts</div>
-      <div class="emergency-row"><div class="emergency-icon">👨‍👩‍👧</div><div class="emergency-info"><div class="el">Contact 1 Name</div><input class="inp inp-sm" value="${data.ec1name||''}" placeholder="Name..." onchange="saveEmergency('ec1name',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">📱</div><div class="emergency-info"><div class="el">Contact 1 Phone</div><input class="inp inp-sm" value="${data.ec1tel||''}" placeholder="+..." onchange="saveEmergency('ec1tel',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">👤</div><div class="emergency-info"><div class="el">Contact 2 Name</div><input class="inp inp-sm" value="${data.ec2name||''}" placeholder="Name..." onchange="saveEmergency('ec2name',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">📱</div><div class="emergency-info"><div class="el">Contact 2 Phone</div><input class="inp inp-sm" value="${data.ec2tel||''}" placeholder="+..." onchange="saveEmergency('ec2tel',this.value)"></div></div>
-    </div>
-    <div class="emergency-card">
-      <div class="emergency-title">🌍 Local Emergency Numbers (at destination)</div>
-      <div class="emergency-row"><div class="emergency-icon">🚨</div><div class="emergency-info"><div class="el">Police</div><input class="inp inp-sm" value="${data.police||''}" placeholder="191" onchange="saveEmergency('police',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">🚑</div><div class="emergency-info"><div class="el">Ambulance</div><input class="inp inp-sm" value="${data.ambulance||''}" placeholder="1669" onchange="saveEmergency('ambulance',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">🔥</div><div class="emergency-info"><div class="el">Fire</div><input class="inp inp-sm" value="${data.fire||''}" placeholder="199" onchange="saveEmergency('fire',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">🏛️</div><div class="emergency-info"><div class="el">Embassy / Consulate</div><input class="inp inp-sm" value="${data.embassy||''}" placeholder="Phone or address..." onchange="saveEmergency('embassy',this.value)"></div></div>
-    </div>
-    <div class="emergency-card">
-      <div class="emergency-title">📋 Passport & Documents</div>
-      <div class="emergency-row"><div class="emergency-icon">🛂</div><div class="emergency-info"><div class="el">Passport Number(s)</div><input class="inp inp-sm" value="${data.passport||''}" placeholder="XX0000000" onchange="saveEmergency('passport',this.value)"></div></div>
-      <div class="emergency-row"><div class="emergency-icon">🏦</div><div class="emergency-info"><div class="el">Bank Emergency Line</div><input class="inp inp-sm" value="${data.bank||''}" placeholder="+..." onchange="saveEmergency('bank',this.value)"></div></div>
-    </div>`;
-}
-
-function saveEmergency(key, val) {
-  if (!tripData.emergency) tripData.emergency = {};
-  tripData.emergency[key] = val;
-  saveData();
-}
-
-// ══════════════════════════════════════════════
-// UTILS
-// ══════════════════════════════════════════════
-function uid() { return Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
-
+// ══════════════════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════════════════
 function openModal(id) { document.getElementById(id).classList.add('show'); }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); }));
+document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('show'); }));
+
+function toggleMenu() { document.getElementById('user-menu').classList.toggle('show'); }
+function closeMenu()  { document.getElementById('user-menu').classList.remove('show'); }
+document.addEventListener('click', e => { if (!e.target.closest('#avatar') && !e.target.closest('#user-menu')) closeMenu(); });
+
+function hide(id) { document.getElementById(id).style.display = 'none'; }
 
 let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
 }
 
-// ══════════════════════════════════════════════
-// DB SETUP (auto-create tables via RPC if needed)
-// ══════════════════════════════════════════════
-async function ensureTables() {
-  // Just try to select from trips table — if it fails, table doesn't exist
-  const { error } = await sb.from('trips').select('id').limit(1);
-  if (error && error.code === '42P01') {
-    // Table doesn't exist — show setup instructions
-    console.warn('trips table not found. Please run the SQL setup in Supabase.');
-  }
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', { day:'numeric', month:'short', year:'numeric' });
 }
 
-// ══════════════════════════════════════════════
-// THEME
-// ══════════════════════════════════════════════
-function toggleTheme() {
-  const isLight = document.body.classList.toggle('light');
-  document.getElementById('theme-btn').textContent = isLight ? '☀️' : '🌙';
-  localStorage.setItem('tc-theme', isLight ? 'light' : 'dark');
-}
-function loadTheme() {
-  const saved = localStorage.getItem('tc-theme');
-  if (saved === 'light') {
-    document.body.classList.add('light');
-    const btn = document.getElementById('theme-btn');
-    if (btn) btn.textContent = '☀️';
-  }
+function calcNights(s, e) {
+  if (!s || !e) return 0;
+  return Math.max(0, Math.round((new Date(e) - new Date(s)) / 86400000));
 }
 
-// ══════════════════════════════════════════════
-// GOOGLE AUTH
-// ══════════════════════════════════════════════
-async function doGoogleLogin() {
-  const { error } = await sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.href }
-  });
-  if (error) showAuthErr(error.message);
-}
-
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // START
-// ══════════════════════════════════════════════
-loadTheme();
+// ══════════════════════════════════════════════════════
 init();
 </script>
 </body>
