@@ -722,6 +722,18 @@ async function init() {
   applyTheme();
   applyLang();
 
+  // Handle OAuth redirect — Supabase puts session in URL hash
+  if (window.location.hash && window.location.hash.includes('access_token')) {
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      // Clean up the URL
+      history.replaceState(null, '', window.location.pathname);
+      showApp();
+      return;
+    }
+  }
+
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
@@ -731,7 +743,11 @@ async function init() {
   }
 
   sb.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) { currentUser = session.user; showApp(); }
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      history.replaceState(null, '', window.location.pathname);
+      showApp();
+    }
     else if (event === 'SIGNED_OUT') { currentUser = null; showAuth(); }
   });
 }
@@ -803,7 +819,7 @@ async function doSignup() {
 async function googleLogin() {
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.href }
+    options: { redirectTo: 'https://israelletsfly.github.io/trip_platform' }
   });
   if (error) showErr(error.message);
 }
