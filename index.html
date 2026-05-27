@@ -2024,7 +2024,7 @@ Return null for fields you cannot find.`
       if(d.error) throw new Error(d.error.message);
       resultText = d.choices[0].message.content;
     } else if(provider.id==='gemini'){
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${provider.key}`,{
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${provider.key}`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({contents:[{parts:[
@@ -2529,7 +2529,7 @@ async function runAI(){
       resultJson=data.choices[0].message.content;
 
     } else if(provider.id==='gemini'){
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${provider.key}`,{
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${provider.key}`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
