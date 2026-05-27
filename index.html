@@ -303,6 +303,16 @@ textarea.inp{resize:vertical;min-height:80px}
 .em-inp{background:none;border:none;border-bottom:1px solid var(--border2);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:100%;padding-bottom:3px;transition:border-color .2s}
 .em-inp:focus{border-bottom-color:var(--accent)}
 
+/* AI FILL BUTTON */
+.ai-fill-btn{display:inline-flex;align-items:center;gap:5px;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);color:var(--purple);border-radius:100px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap}
+.ai-fill-btn:hover{background:rgba(139,92,246,.2);border-color:var(--purple)}
+.ai-fill-btn:disabled{opacity:.5;cursor:not-allowed}
+.modal-ai-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.modal-ai-bar-title{font-size:18px;font-weight:800}
+.ai-inline-zone{background:rgba(139,92,246,.06);border:1.5px dashed rgba(139,92,246,.3);border-radius:var(--r);padding:14px;margin-bottom:16px;display:none}
+.ai-inline-zone.show{display:block}
+.ai-inline-status{font-size:12px;color:var(--purple);margin-top:8px;min-height:18px}
+
 /* AI */
 .ai-chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg3);border:1.5px solid var(--border2);border-radius:100px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none}
 .ai-chip:hover{border-color:var(--purple)}
@@ -1328,11 +1338,9 @@ function openAddItemModal(groupId){
   const g=groups.find(g=>g.id===groupId);
   const inner=document.getElementById('modal-add-inner');
   const cur=currentTrip.currency||'USD';
+  const bar=aiFillBar('budgetitem');
   inner.innerHTML=`
-    <div class="modal-title" style="display:flex;align-items:center;gap:8px">
-      <span style="width:12px;height:12px;border-radius:50%;background:${g?.color||'var(--accent)'}"></span>
-      ${g?.name||''} — ${lang==='he'?'פריט חדש':'New Item'}
-    </div>
+    ${bar.replace('modal-ai-bar-title"></div>',`modal-ai-bar-title"><span style="width:12px;height:12px;border-radius:50%;background:${g?.color||'var(--accent)'};display:inline-block;margin-inline-end:6px"></span>${g?.name||''}</div>`)}
     <div class="field"><div class="field-label">${lang==='he'?'תיאור':'Description'}</div>
       <input class="inp" id="ni-desc" placeholder="${lang==='he'?'כרטיסי טיסה...':'Flight tickets...'}" autofocus>
     </div>
@@ -1613,9 +1621,38 @@ function openAddModal(type){
   if(type==='day') updateActDuration();
 }
 
+function aiFillBar(type){
+  const isHe=lang==='he';
+  const provider=getActiveProvider();
+  if(!provider) return `<div class="modal-ai-bar">
+    <div class="modal-ai-bar-title"></div>
+    <button class="ai-fill-btn" onclick="closeModal('modal-add');openAIModal()" title="${isHe?'חבר AI תחילה':'Connect AI first'}">🔑 ${isHe?'חבר AI':'Connect AI'}</button>
+  </div>`;
+  return `<div class="modal-ai-bar">
+    <div class="modal-ai-bar-title"></div>
+    <button class="ai-fill-btn" onclick="toggleInlineAI('${type}')" id="aifill-btn-${type}">✨ ${isHe?'מלא עם AI':'Fill with AI'}</button>
+  </div>
+  <div class="ai-inline-zone" id="aifill-zone-${type}">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div id="aifill-preview-${type}" style="display:none">
+        <img id="aifill-img-${type}" style="height:50px;border-radius:6px;object-fit:cover;border:1px solid var(--border2)">
+      </div>
+      <label style="display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rsm);padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--textm);transition:all .2s" onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor='var(--border2)'">
+        📸 ${isHe?'העלה תמונה':'Upload image'}
+        <input type="file" accept="image/*" style="display:none" onchange="handleInlineAIFile(this,'${type}')">
+      </label>
+      <button class="ai-fill-btn" onclick="runInlineAI('${type}')" id="aifill-run-${type}" style="padding:7px 16px" disabled>${isHe?'✨ נתח':'✨ Analyze'}</button>
+    </div>
+    <div class="ai-inline-status" id="aifill-status-${type}"></div>
+  </div>`;
+}
+
 function getModalContent(type){
+  const isHe=lang==='he';
+  const bar=aiFillBar(type);
+
   if(type==='flight') return`
-    <div class="modal-title">✈️ ${lang==='he'?'הוסף טיסה':'Add Flight'}</div>
+    ${bar.replace('modal-ai-bar-title"></div>','modal-ai-bar-title">✈️ ${isHe?\'הוסף טיסה\':\'Add Flight\'}</div>')}
     <div class="grid2">
       <div class="field"><div class="field-label">${t('from')}</div><input class="inp" id="fl-from" placeholder="TLV" style="text-transform:uppercase"></div>
       <div class="field"><div class="field-label">${t('to')}</div><input class="inp" id="fl-to" placeholder="BKK" style="text-transform:uppercase"></div>
@@ -1636,7 +1673,7 @@ function getModalContent(type){
     </div>`;
 
   if(type==='hotel') return`
-    <div class="modal-title">🏨 ${lang==='he'?'הוסף מלון':'Add Hotel'}</div>
+    ${bar.replace('modal-ai-bar-title"></div>','modal-ai-bar-title">🏨 ${isHe?\'הוסף מלון\':\'Add Hotel\'}</div>')}
     <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" placeholder="Marriott Bangkok"></div>
     <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" placeholder="Bangkok"></div>
     <div class="grid2">
@@ -1654,46 +1691,46 @@ function getModalContent(type){
     </div>`;
 
   if(type==='day') return`
-    <div class="modal-title">📅 ${lang==='he'?'הוסף יום':'Add Day'}</div>
+    ${bar.replace('modal-ai-bar-title"></div>','modal-ai-bar-title">📅 ${isHe?\'הוסף יום\':\'Add Day\'}</div>')}
     <div class="grid2">
       <div class="field"><div class="field-label">${t('dayNum')}</div><input class="inp" id="dy-num" type="number" placeholder="1" min="1"></div>
       <div class="field"><div class="field-label">${t('date')}</div><input class="inp" id="dy-date" type="date"></div>
     </div>
-    <div class="field"><div class="field-label">${t('title')}</div><input class="inp" id="dy-title" placeholder="${lang==='he'?'יום הגעה':'Arrival Day'} 🌴"></div>
+    <div class="field"><div class="field-label">${t('title')}</div><input class="inp" id="dy-title" placeholder="${isHe?'יום הגעה':'Arrival Day'} 🌴"></div>
     <div class="field"><div class="field-label">${t('city')}</div><input class="inp" id="dy-city" placeholder="Bangkok"></div>
     <div class="field">
-      <div class="field-label">${lang==='he'?'הוסף פעילויות':'Add Activities'}</div>
+      <div class="field-label">${isHe?'הוסף פעילויות':'Add Activities'}</div>
       <div id="act-list" style="margin-bottom:8px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
-        <div><div class="field-label" style="font-size:10px">${lang==='he'?'התחלה':'Start'}</div><input class="inp" id="act-start" type="time" value="09:00"></div>
-        <div><div class="field-label" style="font-size:10px">${lang==='he'?'סיום':'End'}</div><input class="inp" id="act-end" type="time" value="10:00" oninput="updateActDuration()"></div>
-        <div><div class="field-label" style="font-size:10px">${lang==='he'?'משך':'Duration'}</div><div id="act-dur" style="font-size:13px;font-weight:700;color:var(--accent);padding:11px 0">1h 0m</div></div>
-        <div style="padding-bottom:2px"><button class="btn btn-outline btn-sm" onclick="addActLine()" style="white-space:nowrap">+ ${lang==='he'?'הוסף':'Add'}</button></div>
+        <div><div class="field-label" style="font-size:10px">${isHe?'התחלה':'Start'}</div><input class="inp" id="act-start" type="time" value="09:00"></div>
+        <div><div class="field-label" style="font-size:10px">${isHe?'סיום':'End'}</div><input class="inp" id="act-end" type="time" value="10:00" oninput="updateActDuration()"></div>
+        <div><div class="field-label" style="font-size:10px">${isHe?'משך':'Duration'}</div><div id="act-dur" style="font-size:13px;font-weight:700;color:var(--accent);padding:11px 0">1h 0m</div></div>
+        <div style="padding-bottom:2px"><button class="btn btn-outline btn-sm" onclick="addActLine()" style="white-space:nowrap">+ ${isHe?'הוסף':'Add'}</button></div>
       </div>
-      <div class="field" style="margin-top:8px"><input class="inp" id="act-text" placeholder="${lang==='he'?'תיאור הפעילות...':'Activity description...'}" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addActLine()}"></div>
+      <div class="field" style="margin-top:8px"><input class="inp" id="act-text" placeholder="${isHe?'תיאור הפעילות...':'Activity description...'}" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addActLine()}"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
       <button class="btn btn-primary" onclick="saveDay()">${t('save')}</button>
     </div>`;
 
-  if(type==='budget') return''; // handled by addBudgetItem()
+  if(type==='budget') return'';
 
   if(type==='transport') return`
-    <div class="modal-title">🚗 ${lang==='he'?'הוסף תחבורה':'Add Transport'}</div>
+    ${bar.replace('modal-ai-bar-title"></div>','modal-ai-bar-title">🚗 ${isHe?\'הוסף תחבורה\':\'Add Transport\'}</div>')}
     <div class="field"><div class="field-label">${t('type')}</div>
       <select class="inp" id="tr-type">
-        <option>🚗 ${lang==='he'?'מכונית / מונית':'Car / Taxi'}</option>
-        <option>🚌 ${lang==='he'?'אוטובוס':'Bus'}</option>
-        <option>🚂 ${lang==='he'?'רכבת':'Train'}</option>
-        <option>🛥️ ${lang==='he'?'מעבורת / סירה':'Ferry / Boat'}</option>
+        <option>🚗 ${isHe?'מכונית / מונית':'Car / Taxi'}</option>
+        <option>🚌 ${isHe?'אוטובוס':'Bus'}</option>
+        <option>🚂 ${isHe?'רכבת':'Train'}</option>
+        <option>🛥️ ${isHe?'מעבורת / סירה':'Ferry / Boat'}</option>
         <option>📱 Grab / Uber</option>
         <option>🚇 Metro / BTS</option>
-        <option>🛺 ${lang==='he'?'טוק-טוק':'Tuk-Tuk'}</option>
-        <option>🚐 ${lang==='he'?'שאטל / העברה':'Shuttle / Transfer'}</option>
+        <option>🛺 ${isHe?'טוק-טוק':'Tuk-Tuk'}</option>
+        <option>🚐 ${isHe?'שאטל / העברה':'Shuttle / Transfer'}</option>
       </select>
     </div>
-    <div class="field"><div class="field-label">${t('description')}</div><input class="inp" id="tr-desc" placeholder="${lang==='he'?'העברה מהשדה':'Airport transfer'}"></div>
+    <div class="field"><div class="field-label">${t('description')}</div><input class="inp" id="tr-desc" placeholder="${isHe?'העברה מהשדה':'Airport transfer'}"></div>
     <div class="field"><div class="field-label">${t('tipNotes')}</div><textarea class="inp" id="tr-notes" placeholder="..."></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
@@ -1701,6 +1738,7 @@ function getModalContent(type){
     </div>`;
   return '';
 }
+
 
 // Activity lines for itinerary day modal
 let actLines = [];
@@ -1896,6 +1934,185 @@ let toastTimer;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600);}
 function fmtDate(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString(lang==='he'?'he-IL':'en-US',{day:'numeric',month:'short',year:'numeric'});}
 function calcNights(s,e){if(!s||!e)return 0;return Math.max(0,Math.round((new Date(e)-new Date(s))/86400000));}
+
+// ══════════════════════════════════════════════════════
+// INLINE AI FILL — per modal
+// ══════════════════════════════════════════════════════
+let inlineAIFiles = {}; // {type: {base64, mime}}
+
+function toggleInlineAI(type){
+  const zone = document.getElementById('aifill-zone-'+type);
+  if(!zone) return;
+  zone.classList.toggle('show');
+}
+
+function handleInlineAIFile(input, type){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    inlineAIFiles[type] = { base64: e.target.result.split(',')[1], mime: file.type };
+    // Show preview
+    const prev = document.getElementById('aifill-preview-'+type);
+    const img  = document.getElementById('aifill-img-'+type);
+    if(prev && img){ img.src = e.target.result; prev.style.display='block'; }
+    // Enable analyze button
+    const runBtn = document.getElementById('aifill-run-'+type);
+    if(runBtn) runBtn.disabled = false;
+    const status = document.getElementById('aifill-status-'+type);
+    if(status) status.textContent = lang==='he' ? '✅ תמונה נטענה — לחץ "נתח"' : '✅ Image loaded — click "Analyze"';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function runInlineAI(type){
+  const fileData = inlineAIFiles[type];
+  if(!fileData) return;
+  const provider = getActiveProvider();
+  if(!provider){ toast('⚠️ '+(lang==='he'?'חבר AI בהגדרות':'Connect AI in settings')); return; }
+
+  const runBtn = document.getElementById('aifill-run-'+type);
+  const status = document.getElementById('aifill-status-'+type);
+  if(runBtn) runBtn.disabled = true;
+  if(status){ status.style.color='var(--purple)'; status.textContent=(lang==='he'?'🤖 מנתח...':'🤖 Analyzing...'); }
+
+  const prompts = {
+    flight: `Extract flight details from this travel document. Return ONLY a JSON object (no markdown, no explanation):
+{"from":"airport code","to":"airport code","depTime":"datetime-local format YYYY-MM-DDTHH:MM","arrTime":"datetime-local format YYYY-MM-DDTHH:MM","flightNum":"flight number","airline":"airline name","conf":"confirmation number","notes":"any other info"}
+Return null for fields you cannot find.`,
+    hotel: `Extract hotel booking details from this document. Return ONLY a JSON object (no markdown, no explanation):
+{"name":"hotel name","dest":"city","checkIn":"YYYY-MM-DD","checkOut":"YYYY-MM-DD","conf":"confirmation number","cost":numeric_or_null,"notes":"special requests"}
+Return null for fields you cannot find.`,
+    day: `Extract a travel itinerary day from this document. Return ONLY a JSON object (no markdown, no explanation):
+{"title":"day title","date":"YYYY-MM-DD","city":"city name","blocks":[{"time":"HH:MM","text":"activity description"}]}
+Return null for fields you cannot find.`,
+    transport: `Extract transport/transfer details from this document. Return ONLY a JSON object (no markdown, no explanation):
+{"type":"transport type with emoji","desc":"route or description","notes":"price, booking info, tips"}
+Return null for fields you cannot find.`,
+    budgetitem: `Extract expense/payment details from this document. Return ONLY a JSON object (no markdown, no explanation):
+{"desc":"expense description","amount":numeric_amount,"status":"paid or planned"}
+Return null for fields you cannot find.`
+  };
+
+  const prompt = prompts[type] || prompts.flight;
+
+  try {
+    let resultText = '';
+
+    if(provider.id==='anthropic'){
+      const res = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':provider.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-opus-4-5',max_tokens:600,messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:fileData.mime,data:fileData.base64}},
+          {type:'text',text:prompt}
+        ]}]})
+      });
+      const d = await res.json();
+      if(d.error) throw new Error(d.error.message);
+      resultText = d.content[0].text;
+    } else if(provider.id==='openai'){
+      const res = await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+provider.key},
+        body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'user',content:[
+          {type:'image_url',image_url:{url:`data:${fileData.mime};base64,${fileData.base64}`}},
+          {type:'text',text:prompt}
+        ]}]})
+      });
+      const d = await res.json();
+      if(d.error) throw new Error(d.error.message);
+      resultText = d.choices[0].message.content;
+    } else if(provider.id==='gemini'){
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${provider.key}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{parts:[
+          {inline_data:{mime_type:fileData.mime,data:fileData.base64}},
+          {text:prompt}
+        ]}]})
+      });
+      const d = await res.json();
+      if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+      resultText = d.candidates[0].content.parts[0].text;
+    }
+
+    const clean = resultText.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    if(!parsed) throw new Error(lang==='he'?'לא נמצאו נתונים':'No data found');
+
+    // Fill form fields based on type
+    fillFormFields(type, parsed);
+    if(status){ status.style.color='var(--green)'; status.textContent=(lang==='he'?'✅ הטופס מולא! בדוק ושמור.':'✅ Form filled! Review and save.'); }
+    // Collapse the zone after success
+    setTimeout(()=>{
+      const zone = document.getElementById('aifill-zone-'+type);
+      if(zone) zone.classList.remove('show');
+    }, 1500);
+
+  } catch(err){
+    if(status){ status.style.color='var(--coral)'; status.textContent='❌ '+err.message; }
+    if(runBtn) runBtn.disabled = false;
+  }
+}
+
+function fillFormFields(type, data){
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if(el && val !== null && val !== undefined && val !== '') el.value = val;
+  };
+
+  if(type === 'flight'){
+    set('fl-from', data.from);
+    set('fl-to', data.to);
+    set('fl-dep', data.depTime);
+    set('fl-arr', data.arrTime);
+    set('fl-num', data.flightNum);
+    set('fl-airline', data.airline);
+    set('fl-conf', data.conf);
+    set('fl-notes', data.notes);
+  }
+  else if(type === 'hotel'){
+    set('ht-name', data.name);
+    set('ht-dest', data.dest);
+    set('ht-in',   data.checkIn);
+    set('ht-out',  data.checkOut);
+    set('ht-conf', data.conf);
+    set('ht-cost', data.cost);
+    set('ht-notes', data.notes);
+  }
+  else if(type === 'day'){
+    set('dy-title', data.title);
+    set('dy-date',  data.date);
+    set('dy-city',  data.city);
+    // Fill activity blocks
+    if(data.blocks?.length){
+      actLines = data.blocks.map(b=>({
+        start: b.time||'', end: '', text: b.text||'', dur: ''
+      }));
+      renderActList();
+    }
+  }
+  else if(type === 'transport'){
+    // Set type dropdown to closest match
+    const typeEl = document.getElementById('tr-type');
+    if(typeEl && data.type){
+      const opts = [...typeEl.options];
+      const match = opts.find(o => o.text.toLowerCase().includes(data.type.toLowerCase().slice(0,4)));
+      if(match) typeEl.value = match.value;
+    }
+    set('tr-desc',  data.desc);
+    set('tr-notes', data.notes);
+  }
+  else if(type === 'budgetitem'){
+    set('ni-desc', data.desc);
+    set('ni-amt',  data.amount);
+    if(data.status){
+      const statusEl = document.getElementById('ni-status');
+      if(statusEl) statusEl.value = data.status;
+    }
+  }
+}
 
 // ══════════════════════════════════════════════════════
 // STAGE 3 — SHARING
