@@ -259,6 +259,7 @@ textarea.inp{resize:vertical;min-height:80px}
 .bitem{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
 .bitem:last-of-type{border-bottom:none}
 .bitem-amt{text-align:end}
+.bgroup-footer{font-size:12px;color:var(--textm);padding-top:8px;border-top:1px solid var(--border);margin-top:8px;text-align:end}
 .btable{width:100%;border-collapse:collapse}
 .btable th{font-size:11px;font-weight:700;color:var(--textd);text-transform:uppercase;letter-spacing:.6px;padding:7px 10px;text-align:start;border-bottom:1px solid var(--border)}
 .btable td{padding:9px 10px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
@@ -1088,8 +1089,6 @@ function delDay(id){tripData.days=(tripData.days||[]).filter(d=>d.id!==id);saveD
 function saveDayNote(id,val){const d=(tripData.days||[]).find(d=>d.id===id);if(d){d.note=val;saveData();}}
 
 // ── BUDGET ──
-// budgetGroups: [{id,name,color}]
-// budget items: [{id,desc,amount,groupId,status}]
 const BUDGET_COLORS=['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316','#ec4899'];
 const DEFAULT_BGROUPS=()=>[
   {id:'bg1',name:lang==='he'?'טיסות':'Flights',color:'#3b82f6'},
@@ -1104,82 +1103,206 @@ function getBGroups(){
   return tripData.budgetGroups;
 }
 
+// Fast in-place update — no full re-render
+function refreshBudgetNumbers(){
+  const groups=getBGroups();
+  const items=tripData.budget||[];
+  const cur=currentTrip.currency||'USD';
+  const target=parseFloat(tripData.budgetTarget||0);
+  const grandSpent=items.reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const grandPaid=items.filter(i=>i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const grandBooked=items.filter(i=>i.status==='booked'||i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const remaining=target>0?target-grandSpent:0;
+
+  const set=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
+  set('bs-target', cur+' '+(target>0?target.toLocaleString():'—'));
+  set('bs-spent',  cur+' '+grandSpent.toLocaleString());
+  set('bs-paid',   cur+' '+grandPaid.toLocaleString());
+  set('bs-rem',    cur+' '+(target>0?remaining.toLocaleString():'—'));
+
+  // Budget bar
+  const barEl=document.getElementById('bs-bar-fill');
+  if(barEl&&target>0){
+    const pct=Math.min(100,Math.round(grandSpent/target*100));
+    barEl.style.width=pct+'%';
+    barEl.style.background=pct>90?'var(--coral)':pct>70?'var(--gold)':'var(--accent)';
+    const pctEl=document.getElementById('bs-bar-pct');
+    if(pctEl)pctEl.textContent=pct+'% '+( lang==='he'?'מנוצל':'allocated');
+  }
+
+  // Category totals
+  groups.forEach(g=>{
+    const gTotal=items.filter(i=>i.groupId===g.id).reduce((s,i)=>s+parseFloat(i.amount||0),0);
+    const gPaid=items.filter(i=>i.groupId===g.id&&i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+    const pct=grandSpent>0?Math.round(gTotal/grandSpent*100):0;
+    const base=target>0?target:grandSpent;
+    const barPct=base>0?Math.min(100,Math.round(gTotal/base*100)):0;
+    const set2=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
+    set2('bgt-'+g.id, cur+' '+gTotal.toLocaleString());
+    set2('bgp-'+g.id, pct+'%');
+    set2('bgftr-'+g.id, (lang==='he'?'שולם':'Paid')+': '+cur+' '+gPaid.toLocaleString()+' / '+cur+' '+gTotal.toLocaleString());
+    const barEl2=document.getElementById('bgbar-'+g.id);
+    if(barEl2)barEl2.style.width=barPct+'%';
+  });
+}
+
 function renderBudget(){
   const groups=getBGroups();
   const items=tripData.budget||[];
   const cur=currentTrip.currency||'USD';
-  const grandTotal=items.reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const target=parseFloat(tripData.budgetTarget||0);
+  const grandSpent=items.reduce((s,i)=>s+parseFloat(i.amount||0),0);
   const grandPaid=items.filter(i=>i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
   const grandBooked=items.filter(i=>i.status==='booked'||i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const remaining=target>0?target-grandSpent:0;
+  const base=target>0?target:grandSpent;
 
-  // Summary cards
   let html=`<div class="page-title" style="font-size:20px;margin-bottom:14px">💰 ${t('secBudget')}</div>
-  <div class="bsum" style="grid-template-columns:repeat(4,1fr)">
-    <div class="bsum-card"><div class="bsum-num" style="color:var(--accent)">${cur} ${grandTotal.toLocaleString()}</div><div class="bsum-lbl">${lang==='he'?'סה"כ תקציב':'Total Budget'}</div></div>
-    <div class="bsum-card"><div class="bsum-num" style="color:var(--green)">${cur} ${grandPaid.toLocaleString()}</div><div class="bsum-lbl">${lang==='he'?'שולם':'Paid'}</div></div>
-    <div class="bsum-card"><div class="bsum-num" style="color:var(--gold)">${cur} ${grandBooked.toLocaleString()}</div><div class="bsum-lbl">${lang==='he'?'מחויב':'Committed'}</div></div>
-    <div class="bsum-card"><div class="bsum-num" style="color:var(--coral)">${cur} ${(grandTotal-grandBooked).toLocaleString()}</div><div class="bsum-lbl">${lang==='he'?'נותר':'Remaining'}</div></div>
-  </div>`;
 
-  // Breakdown bars
-  if(grandTotal>0){
-    html+=`<div class="card" style="margin-bottom:14px">
-      <div class="card-title"><div class="card-title-left">📊 ${lang==='he'?'פירוט לפי קטגוריה':'Budget Breakdown'}</div></div>`;
-    groups.forEach(g=>{
+  <!-- Summary cards -->
+  <div class="bsum" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+    <div class="bsum-card" style="cursor:pointer" title="${lang==='he'?'לחץ לעריכה':'Click to edit'}" onclick="editBudgetTarget()">
+      <div class="bsum-num" style="color:var(--accent)" id="bs-target">${cur} ${target>0?target.toLocaleString():'—'}</div>
+      <div class="bsum-lbl">${lang==='he'?'יעד תקציב ✏️':'Budget Target ✏️'}</div>
+    </div>
+    <div class="bsum-card">
+      <div class="bsum-num" style="color:var(--textm)" id="bs-spent">${cur} ${grandSpent.toLocaleString()}</div>
+      <div class="bsum-lbl">${lang==='he'?'סה"כ הוצאות':'Total Expenses'}</div>
+    </div>
+    <div class="bsum-card">
+      <div class="bsum-num" style="color:var(--green)" id="bs-paid">${cur} ${grandPaid.toLocaleString()}</div>
+      <div class="bsum-lbl">${lang==='he'?'שולם':'Paid'}</div>
+    </div>
+    <div class="bsum-card">
+      <div class="bsum-num" style="color:${remaining<0?'var(--coral)':'var(--gold)'}" id="bs-rem">${cur} ${target>0?remaining.toLocaleString():'—'}</div>
+      <div class="bsum-lbl">${lang==='he'?'נותר מהיעד':'Remaining'}</div>
+    </div>
+  </div>
+
+  <!-- Budget progress bar -->
+  ${target>0?`<div class="card" style="padding:14px 18px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--textm);margin-bottom:6px">
+      <span style="font-weight:600">${lang==='he'?'ניצול תקציב':'Budget Usage'}</span>
+      <span id="bs-bar-pct">${Math.min(100,Math.round(grandSpent/(target||1)*100))}% ${lang==='he'?'מנוצל':'allocated'}</span>
+    </div>
+    <div style="background:var(--bg4);border-radius:100px;height:10px;overflow:hidden">
+      <div id="bs-bar-fill" style="width:${Math.min(100,Math.round(grandSpent/(target||1)*100))}%;height:10px;border-radius:100px;background:${grandSpent/target>0.9?'var(--coral)':grandSpent/target>0.7?'var(--gold)':'var(--accent)'};transition:width .5s ease"></div>
+    </div>
+  </div>`:''}
+
+  <!-- Breakdown bars -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title"><div class="card-title-left">📊 ${lang==='he'?'פירוט לפי קטגוריה':'Breakdown by Category'}</div></div>
+    ${groups.map(g=>{
       const gTotal=items.filter(i=>i.groupId===g.id).reduce((s,i)=>s+parseFloat(i.amount||0),0);
-      if(!gTotal)return;
-      const pct=Math.round(gTotal/grandTotal*100);
-      html+=`<div style="margin-bottom:10px">
+      const pct=grandSpent>0?Math.round(gTotal/grandSpent*100):0;
+      const barPct=base>0?Math.min(100,Math.round(gTotal/base*100)):0;
+      return`<div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span style="font-weight:600;color:var(--text)">${g.name}</span>
-          <span style="color:var(--textm)">(${pct}%) ${cur} ${gTotal.toLocaleString()}</span>
+          <span style="font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block"></span>${g.name}</span>
+          <span style="color:var(--textm)" id="bgp-${g.id}">(${pct}%) ${cur} ${gTotal.toLocaleString()}</span>
         </div>
-        <div style="background:var(--bg4);border-radius:100px;height:7px;overflow:hidden">
-          <div style="width:${pct}%;height:7px;border-radius:100px;background:${g.color};transition:width .6s ease"></div>
+        <div style="background:var(--bg4);border-radius:100px;height:6px;overflow:hidden">
+          <div id="bgbar-${g.id}" style="width:${barPct}%;height:6px;border-radius:100px;background:${g.color};transition:width .5s ease"></div>
         </div>
       </div>`;
-    });
-    html+=`</div>`;
-  }
+    }).join('')}
+  </div>
 
-  // Groups with items
-  html+=`<div id="budget-groups">`;
-  groups.forEach(g=>{
+  <!-- Category groups -->
+  <div id="budget-groups">
+  ${groups.map(g=>{
     const gItems=items.filter(i=>i.groupId===g.id);
     const gTotal=gItems.reduce((s,i)=>s+parseFloat(i.amount||0),0);
     const gPaid=gItems.filter(i=>i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
-    html+=`<div class="bgroup" id="bg-${g.id}">
+    const pct=grandSpent>0?Math.round(gTotal/grandSpent*100):0;
+    return`<div class="bgroup" id="bg-${g.id}">
       <div class="bgroup-header" onclick="toggleBGroup('${g.id}')">
         <div class="bgroup-color" style="background:${g.color}"></div>
         <div class="bgroup-name">${g.name}</div>
-        <div class="bgroup-pct" style="color:${g.color}">${grandTotal>0?Math.round(gTotal/grandTotal*100):0}%</div>
-        <div class="bgroup-total">${cur} ${gTotal.toLocaleString()}</div>
-        <button class="btn-icon btn-sm" onclick="event.stopPropagation();addBudgetItem('${g.id}')" style="padding:4px 10px;font-size:12px">+</button>
+        <div class="bgroup-pct" id="bgp-${g.id}-h" style="color:${g.color}">${pct}%</div>
+        <div class="bgroup-total" id="bgt-${g.id}">${cur} ${gTotal.toLocaleString()}</div>
+        <button class="btn-icon btn-sm" onclick="event.stopPropagation();openAddItemModal('${g.id}')" style="padding:4px 10px;font-size:12px">+</button>
         <button class="del-btn" onclick="event.stopPropagation();delBGroup('${g.id}')">×</button>
         <span class="bgroup-chevron">▼</span>
       </div>
       <div class="bgroup-body" id="bgb-${g.id}">
-        <div style="background:${g.color};height:2px;border-radius:0;margin-bottom:10px;opacity:.4"></div>
-        ${!gItems.length?`<div style="color:var(--textm);font-size:13px;padding:8px 0">${lang==='he'?'אין פריטים עדיין':'No items yet'}</div>`:''}
+        <div style="background:${g.color};height:2px;margin-bottom:10px;opacity:.35"></div>
+        ${!gItems.length?`<div style="color:var(--textm);font-size:13px;padding:6px 0 10px">${lang==='he'?'אין פריטים עדיין. לחץ + להוספה':'No items yet. Click + to add'}</div>`:''}
+        <div id="bgrp-items-${g.id}">
         ${gItems.map(item=>`
-        <div class="bitem">
-          <input class="budget-inp" value="${item.desc||''}" placeholder="${lang==='he'?'תיאור...':'Description...'}" onchange="updBudget('${item.id}','desc',this.value)">
-          <input class="budget-inp bitem-amt" type="number" value="${parseFloat(item.amount||0).toFixed(0)}" onchange="updBudget('${item.id}','amount',this.value)" style="max-width:90px;font-weight:700;color:var(--text)">
-          <span class="status-pill sp-${item.status||'planned'}" onclick="cycleStatus('${item.id}')">${statusLabel(item.status)}</span>
+        <div class="bitem" id="bi-${item.id}">
+          <input class="budget-inp" value="${(item.desc||'').replace(/"/g,'&quot;')}" placeholder="${lang==='he'?'תיאור...':'Description...'}"
+            onchange="updBudgetField('${item.id}','desc',this.value)">
+          <input class="budget-inp bitem-amt" type="number" value="${parseFloat(item.amount||0).toFixed(0)}"
+            onchange="updBudgetField('${item.id}','amount',this.value)"
+            style="max-width:90px;font-weight:700;color:var(--text);text-align:end">
+          <span class="status-pill sp-${item.status||'planned'}" id="bst-${item.id}" onclick="cycleStatus('${item.id}')">${statusLabel(item.status)}</span>
           <button class="del-btn" onclick="delBudget('${item.id}')">×</button>
         </div>`).join('')}
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--textm)">
-          <span>${gItems.length} ${lang==='he'?'פריטים':'items'}</span>
-          <span style="font-weight:700;color:var(--text)">${lang==='he'?'שולם':'Paid'}: ${cur} ${gPaid.toLocaleString()} / ${cur} ${gTotal.toLocaleString()}</span>
         </div>
+        <div class="bgroup-footer" id="bgftr-${g.id}">${lang==='he'?'שולם':'Paid'}: ${cur} ${gPaid.toLocaleString()} / ${cur} ${gTotal.toLocaleString()}</div>
       </div>
     </div>`;
-  });
-  html+=`</div>
+  }).join('')}
+  </div>
   <div style="display:flex;gap:10px;margin-top:14px">
     <button class="btn btn-outline btn-sm" onclick="addBGroup()">${lang==='he'?'+ קטגוריה חדשה':'+ New Category'}</button>
   </div>`;
   return html;
+}
+
+function editBudgetTarget(){
+  const cur=currentTrip.currency||'USD';
+  const curr=parseFloat(tripData.budgetTarget||0);
+  const val=prompt((lang==='he'?'הזן יעד תקציב ('+cur+'):':'Enter budget target ('+cur+'):'),curr>0?curr:'');
+  if(val===null)return;
+  const num=parseFloat(val)||0;
+  tripData.budgetTarget=num;
+  saveData();renderSec('budget');
+}
+
+function openAddItemModal(groupId){
+  const groups=getBGroups();
+  const g=groups.find(g=>g.id===groupId);
+  const inner=document.getElementById('modal-add-inner');
+  const cur=currentTrip.currency||'USD';
+  inner.innerHTML=`
+    <div class="modal-title" style="display:flex;align-items:center;gap:8px">
+      <span style="width:12px;height:12px;border-radius:50%;background:${g?.color||'var(--accent)'}"></span>
+      ${g?.name||''} — ${lang==='he'?'פריט חדש':'New Item'}
+    </div>
+    <div class="field"><div class="field-label">${lang==='he'?'תיאור':'Description'}</div>
+      <input class="inp" id="ni-desc" placeholder="${lang==='he'?'כרטיסי טיסה...':'Flight tickets...'}" autofocus>
+    </div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${lang==='he'?'סכום':'Amount'} (${cur})</div>
+        <input class="inp" id="ni-amt" type="number" placeholder="0" min="0">
+      </div>
+      <div class="field"><div class="field-label">${lang==='he'?'סטטוס':'Status'}</div>
+        <select class="inp" id="ni-status">
+          <option value="planned">${t('planned')}</option>
+          <option value="booked">${t('booked')}</option>
+          <option value="paid">${t('paid')}</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="saveNewBItem('${groupId}')">${t('save')}</button>
+    </div>`;
+  document.getElementById('modal-add').classList.add('show');
+  setTimeout(()=>document.getElementById('ni-desc')?.focus(),50);
+}
+
+function saveNewBItem(groupId){
+  const desc=document.getElementById('ni-desc')?.value.trim();
+  if(!desc)return toast('⚠️ '+(lang==='he'?'הזן תיאור':'Enter description'));
+  const amount=parseFloat(document.getElementById('ni-amt')?.value)||0;
+  const status=document.getElementById('ni-status')?.value||'planned';
+  if(!tripData.budget)tripData.budget=[];
+  tripData.budget.push({id:uid(),desc,amount,groupId,status});
+  saveData();closeModal('modal-add');renderSec('budget');
 }
 
 function toggleBGroup(id){
@@ -1207,25 +1330,37 @@ function delBGroup(id){
   saveData();renderSec('budget');
 }
 
-function addBudgetItem(groupId){
-  const desc=prompt(lang==='he'?'תיאור הפריט:':'Item description:','');
-  if(!desc||!desc.trim())return;
-  const amount=parseFloat(prompt(lang==='he'?'סכום:':'Amount:','0')||'0');
-  if(!tripData.budget)tripData.budget=[];
-  tripData.budget.push({id:uid(),desc:desc.trim(),amount,groupId,status:'planned'});
-  saveData();renderSec('budget');
+function addBudgetItem(groupId){openAddItemModal(groupId);}
+
+// Fast update — no re-render
+let budgetSaveTimer=null;
+function updBudgetField(id,key,val){
+  const item=(tripData.budget||[]).find(i=>i.id===id);
+  if(!item)return;
+  item[key]=key==='amount'?(parseFloat(val)||0):val;
+  // Debounce save + refresh numbers only
+  clearTimeout(budgetSaveTimer);
+  budgetSaveTimer=setTimeout(()=>{saveData();refreshBudgetNumbers();},600);
 }
 
-function updateBudgetSums(){renderSec('budget');}
+function updateBudgetSums(){refreshBudgetNumbers();}
+
 function statusLabel(s){return s==='paid'?`✅ ${t('paid')}`:s==='booked'?`📋 ${t('booked')}`:` ${t('planned')}`;}
+
 function cycleStatus(id){
   const item=(tripData.budget||[]).find(i=>i.id===id);if(!item)return;
   const ss=['planned','booked','paid'];
   item.status=ss[(ss.indexOf(item.status||'planned')+1)%ss.length];
+  // Update just the pill, then refresh numbers
+  const pill=document.getElementById('bst-'+id);
+  if(pill){pill.className='status-pill sp-'+item.status;pill.textContent=statusLabel(item.status);}
+  saveData();refreshBudgetNumbers();
+}
+
+function delBudget(id){
+  tripData.budget=(tripData.budget||[]).filter(i=>i.id!==id);
   saveData();renderSec('budget');
 }
-function updBudget(id,key,val){const item=(tripData.budget||[]).find(i=>i.id===id);if(item){item[key]=val;saveData();renderSec('budget');}}
-function delBudget(id){tripData.budget=(tripData.budget||[]).filter(i=>i.id!==id);saveData();renderSec('budget');}
 
 // ── CURRENCY ──
 function renderCurrency(){
