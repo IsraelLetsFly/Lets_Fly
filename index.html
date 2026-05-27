@@ -179,22 +179,36 @@ textarea.inp{resize:vertical;min-height:80px}
 .pbar-row{display:flex;justify-content:space-between;font-size:12px;color:var(--textm);margin-bottom:6px}
 
 /* TODO GROUPS */
-.task-group{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
-.task-group-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg3);border-bottom:1px solid var(--border)}
-.task-group-toggle{font-size:11px;color:var(--textm);cursor:pointer;flex-shrink:0;width:16px;user-select:none}
-.task-group-name{font-size:14px;font-weight:700;flex:1;outline:none;background:none;border:none;color:var(--text);cursor:text;border-bottom:1px dashed transparent;transition:border-color .2s}
+.task-group{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden;transition:box-shadow .2s}
+.task-group.drag-over{box-shadow:0 0 0 2px var(--accent);border-color:var(--accent)}
+.task-group.dragging{opacity:.45;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.task-group-header{display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.task-group-drag{cursor:grab;color:var(--textd);font-size:14px;flex-shrink:0;padding:0 2px;user-select:none;line-height:1}
+.task-group-drag:active{cursor:grabbing}
+.task-group-toggle{font-size:11px;color:var(--textm);cursor:pointer;flex-shrink:0;width:14px;user-select:none}
+.task-group-name{font-size:14px;font-weight:700;flex:1;outline:none;background:none;border:none;color:var(--text);cursor:text;border-bottom:1px dashed transparent;transition:border-color .2s;min-width:60px}
 .task-group-name:focus{border-bottom-color:var(--accent)}
 .task-group-count{font-size:11px;font-weight:600;color:var(--textm);background:var(--bg4);padding:2px 8px;border-radius:100px;flex-shrink:0}
-.task-group-body{padding:10px 14px 14px}
-.todo-item{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:6px;cursor:pointer;transition:all .15s}
+.task-group-body{padding:10px 13px 13px}
+.todo-drop-zone{height:4px;border-radius:4px;background:var(--accent);opacity:0;margin-bottom:4px;transition:opacity .15s}
+.todo-drop-zone.active{opacity:1}
+.todo-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:5px;transition:all .15s;position:relative}
 .todo-item:hover{border-color:var(--border2)}
+.todo-item.dragging{opacity:.4;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.todo-item.drag-over-top{border-top:2px solid var(--accent)}
+.todo-item.drag-over-bot{border-bottom:2px solid var(--accent)}
 .todo-item.done{opacity:.55}
 .todo-item.done .todo-txt{text-decoration:line-through;color:var(--textm)}
-.todo-chk{width:18px;height:18px;border-radius:5px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;transition:all .2s}
+.todo-drag{cursor:grab;color:var(--textd);font-size:13px;flex-shrink:0;user-select:none;padding:0 1px}
+.todo-drag:active{cursor:grabbing}
+.todo-chk{width:18px;height:18px;border-radius:5px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;transition:all .2s;cursor:pointer}
 .todo-item.done .todo-chk{background:var(--green);border-color:var(--green);color:var(--bg)}
-.todo-txt{font-size:13px;flex:1}
-.todo-del{opacity:0;background:none;border:none;color:var(--textd);cursor:pointer;font-size:16px;padding:0 2px;transition:opacity .15s}
-.todo-item:hover .todo-del{opacity:1}
+.todo-txt{font-size:13px;flex:1;cursor:pointer}
+.todo-edit-inp{font-size:13px;flex:1;background:none;border:none;border-bottom:1.5px solid var(--accent);color:var(--text);outline:none;font-family:inherit;padding:0}
+.todo-actions{display:flex;gap:2px;opacity:0;transition:opacity .15s;flex-shrink:0}
+.todo-item:hover .todo-actions{opacity:1}
+.todo-act-btn{background:none;border:none;color:var(--textd);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:all .15s}
+.todo-act-btn:hover{background:var(--bg4);color:var(--text)}
 .add-row{display:flex;gap:7px;margin-top:8px}
 .add-row input{flex:1}
 .add-row button{flex-shrink:0;width:38px;height:38px;border-radius:var(--rsm);border:none;background:var(--accent);color:#fff;font-size:20px;cursor:pointer;transition:background .2s}
@@ -738,68 +752,193 @@ function updateStats(){
 }
 
 // ── TASKS ──
-// Groups are stored in tripData.todoGroups = [{id, name}]
-// Todos stored in tripData.todos = [{id, text, cat(=groupId), done}]
-
-const DEFAULT_GROUPS = () => lang==='he'
-  ? [{id:'g1',name:'הכנות לפני הטיול'},{id:'g2',name:'מסמכים'},{id:'g3',name:'בריאות'},{id:'g4',name:'קניות'},{id:'g5',name:'במהלך הטיול'},{id:'g6',name:'אחרי הטיול'}]
-  : [{id:'g1',name:'Pre-Trip Prep'},{id:'g2',name:'Documents'},{id:'g3',name:'Health'},{id:'g4',name:'Shopping'},{id:'g5',name:'During Trip'},{id:'g6',name:'Post-Trip'}];
+const DEFAULT_GROUPS=()=>lang==='he'
+  ?[{id:'g1',name:'הכנות לפני הטיול'},{id:'g2',name:'מסמכים'},{id:'g3',name:'בריאות'},{id:'g4',name:'קניות'},{id:'g5',name:'במהלך הטיול'},{id:'g6',name:'אחרי הטיול'}]
+  :[{id:'g1',name:'Pre-Trip Prep'},{id:'g2',name:'Documents'},{id:'g3',name:'Health'},{id:'g4',name:'Shopping'},{id:'g5',name:'During Trip'},{id:'g6',name:'Post-Trip'}];
 
 function getGroups(){
-  if(!tripData.todoGroups||tripData.todoGroups.length===0){
-    tripData.todoGroups=DEFAULT_GROUPS();
-    saveData();
-  }
+  if(!tripData.todoGroups||tripData.todoGroups.length===0){tripData.todoGroups=DEFAULT_GROUPS();saveData();}
   return tripData.todoGroups;
 }
 
 function renderTasks(){
   const todos=tripData.todos||[];
   const groups=getGroups();
-  const done=todos.filter(i=>i.done).length;
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div class="page-title" style="font-size:20px">✅ ${t('secTasks')}</div>
     <button class="btn btn-outline btn-sm" onclick="addGroup()">${lang==='he'?'+ קבוצה חדשה':'+ New Group'}</button>
-  </div>`;
+  </div><div id="groups-container">`;
 
   groups.forEach(group=>{
     const items=todos.filter(i=>i.cat===group.id);
     const groupDone=items.filter(i=>i.done).length;
-    html+=`<div class="task-group" id="tg-${group.id}">
+    html+=`<div class="task-group" id="tg-${group.id}" draggable="true"
+      ondragstart="groupDragStart(event,'${group.id}')"
+      ondragend="groupDragEnd(event)"
+      ondragover="groupDragOver(event,'${group.id}')"
+      ondragleave="groupDragLeave(event,'${group.id}')"
+      ondrop="groupDrop(event,'${group.id}')">
       <div class="task-group-header">
-        <div class="task-group-toggle" onclick="toggleGroup('${group.id}')">▼</div>
-        <div class="task-group-name" contenteditable="true" 
+        <span class="task-group-drag" title="${lang==='he'?'גרור להזזה':'Drag to reorder'}">⠿</span>
+        <span class="task-group-toggle" onclick="toggleGroup('${group.id}')">▼</span>
+        <div class="task-group-name" contenteditable="true"
           onblur="renameGroup('${group.id}',this.textContent.trim())"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-          >${group.name}</div>
-        <div class="task-group-count">${groupDone}/${items.length}</div>
-        <button class="del-btn" onclick="delGroup('${group.id}')" title="${lang==='he'?'מחק קבוצה':'Delete group'}">×</button>
+          onclick="event.stopPropagation()">${group.name}</div>
+        <span class="task-group-count">${groupDone}/${items.length}</span>
+        <button class="del-btn" onclick="delGroup('${group.id}')" title="${lang==='he'?'מחק':'Delete'}">×</button>
       </div>
-      <div class="task-group-body" id="tgb-${group.id}">
+      <div class="task-group-body" id="tgb-${group.id}"
+        ondragover="itemDragOver(event)"
+        ondragleave="itemDragLeave(event)"
+        ondrop="itemDrop(event,'${group.id}')">
         ${items.map(item=>`
-        <div class="todo-item${item.done?' done':''}" onclick="toggleTodo('${item.id}')">
-          <div class="todo-chk">${item.done?'✓':''}</div>
-          <div class="todo-txt">${item.text}</div>
-          <button class="todo-del" onclick="event.stopPropagation();delTodo('${item.id}')">×</button>
+        <div class="todo-item${item.done?' done':''}" id="ti-item-${item.id}" draggable="true"
+          ondragstart="itemDragStart(event,'${item.id}','${group.id}')"
+          ondragend="itemDragEnd(event)">
+          <span class="todo-drag">⠿</span>
+          <div class="todo-chk" onclick="toggleTodo('${item.id}')">${item.done?'✓':''}</div>
+          <div class="todo-txt" onclick="toggleTodo('${item.id}')">${item.text}</div>
+          <div class="todo-actions">
+            <button class="todo-act-btn" onclick="editTodo('${item.id}')" title="${lang==='he'?'ערוך':'Edit'}">✏️</button>
+            <button class="todo-act-btn" onclick="delTodo('${item.id}')" title="${lang==='he'?'מחק':'Delete'}">🗑️</button>
+          </div>
         </div>`).join('')}
-        <div class="add-row" style="margin-top:6px">
-          <input class="inp" id="ti-${group.id}" placeholder="${lang==='he'?'הוסף משימה...':'Add task...'}" 
+        <div class="add-row" style="margin-top:8px">
+          <input class="inp" id="ti-${group.id}" placeholder="${lang==='he'?'הוסף משימה...':'Add task...'}"
             onkeydown="if(event.key==='Enter')addTodo('${group.id}')">
           <button onclick="addTodo('${group.id}')">+</button>
         </div>
       </div>
     </div>`;
   });
+  html+='</div>';
   return html;
+}
+
+// ── GROUP DRAG & DROP ──
+let dragGroupId=null;
+function groupDragStart(e,id){
+  dragGroupId=id;
+  e.dataTransfer.effectAllowed='move';
+  setTimeout(()=>document.getElementById('tg-'+id)?.classList.add('dragging'),0);
+}
+function groupDragEnd(e){
+  document.querySelectorAll('.task-group').forEach(el=>{el.classList.remove('dragging','drag-over');});
+  dragGroupId=null;
+}
+function groupDragOver(e,id){
+  if(!dragGroupId||dragGroupId===id)return;
+  e.preventDefault();e.stopPropagation();
+  document.querySelectorAll('.task-group').forEach(el=>el.classList.remove('drag-over'));
+  document.getElementById('tg-'+id)?.classList.add('drag-over');
+}
+function groupDragLeave(e,id){
+  if(!e.currentTarget.contains(e.relatedTarget))
+    document.getElementById('tg-'+id)?.classList.remove('drag-over');
+}
+function groupDrop(e,targetId){
+  e.preventDefault();e.stopPropagation();
+  if(!dragGroupId||dragGroupId===targetId)return;
+  const groups=tripData.todoGroups;
+  const fromIdx=groups.findIndex(g=>g.id===dragGroupId);
+  const toIdx=groups.findIndex(g=>g.id===targetId);
+  if(fromIdx<0||toIdx<0)return;
+  const [moved]=groups.splice(fromIdx,1);
+  groups.splice(toIdx,0,moved);
+  tripData.todoGroups=groups;
+  saveData();renderSec('tasks');
+}
+
+// ── ITEM DRAG & DROP ──
+let dragItemId=null,dragItemGroup=null;
+function itemDragStart(e,id,groupId){
+  dragItemId=id;dragItemGroup=groupId;
+  e.dataTransfer.effectAllowed='move';
+  e.stopPropagation();
+  setTimeout(()=>document.getElementById('ti-item-'+id)?.classList.add('dragging'),0);
+}
+function itemDragEnd(e){
+  document.querySelectorAll('.todo-item').forEach(el=>el.classList.remove('dragging','drag-over-top','drag-over-bot'));
+  document.querySelectorAll('.task-group-body').forEach(el=>el.classList.remove('drag-over'));
+  dragItemId=null;dragItemGroup=null;
+}
+function itemDragOver(e){
+  if(!dragItemId)return;
+  e.preventDefault();e.stopPropagation();
+  const body=e.currentTarget;
+  body.classList.add('drag-over');
+  // Highlight nearest item
+  const items=[...body.querySelectorAll('.todo-item[id]')];
+  items.forEach(el=>el.classList.remove('drag-over-top','drag-over-bot'));
+  const target=items.find(el=>{const r=el.getBoundingClientRect();return e.clientY<r.top+r.height/2;});
+  if(target)target.classList.add('drag-over-top');
+  else if(items.length)items[items.length-1].classList.add('drag-over-bot');
+}
+function itemDragLeave(e){
+  if(!e.currentTarget.contains(e.relatedTarget)){
+    e.currentTarget.classList.remove('drag-over');
+    e.currentTarget.querySelectorAll('.todo-item').forEach(el=>el.classList.remove('drag-over-top','drag-over-bot'));
+  }
+}
+function itemDrop(e,targetGroupId){
+  e.preventDefault();e.stopPropagation();
+  if(!dragItemId)return;
+  const todos=tripData.todos||[];
+  const body=e.currentTarget;
+  const items=[...body.querySelectorAll('.todo-item[id]')];
+  const targetEl=items.find(el=>el.classList.contains('drag-over-top'));
+  const afterLast=items.length>0&&items[items.length-1].classList.contains('drag-over-bot');
+  // Remove dragged item
+  const fromIdx=todos.findIndex(i=>i.id===dragItemId);
+  if(fromIdx<0)return;
+  const [moved]=todos.splice(fromIdx,1);
+  moved.cat=targetGroupId;
+  // Find insert position
+  if(targetEl){
+    const targetItemId=targetEl.id.replace('ti-item-','');
+    const toIdx=todos.findIndex(i=>i.id===targetItemId);
+    todos.splice(toIdx>=0?toIdx:todos.length,0,moved);
+  } else {
+    todos.push(moved);
+  }
+  tripData.todos=todos;
+  saveData();renderSec('tasks');updateStats();
+}
+
+// ── EDIT TODO ──
+function editTodo(id){
+  const item=(tripData.todos||[]).find(i=>i.id===id);
+  if(!item)return;
+  const el=document.getElementById('ti-item-'+id);
+  if(!el)return;
+  const txtEl=el.querySelector('.todo-txt');
+  if(!txtEl)return;
+  // Replace text with inline input
+  const inp=document.createElement('input');
+  inp.className='todo-edit-inp';
+  inp.value=item.text;
+  txtEl.replaceWith(inp);
+  inp.focus();inp.select();
+  const save=()=>{
+    const newText=inp.value.trim();
+    if(newText&&newText!==item.text){item.text=newText;saveData();}
+    renderSec('tasks');
+  };
+  inp.addEventListener('blur',save);
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();inp.blur();}
+    if(e.key==='Escape'){inp.value=item.text;inp.blur();}
+  });
 }
 
 function toggleGroup(id){
   const body=document.getElementById('tgb-'+id);
-  const header=document.querySelector(`#tg-${id} .task-group-toggle`);
+  const tog=document.querySelector(`#tg-${id} .task-group-toggle`);
   if(!body)return;
   const isOpen=body.style.display!=='none';
   body.style.display=isOpen?'none':'block';
-  if(header)header.textContent=isOpen?'▶':'▼';
+  if(tog)tog.textContent=isOpen?'▶':'▼';
 }
 
 function addGroup(){
@@ -812,8 +951,7 @@ function addGroup(){
 
 function renameGroup(id,newName){
   if(!newName)return;
-  const groups=tripData.todoGroups||[];
-  const g=groups.find(g=>g.id===id);
+  const g=(tripData.todoGroups||[]).find(g=>g.id===id);
   if(g&&g.name!==newName){g.name=newName;saveData();}
 }
 
