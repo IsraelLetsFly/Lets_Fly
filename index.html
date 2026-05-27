@@ -2371,8 +2371,8 @@ function showAIResults(data, providerName){
       html+=`<div class="ai-result-item">
         <div class="ai-result-title">🏨 ${h.name||isHe?'מלון':'Hotel'}</div>
         ${h.dest?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'יעד':'Destination'}</span><span class="ai-result-val">${h.dest}</span></div>`:''}
-        ${h.checkIn?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ'ק-אין':'Check-in'}</span><span class="ai-result-val">${h.checkIn}</span></div>`:''}
-        ${h.checkOut?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ'ק-אאוט':'Check-out'}</span><span class="ai-result-val">${h.checkOut}</span></div>`:''}
+        ${h.checkIn?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ׳ק-אין':'Check-in'}</span><span class="ai-result-val">${h.checkIn}</span></div>`:''}
+        ${h.checkOut?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ׳ק-אאוט':'Check-out'}</span><span class="ai-result-val">${h.checkOut}</span></div>`:''}
         ${h.conf?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'אישור':'Confirmation'}</span><span class="ai-result-val">${h.conf}</span></div>`:''}
         ${h.cost?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'עלות':'Cost'}</span><span class="ai-result-val">${h.cost} ${currentTrip?.currency||''}</span></div>`:''}
         <button class="ai-apply-btn" onclick="applyAIHotel(${i},this)">${isHe?'✅ הוסף מלון זה':'✅ Add this hotel'}</button>
