@@ -303,6 +303,21 @@ textarea.inp{resize:vertical;min-height:80px}
 .em-inp{background:none;border:none;border-bottom:1px solid var(--border2);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:100%;padding-bottom:3px;transition:border-color .2s}
 .em-inp:focus{border-bottom-color:var(--accent)}
 
+/* AI */
+.ai-chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg3);border:1.5px solid var(--border2);border-radius:100px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none}
+.ai-chip:hover{border-color:var(--purple)}
+.ai-chip input{display:none}
+.ai-chip:has(input:checked){background:rgba(139,92,246,.12);border-color:var(--purple);color:var(--purple)}
+.ai-result-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.ai-result-title{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.ai-result-field{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)}
+.ai-result-field:last-child{border-bottom:none}
+.ai-result-key{color:var(--textm);flex-shrink:0;min-width:100px}
+.ai-result-val{font-weight:600;text-align:end}
+.ai-apply-btn{background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);color:var(--purple);border-radius:var(--rsm);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:10px;transition:all .15s;width:100%}
+.ai-apply-btn:hover{background:rgba(139,92,246,.22)}
+.ai-apply-btn:disabled{opacity:.5;cursor:not-allowed}
+
 /* RESPONSIVE */
 @media(max-width:640px){
   .trips-grid{grid-template-columns:1fr 1fr}
@@ -369,6 +384,7 @@ textarea.inp{resize:vertical;min-height:80px}
   <div class="nav-right">
     <span id="save-ind" style="font-size:11px;color:var(--textm);display:none">💾</span>
     <button id="share-btn" style="display:none;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:100px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--accent);transition:all .2s" onclick="openShareModal()">🔗 Share</button>
+    <button id="ai-btn" style="display:none;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);border-radius:100px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--purple);transition:all .2s" onclick="openAIModal()">🤖 AI</button>
     <button class="lang-btn" onclick="toggleLang()" id="app-lang-btn">🌐 עברית</button>
     <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
     <div class="avatar" id="avatar" onclick="toggleMenu()"></div>
@@ -582,6 +598,7 @@ function showApp(){
   const name=currentUser.user_metadata?.full_name||email.split('@')[0]||'';
   document.getElementById('home-title').textContent=name?`👋 ${name}`:t('greeting');
   applyLang();
+  addSettingsToMenu();
   // Restore last trip/section after refresh
   const savedTripId=sessionStorage.getItem('lf-trip-id');
   const savedSec=sessionStorage.getItem('lf-sec')||'dashboard';
@@ -637,6 +654,7 @@ function goHome(){
   document.getElementById('nav-sections').style.display='none';
   document.getElementById('nav-sections').innerHTML='';
   document.getElementById('share-btn').style.display='none';
+  document.getElementById('ai-btn').style.display='none';
   // Clean share param from URL
   history.replaceState(null,'',window.location.pathname);
   showPage('page-home');loadTrips();
@@ -652,6 +670,7 @@ function openTrip(trip,sec){
   buildNavSections();
   document.getElementById('nav-sections').style.display='flex';
   document.getElementById('share-btn').style.display='inline-flex';
+  document.getElementById('ai-btn').style.display=isViewOnly?'none':'inline-flex';
   showPage('page-trip');
   showSec(sec||'dashboard');
   sessionStorage.setItem('lf-trip-id',trip.id);
@@ -679,8 +698,11 @@ function buildNavSections(){
 
 function buildTripPage(){
   const p=document.getElementById('page-trip');
+  const backBtn=isViewOnly
+    ? '' // no back button for shared view — no home to go to
+    : `<button class="btn btn-ghost btn-sm" onclick="goHome()" style="margin-bottom:8px">${t('back')}</button>`;
   p.innerHTML=`<div class="page-header">
-    <button class="btn btn-ghost btn-sm" onclick="goHome()" style="margin-bottom:8px">${t('back')}</button>
+    ${backBtn}
     <div class="page-title">${currentTrip.emoji} ${currentTrip.name}</div>
     <div class="page-sub">📅 ${fmtDate(currentTrip.start_date)} → ${fmtDate(currentTrip.end_date)} · ${calcNights(currentTrip.start_date,currentTrip.end_date)} ${t('nights')} · ${currentTrip.travelers||1} ${t('travelers2')}</div>
   </div>
@@ -1977,8 +1999,704 @@ async function checkSharedTrip(){
 const _saveData=saveData;
 window.saveDataReal=_saveData;
 
+// ══════════════════════════════════════════════════════
+// STAGE 4 — AI ASSISTANT
+// ══════════════════════════════════════════════════════
+
+// Keys stored in localStorage (browser only, never sent to our server)
+function getAIKeys(){
+  return {
+    openai:    localStorage.getItem('lf-key-openai')||'',
+    anthropic: localStorage.getItem('lf-key-anthropic')||'',
+    gemini:    localStorage.getItem('lf-key-gemini')||''
+  };
+}
+function getActiveProvider(){
+  const k=getAIKeys();
+  if(k.anthropic) return {id:'anthropic',name:'Claude (Anthropic)',icon:'🟠',key:k.anthropic};
+  if(k.openai)    return {id:'openai',   name:'ChatGPT (OpenAI)',  icon:'🟢',key:k.openai};
+  if(k.gemini)    return {id:'gemini',   name:'Gemini (Google)',   icon:'🔵',key:k.gemini};
+  return null;
+}
+
+let aiFileBase64=null, aiFileMime=null, aiFileNameStr=null;
+
+function openSettingsModal(){
+  const k=getAIKeys();
+  const isHe=lang==='he';
+  const provider=getActiveProvider();
+
+  // Translate
+  document.getElementById('set-title').textContent=isHe?'הגדרות':'Settings';
+  document.getElementById('set-ai-title').textContent=isHe?'🤖 מפתחות AI API':'🤖 AI API Keys';
+  document.getElementById('set-key-warn').textContent=isHe?'המפתחות נשמרים רק בדפדפן שלך — לא נשלחים לשרתי LetsFly.':'Keys stored only in your browser — never sent to LetsFly servers.';
+  document.getElementById('set-cancel').textContent=isHe?'ביטול':'Cancel';
+  document.getElementById('set-save').textContent=isHe?'שמור':'Save';
+  document.getElementById('set-free-badge').textContent=isHe?'חינמי':'FREE';
+  document.getElementById('set-gemini-sub').textContent=isHe?'מומלץ · 1,500 בקשות חינמיות ביום':'Recommended · 1,500 free requests/day';
+  document.getElementById('set-get-key').textContent=isHe?'קבל מפתח חינמי ←':'Get free key →';
+  document.getElementById('set-openai-link').textContent=isHe?'קבל מפתח ←':'Get key →';
+  document.getElementById('set-claude-link').textContent=isHe?'קבל מפתח ←':'Get key →';
+  document.getElementById('set-disconnect-btn').textContent=isHe?'נתק':'Disconnect';
+
+  // Show connected status if key exists
+  const connectedEl=document.getElementById('set-connected');
+  if(provider){
+    connectedEl.style.display='block';
+    document.getElementById('set-connected-icon').textContent=provider.icon;
+    document.getElementById('set-connected-name').textContent=provider.name;
+    document.getElementById('set-connected-sub').textContent=isHe?'מחובר ✓':'Connected ✓';
+  } else {
+    connectedEl.style.display='none';
+  }
+
+  // Show masked placeholders
+  if(k.gemini)    document.getElementById('set-gemini').placeholder='AIza••••••••••••••••';
+  if(k.openai)    document.getElementById('set-openai').placeholder='sk-••••••••••••••••••';
+  if(k.anthropic) document.getElementById('set-anthropic').placeholder='sk-ant-••••••••••••';
+
+  openModal('modal-settings');
+}
+
+function saveSettings(){
+  const gemini=document.getElementById('set-gemini').value.trim();
+  const openai=document.getElementById('set-openai').value.trim();
+  const anthropic=document.getElementById('set-anthropic').value.trim();
+  let saved=false;
+  if(gemini){localStorage.setItem('lf-key-gemini',gemini);saved=true;}
+  if(openai){localStorage.setItem('lf-key-openai',openai);saved=true;}
+  if(anthropic){localStorage.setItem('lf-key-anthropic',anthropic);saved=true;}
+  ['set-gemini','set-openai','set-anthropic'].forEach(id=>document.getElementById(id).value='');
+  closeModal('modal-settings');
+  if(saved) toast('✅ '+(lang==='he'?'AI מחובר בהצלחה! 🤖':'AI connected successfully! 🤖'));
+  else toast(lang==='he'?'לא הוזן מפתח חדש':'No new key entered');
+}
+
+function disconnectAI(){
+  if(!confirm(lang==='he'?'האם לנתק את ה-AI? תצטרך להזין מפתח חדש כדי להשתמש ב-AI.':'Disconnect AI? You will need to enter a new key to use AI.'))return;
+  ['lf-key-gemini','lf-key-openai','lf-key-anthropic'].forEach(k=>localStorage.removeItem(k));
+  closeModal('modal-settings');
+  toast(lang==='he'?'🔌 AI נותק':'🔌 AI disconnected');
+}
+
+// Inline save from onboarding
+function saveGeminiKey(){
+  const key=document.getElementById('ai-gemini-inline')?.value.trim();
+  if(!key)return toast('⚠️ '+(lang==='he'?'נא להזין מפתח':'Please enter a key'));
+  if(!key.startsWith('AIza'))return toast('⚠️ '+(lang==='he'?'מפתח Gemini לא תקין (צריך להתחיל ב-AIza)':'Invalid Gemini key (should start with AIza)'));
+  localStorage.setItem('lf-key-gemini',key);
+  closeModal('modal-ai');
+  toast('✅ '+(lang==='he'?'Gemini מחובר! לחץ 🤖 AI שוב':'Gemini connected! Click 🤖 AI again'));
+}
+
+function saveOtherKeys(){
+  const openai=document.getElementById('ai-openai-inline')?.value.trim();
+  const anthropic=document.getElementById('ai-anthropic-inline')?.value.trim();
+  let saved=false;
+  if(openai){localStorage.setItem('lf-key-openai',openai);saved=true;}
+  if(anthropic){localStorage.setItem('lf-key-anthropic',anthropic);saved=true;}
+  if(!saved)return toast('⚠️ '+(lang==='he'?'נא להזין לפחות מפתח אחד':'Please enter at least one key'));
+  closeModal('modal-ai');
+  toast('✅ '+(lang==='he'?'AI מחובר! לחץ 🤖 AI שוב':'AI connected! Click 🤖 AI again'));
+}
+
+function toggleOtherProviders(){
+  const el=document.getElementById('ai-other-providers');
+  const arrow=document.getElementById('ai-other-arrow');
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  if(arrow)arrow.textContent=isOpen?'▶':'▼';
+}
+
+// Add settings to user menu
+function addSettingsToMenu(){
+  const menu=document.getElementById('user-menu');
+  if(menu&&!document.getElementById('menu-settings')){
+    const btn=document.createElement('button');
+    btn.id='menu-settings';
+    btn.className='menu-item';
+    btn.innerHTML='⚙️ <span>'+(lang==='he'?'הגדרות':'Settings')+'</span>';
+    btn.onclick=()=>{closeMenu();openSettingsModal();};
+    // Insert before sign out
+    const danger=menu.querySelector('.danger');
+    if(danger)menu.insertBefore(btn,danger);
+    else menu.appendChild(btn);
+  }
+}
+
+function openAIModal(){
+  const provider=getActiveProvider();
+  const isHe=lang==='he';
+
+  // Translate
+  document.getElementById('ai-modal-title').textContent=isHe?'עוזר AI':'AI Assistant';
+  document.getElementById('ai-modal-desc').textContent=isHe?'העלה צילום מסך ו-AI יחלץ פרטי טיול רלוונטיים אוטומטית.':'Upload a screenshot or photo and AI will extract the relevant trip details automatically.';
+  document.getElementById('ai-drop-title').textContent=isHe?'לחץ או גרור תמונה לכאן':'Click or drag image here';
+  document.getElementById('ai-drop-sub').textContent=isHe?'תומך: אישורי טיסה, הזמנות מלון, לוחות זמנים, קבלות':'Supports: flight confirmations, hotel bookings, itineraries, receipts';
+  document.getElementById('ai-extract-lbl').textContent=isHe?'מה ה-AI צריך לחפש?':'What should AI look for?';
+  document.getElementById('ai-chip-flights').textContent=isHe?'טיסות':'Flights';
+  document.getElementById('ai-chip-hotels').textContent=isHe?'מלונות':'Hotels';
+  document.getElementById('ai-chip-budget').textContent=isHe?'תקציב':'Budget';
+  document.getElementById('ai-chip-itin').textContent=isHe?'לו"ז':'Itinerary';
+  document.getElementById('ai-chip-transport').textContent=isHe?'תחבורה':'Transport';
+  document.getElementById('ai-run-txt').textContent=isHe?'✨ נתח':'✨ Analyze';
+  document.getElementById('ai-cancel-btn').textContent=isHe?'ביטול':'Cancel';
+  document.getElementById('ai-change-key').textContent=isHe?'שנה':'Change';
+
+  if(!provider){
+    document.getElementById('ai-no-key').style.display='block';
+    document.getElementById('ai-has-key').style.display='none';
+    document.getElementById('ai-nokey-title').textContent=isHe?'חבר את ה-AI שלך':'Connect your AI';
+    document.getElementById('ai-nokey-desc').textContent=isHe?'העלה צילום מסך של כל מסמך נסיעה ו-AI ימלא את פרטי הטיול שלך אוטומטית — טיסות, מלונות, תקציב ועוד.':'Upload a screenshot of any travel document and AI will automatically fill in your trip details — flights, hotels, budget and more.';
+    document.getElementById('ai-free-badge')&&(document.getElementById('ai-free-badge').textContent=isHe?'חינמי ✓':'FREE ✓');
+    document.getElementById('ai-gemini-sub')&&(document.getElementById('ai-gemini-sub').textContent=isHe?'1,500 בקשות חינמיות ביום · ללא כרטיס אשראי · יש לך כבר חשבון Google':'1,500 free requests/day · No credit card needed · You already have a Google account');
+    document.getElementById('ai-steps-lbl')&&(document.getElementById('ai-steps-lbl').textContent=isHe?'3 שלבים לקבלת מפתח חינמי:':'3 steps to get your free key:');
+    document.getElementById('ai-step1')&&(document.getElementById('ai-step1').innerHTML=isHe?'עבור ל<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent);font-weight:600">aistudio.google.com/app/apikey</a> — התחבר עם חשבון Google שלך':'Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent);font-weight:600">aistudio.google.com/app/apikey</a> — sign in with your Google account');
+    document.getElementById('ai-step2')&&(document.getElementById('ai-step2').innerHTML=isHe?'לחץ <strong>"Create API Key"</strong> → העתק את המפתח שמתחיל ב<code style="background:var(--bg3);padding:1px 5px;border-radius:4px">AIza...</code>':'Click <strong>"Create API Key"</strong> → copy the key that starts with <code style="background:var(--bg3);padding:1px 5px;border-radius:4px">AIza...</code>');
+    document.getElementById('ai-step3')&&(document.getElementById('ai-step3').innerHTML=isHe?'הדבק אותו למטה ולחץ <strong>שמור</strong>':'Paste it below and click <strong>Save</strong>');
+    document.getElementById('ai-save-gemini-btn')&&(document.getElementById('ai-save-gemini-btn').textContent=isHe?'שמור':'Save');
+    document.getElementById('ai-other-toggle')&&(document.getElementById('ai-other-lbl').textContent=isHe?'יש לי ChatGPT או Claude במקום':'I have ChatGPT or Claude instead');
+    document.getElementById('ai-privacy-note')&&(document.getElementById('ai-privacy-note').innerHTML=isHe?'המפתח שלך נשמר רק ב<strong>דפדפן שלך</strong> — לא נשלח לשרתי LetsFly. רק אתה יכול לראות אותו.':'Your key is stored only in <strong>your browser</strong> — never sent to LetsFly servers. Only you can see it.');
+  } else {
+    document.getElementById('ai-no-key').style.display='none';
+    document.getElementById('ai-has-key').style.display='block';
+    document.getElementById('ai-provider-icon').textContent=provider.icon;
+    document.getElementById('ai-provider-name').textContent=provider.name;
+  }
+
+  // Reset state
+  clearAIFile();
+  document.getElementById('ai-status').style.display='none';
+  document.getElementById('ai-results').style.display='none';
+  document.getElementById('ai-run-btn').disabled=false;
+  openModal('modal-ai');
+}
+
+function handleAIDrop(e){
+  e.preventDefault();
+  document.getElementById('ai-dropzone').style.borderColor='var(--border2)';
+  const file=e.dataTransfer.files[0];
+  if(file)handleAIFile(file);
+}
+
+function handleAIFile(file){
+  if(!file||!file.type.startsWith('image/'))return toast('⚠️ '+(lang==='he'?'נא להעלות קובץ תמונה':'Please upload an image file'));
+  aiFileMime=file.type;
+  aiFileNameStr=file.name;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    aiFileBase64=e.target.result.split(',')[1];
+    document.getElementById('ai-preview-img').src=e.target.result;
+    document.getElementById('ai-file-name').textContent=file.name;
+    document.getElementById('ai-preview').style.display='block';
+    document.getElementById('ai-dropzone').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearAIFile(){
+  aiFileBase64=null;aiFileMime=null;aiFileNameStr=null;
+  document.getElementById('ai-preview').style.display='none';
+  document.getElementById('ai-dropzone').style.display='block';
+  document.getElementById('ai-file-input').value='';
+}
+
+function getSelectedCategories(){
+  return [...document.querySelectorAll('#ai-extract-options input:checked')].map(i=>i.value);
+}
+
+function buildAIPrompt(categories){
+  const cur=currentTrip?.currency||'USD';
+  const isHe=lang==='he';
+  return `You are a travel data extraction assistant. Analyze this image (which may be a flight confirmation, hotel booking, travel itinerary, receipt, or similar travel document) and extract structured data.
+
+Extract ONLY the following categories that are relevant to what you see: ${categories.join(', ')}.
+
+Return a JSON object with this exact structure (include only categories that have data):
+{
+  "flights": [{
+    "from": "airport code or city",
+    "to": "airport code or city",
+    "depTime": "formatted date and time",
+    "arrTime": "formatted date and time",
+    "flightNum": "flight number",
+    "airline": "airline name",
+    "conf": "confirmation/booking number",
+    "notes": "any other relevant info"
+  }],
+  "hotels": [{
+    "name": "hotel name",
+    "dest": "city",
+    "checkIn": "YYYY-MM-DD",
+    "checkOut": "YYYY-MM-DD",
+    "conf": "confirmation number",
+    "cost": numeric_amount_in_${cur}_or_null,
+    "notes": "special requests or notes"
+  }],
+  "budget": [{
+    "desc": "description of expense",
+    "amount": numeric_amount,
+    "cat": "category name",
+    "status": "paid or planned"
+  }],
+  "itinerary": [{
+    "title": "day title",
+    "date": "YYYY-MM-DD",
+    "city": "city name",
+    "blocks": [{"time": "HH:MM", "text": "activity description"}]
+  }],
+  "transport": [{
+    "type": "transport type with emoji",
+    "desc": "description",
+    "notes": "price or booking info"
+  }]
+}
+
+Return ONLY valid JSON, no explanation, no markdown, no backticks.`;
+}
+
+async function runAI(){
+  if(!aiFileBase64) return toast('⚠️ '+(lang==='he'?'נא להעלות תמונה תחילה':'Please upload an image first'));
+  const provider=getActiveProvider();
+  if(!provider) return toast('⚠️ '+(lang==='he'?'לא הוגדר מפתח API':'No API key configured'));
+  const categories=getSelectedCategories();
+  if(!categories.length) return toast('⚠️ '+(lang==='he'?'בחר לפחות קטגוריה אחת':'Select at least one category'));
+
+  const runBtn=document.getElementById('ai-run-btn');
+  const status=document.getElementById('ai-status');
+  runBtn.disabled=true;
+  document.getElementById('ai-run-txt').textContent=lang==='he'?'⏳ מנתח...':'⏳ Analyzing...';
+  document.getElementById('ai-results').style.display='none';
+  status.style.display='block';
+  status.style.background='rgba(139,92,246,.08)';
+  status.style.border='1px solid rgba(139,92,246,.2)';
+  status.style.color='var(--purple)';
+  status.textContent=(lang==='he'?'🤖 שולח ל-':'🤖 Sending to ')+provider.name+'...';
+
+  try {
+    let resultJson=null;
+    const prompt=buildAIPrompt(categories);
+
+    if(provider.id==='anthropic'){
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':provider.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({
+          model:'claude-opus-4-5',
+          max_tokens:2000,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:aiFileMime,data:aiFileBase64}},
+            {type:'text',text:prompt}
+          ]}]
+        })
+      });
+      const data=await res.json();
+      if(data.error) throw new Error(data.error.message);
+      resultJson=data.content[0].text;
+
+    } else if(provider.id==='openai'){
+      const res=await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+provider.key},
+        body:JSON.stringify({
+          model:'gpt-4o',
+          max_tokens:2000,
+          messages:[{role:'user',content:[
+            {type:'image_url',image_url:{url:`data:${aiFileMime};base64,${aiFileBase64}`}},
+            {type:'text',text:prompt}
+          ]}]
+        })
+      });
+      const data=await res.json();
+      if(data.error) throw new Error(data.error.message);
+      resultJson=data.choices[0].message.content;
+
+    } else if(provider.id==='gemini'){
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${provider.key}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[
+            {inline_data:{mime_type:aiFileMime,data:aiFileBase64}},
+            {text:prompt}
+          ]}]
+        })
+      });
+      const data=await res.json();
+      if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
+      resultJson=data.candidates[0].content.parts[0].text;
+    }
+
+    // Parse JSON
+    const clean=resultJson.replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(clean);
+    showAIResults(parsed, provider.name);
+
+  } catch(err){
+    status.style.background='rgba(239,68,68,.08)';
+    status.style.border='1px solid rgba(239,68,68,.2)';
+    status.style.color='var(--coral)';
+    status.textContent='❌ '+(lang==='he'?'שגיאה: ':'Error: ')+err.message;
+    runBtn.disabled=false;
+    document.getElementById('ai-run-txt').textContent=lang==='he'?'✨ נסה שוב':'✨ Try Again';
+  }
+}
+
+function showAIResults(data, providerName){
+  const status=document.getElementById('ai-status');
+  const results=document.getElementById('ai-results');
+  const isHe=lang==='he';
+
+  let hasData=false;
+  let html='';
+
+  if(data.flights?.length){
+    hasData=true;
+    data.flights.forEach((f,i)=>{
+      html+=`<div class="ai-result-item">
+        <div class="ai-result-title">✈️ ${isHe?'טיסה':'Flight'} ${f.from||''}→${f.to||''}</div>
+        ${f.airline?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'חברה':'Airline'}</span><span class="ai-result-val">${f.airline}</span></div>`:''}
+        ${f.flightNum?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'מספר טיסה':'Flight #'}</span><span class="ai-result-val">${f.flightNum}</span></div>`:''}
+        ${f.depTime?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'יציאה':'Departure'}</span><span class="ai-result-val">${f.depTime}</span></div>`:''}
+        ${f.arrTime?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'הגעה':'Arrival'}</span><span class="ai-result-val">${f.arrTime}</span></div>`:''}
+        ${f.conf?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'אישור':'Confirmation'}</span><span class="ai-result-val">${f.conf}</span></div>`:''}
+        <button class="ai-apply-btn" onclick="applyAIFlight(${i},this)">${isHe?'✅ הוסף טיסה זו':'✅ Add this flight'}</button>
+      </div>`;
+    });
+  }
+
+  if(data.hotels?.length){
+    hasData=true;
+    data.hotels.forEach((h,i)=>{
+      html+=`<div class="ai-result-item">
+        <div class="ai-result-title">🏨 ${h.name||isHe?'מלון':'Hotel'}</div>
+        ${h.dest?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'יעד':'Destination'}</span><span class="ai-result-val">${h.dest}</span></div>`:''}
+        ${h.checkIn?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ'ק-אין':'Check-in'}</span><span class="ai-result-val">${h.checkIn}</span></div>`:''}
+        ${h.checkOut?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ'ק-אאוט':'Check-out'}</span><span class="ai-result-val">${h.checkOut}</span></div>`:''}
+        ${h.conf?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'אישור':'Confirmation'}</span><span class="ai-result-val">${h.conf}</span></div>`:''}
+        ${h.cost?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'עלות':'Cost'}</span><span class="ai-result-val">${h.cost} ${currentTrip?.currency||''}</span></div>`:''}
+        <button class="ai-apply-btn" onclick="applyAIHotel(${i},this)">${isHe?'✅ הוסף מלון זה':'✅ Add this hotel'}</button>
+      </div>`;
+    });
+  }
+
+  if(data.budget?.length){
+    hasData=true;
+    html+=`<div class="ai-result-item">
+      <div class="ai-result-title">💰 ${isHe?'פריטי תקציב':'Budget Items'} (${data.budget.length})</div>
+      ${data.budget.map(b=>`<div class="ai-result-field"><span class="ai-result-key">${b.desc}</span><span class="ai-result-val">${b.amount} ${currentTrip?.currency||''}</span></div>`).join('')}
+      <button class="ai-apply-btn" onclick="applyAIBudget(this)">${isHe?'✅ הוסף את כל פריטי התקציב':'✅ Add all budget items'}</button>
+    </div>`;
+  }
+
+  if(data.itinerary?.length){
+    hasData=true;
+    data.itinerary.forEach((day,i)=>{
+      html+=`<div class="ai-result-item">
+        <div class="ai-result-title">📅 ${isHe?'יום':'Day'} — ${day.title||''} ${day.date||''}</div>
+        ${(day.blocks||[]).slice(0,4).map(b=>`<div class="ai-result-field"><span class="ai-result-key">${b.time||''}</span><span class="ai-result-val">${b.text}</span></div>`).join('')}
+        <button class="ai-apply-btn" onclick="applyAIDay(${i},this)">${isHe?'✅ הוסף יום זה':'✅ Add this day'}</button>
+      </div>`;
+    });
+  }
+
+  if(data.transport?.length){
+    hasData=true;
+    html+=`<div class="ai-result-item">
+      <div class="ai-result-title">🚗 ${isHe?'תחבורה':'Transport'} (${data.transport.length})</div>
+      ${data.transport.map(tr=>`<div class="ai-result-field"><span class="ai-result-key">${tr.type||''}</span><span class="ai-result-val">${tr.desc||''}</span></div>`).join('')}
+      <button class="ai-apply-btn" onclick="applyAITransport(this)">${isHe?'✅ הוסף את כל התחבורה':'✅ Add all transport'}</button>
+    </div>`;
+  }
+
+  if(!hasData){
+    status.style.background='rgba(245,158,11,.08)';
+    status.style.border='1px solid rgba(245,158,11,.2)';
+    status.style.color='var(--gold)';
+    status.textContent=isHe?'⚠️ לא נמצאו נתוני טיול בתמונה זו. נסה תמונה אחרת.':'⚠️ No travel data found in this image. Try a different image.';
+    document.getElementById('ai-run-btn').disabled=false;
+    document.getElementById('ai-run-txt').textContent=isHe?'✨ נסה שוב':'✨ Try Again';
+    return;
+  }
+
+  // Store parsed data for apply functions
+  window._aiParsed=data;
+
+  status.style.background='rgba(16,185,129,.08)';
+  status.style.border='1px solid rgba(16,185,129,.2)';
+  status.style.color='var(--green)';
+  status.textContent=(isHe?'✅ נמצאו נתונים על ידי ':'✅ Data found by ')+providerName+(isHe?' — לחץ הוסף כדי להוסיף לטיול':' — click Add to save to your trip');
+
+  results.innerHTML=html;
+  results.style.display='block';
+  document.getElementById('ai-run-btn').disabled=false;
+  document.getElementById('ai-run-txt').textContent=isHe?'✨ נתח שוב':'✨ Analyze Again';
+}
+
+// Apply functions
+function applyAIFlight(idx,btn){
+  const f=window._aiParsed?.flights?.[idx];
+  if(!f)return;
+  if(!tripData.flights)tripData.flights=[];
+  tripData.flights.push({id:uid(),...f});
+  saveData();
+  btn.disabled=true;
+  btn.textContent=lang==='he'?'✅ נוסף!':'✅ Added!';
+  toast('✅ '+(lang==='he'?'טיסה נוספה':'Flight added'));
+}
+
+function applyAIHotel(idx,btn){
+  const h=window._aiParsed?.hotels?.[idx];
+  if(!h)return;
+  if(!tripData.hotels)tripData.hotels=[];
+  tripData.hotels.push({id:uid(),...h});
+  saveData();
+  btn.disabled=true;
+  btn.textContent=lang==='he'?'✅ נוסף!':'✅ Added!';
+  toast('✅ '+(lang==='he'?'מלון נוסף':'Hotel added'));
+}
+
+function applyAIBudget(btn){
+  const items=window._aiParsed?.budget||[];
+  const groups=getBGroups();
+  const defGroup=groups[groups.length-1]?.id||groups[0]?.id;
+  items.forEach(item=>{
+    if(!tripData.budget)tripData.budget=[];
+    tripData.budget.push({id:uid(),desc:item.desc,amount:item.amount||0,groupId:defGroup,status:item.status||'planned'});
+  });
+  saveData();
+  btn.disabled=true;
+  btn.textContent=lang==='he'?'✅ נוספו!':'✅ Added!';
+  toast('✅ '+(lang==='he'?`${items.length} פריטים נוספו`:`${items.length} items added`));
+}
+
+function applyAIDay(idx,btn){
+  const day=window._aiParsed?.itinerary?.[idx];
+  if(!day)return;
+  if(!tripData.days)tripData.days=[];
+  const maxNum=tripData.days.reduce((m,d)=>Math.max(m,d.num||0),0);
+  tripData.days.push({id:uid(),num:maxNum+1,title:day.title||'',date:day.date||'',city:day.city||'',blocks:day.blocks||[]});
+  saveData();
+  btn.disabled=true;
+  btn.textContent=lang==='he'?'✅ נוסף!':'✅ Added!';
+  toast('✅ '+(lang==='he'?'יום נוסף':'Day added'));
+}
+
+function applyAITransport(btn){
+  const items=window._aiParsed?.transport||[];
+  items.forEach(tr=>{
+    if(!tripData.transport)tripData.transport=[];
+    tripData.transport.push({id:uid(),...tr});
+  });
+  saveData();
+  btn.disabled=true;
+  btn.textContent=lang==='he'?'✅ נוסף!':'✅ Added!';
+  toast('✅ '+(lang==='he'?'תחבורה נוספה':'Transport added'));
+}
+
+
 init();
 </script>
+<!-- AI MODAL -->
+<div class="overlay" id="modal-ai">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">🤖 <span id="ai-modal-title">AI Assistant</span></div>
+    <p style="font-size:13px;color:var(--textm);margin-bottom:18px" id="ai-modal-desc">Upload a screenshot or photo and AI will extract the relevant trip details automatically.</p>
+
+    <!-- Onboarding (shown if no key) -->
+    <div id="ai-no-key" style="display:none">
+
+      <!-- Hero -->
+      <div style="text-align:center;padding:8px 0 20px">
+        <div style="font-size:48px;margin-bottom:10px">🤖</div>
+        <div style="font-size:17px;font-weight:800;margin-bottom:6px" id="ai-nokey-title">Connect your AI</div>
+        <div style="font-size:13px;color:var(--textm);line-height:1.6" id="ai-nokey-desc">Upload a screenshot of any travel document and AI will automatically fill in your trip details — flights, hotels, budget and more.</div>
+      </div>
+
+      <!-- Recommended: Gemini (free) -->
+      <div style="background:linear-gradient(135deg,rgba(66,133,244,.1),rgba(52,168,83,.08));border:1.5px solid rgba(66,133,244,.3);border-radius:var(--r);padding:16px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:24px">🔵</span>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700">Google Gemini <span style="background:rgba(16,185,129,.15);color:var(--green);font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-inline-start:6px" id="ai-free-badge">FREE ✓</span></div>
+            <div style="font-size:12px;color:var(--textm)" id="ai-gemini-sub">1,500 free requests/day · No credit card needed · You already have a Google account</div>
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--rsm);padding:12px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--textm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px" id="ai-steps-lbl">3 steps to get your free key:</div>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+              <span style="background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px">1</span>
+              <span id="ai-step1">Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent);font-weight:600">aistudio.google.com/app/apikey</a> — sign in with your Google account</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+              <span style="background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px">2</span>
+              <span id="ai-step2">Click <strong>"Create API Key"</strong> → copy the key that starts with <code style="background:var(--bg3);padding:1px 5px;border-radius:4px">AIza...</code></span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+              <span style="background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px">3</span>
+              <span id="ai-step3">Paste it below and click <strong>Save</strong></span>
+            </div>
+          </div>
+        </div>
+        <!-- Inline Gemini key input -->
+        <div style="display:flex;gap:8px">
+          <input class="inp" id="ai-gemini-inline" type="password" placeholder="AIza..." autocomplete="off" style="flex:1" onkeydown="if(event.key==='Enter')saveGeminiKey()">
+          <button class="btn btn-primary" style="width:auto;padding:10px 18px;flex-shrink:0" onclick="saveGeminiKey()" id="ai-save-gemini-btn">Save</button>
+        </div>
+      </div>
+
+      <!-- Other providers (collapsed) -->
+      <div style="margin-top:8px">
+        <button onclick="toggleOtherProviders()" style="background:none;border:none;color:var(--textm);font-family:inherit;font-size:12px;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:5px" id="ai-other-toggle">
+          <span id="ai-other-arrow">▶</span> <span id="ai-other-lbl">I have ChatGPT or Claude instead</span>
+        </button>
+        <div id="ai-other-providers" style="display:none;margin-top:12px">
+          <div class="field">
+            <div class="field-label" style="display:flex;align-items:center;gap:6px">
+              <span>🟢</span> OpenAI (ChatGPT)
+              <a href="https://platform.openai.com/api-keys" target="_blank" style="font-size:10px;color:var(--accent);margin-inline-start:auto" id="ai-openai-link">Get key →</a>
+            </div>
+            <input class="inp" id="ai-openai-inline" type="password" placeholder="sk-..." autocomplete="off">
+          </div>
+          <div class="field">
+            <div class="field-label" style="display:flex;align-items:center;gap:6px">
+              <span>🟠</span> Anthropic (Claude)
+              <a href="https://console.anthropic.com/settings/keys" target="_blank" style="font-size:10px;color:var(--accent);margin-inline-start:auto" id="ai-claude-link">Get key →</a>
+            </div>
+            <input class="inp" id="ai-anthropic-inline" type="password" placeholder="sk-ant-..." autocomplete="off">
+          </div>
+          <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="saveOtherKeys()" id="ai-save-other-btn">Save</button>
+        </div>
+      </div>
+
+      <!-- Privacy note -->
+      <div style="display:flex;align-items:center;gap:8px;margin-top:16px;padding:10px 14px;background:var(--bg3);border-radius:var(--rsm);font-size:11px;color:var(--textm)">
+        <span style="font-size:16px;flex-shrink:0">🔒</span>
+        <span id="ai-privacy-note">Your key is stored only in <strong>your browser</strong> — never sent to LetsFly servers. Only you can see it.</span>
+      </div>
+    </div>
+
+    <!-- Main AI interface (shown if key exists) -->
+    <div id="ai-has-key">
+      <!-- Provider indicator -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border-radius:var(--rsm);font-size:13px">
+        <span id="ai-provider-icon">🤖</span>
+        <span id="ai-provider-name" style="font-weight:600"></span>
+        <button onclick="closeModal('modal-ai');openSettingsModal()" style="margin-inline-start:auto;background:none;border:none;color:var(--textm);cursor:pointer;font-size:11px" id="ai-change-key">Change</button>
+      </div>
+
+      <!-- Upload zone -->
+      <div id="ai-dropzone" style="border:2px dashed var(--border2);border-radius:var(--r);padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:14px"
+        onclick="document.getElementById('ai-file-input').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--purple)'"
+        ondragleave="this.style.borderColor='var(--border2)'"
+        ondrop="handleAIDrop(event)">
+        <div style="font-size:36px;margin-bottom:8px">📸</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px" id="ai-drop-title">Click or drag image here</div>
+        <div style="font-size:12px;color:var(--textm)" id="ai-drop-sub">Supports: flight confirmations, hotel bookings, itineraries, receipts</div>
+        <input type="file" id="ai-file-input" accept="image/*" style="display:none" onchange="handleAIFile(this.files[0])">
+      </div>
+
+      <!-- Preview -->
+      <div id="ai-preview" style="display:none;margin-bottom:14px">
+        <img id="ai-preview-img" style="max-width:100%;max-height:200px;border-radius:var(--rsm);border:1px solid var(--border2);object-fit:contain">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+          <span id="ai-file-name" style="font-size:12px;color:var(--textm)"></span>
+          <button onclick="clearAIFile()" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:12px" id="ai-clear-file">✕ Remove</button>
+        </div>
+      </div>
+
+      <!-- What to extract -->
+      <div style="margin-bottom:16px">
+        <div class="field-label" style="margin-bottom:8px" id="ai-extract-lbl">What should AI look for?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px" id="ai-extract-options">
+          <label class="ai-chip"><input type="checkbox" value="flights" checked> ✈️ <span id="ai-chip-flights">Flights</span></label>
+          <label class="ai-chip"><input type="checkbox" value="hotels" checked> 🏨 <span id="ai-chip-hotels">Hotels</span></label>
+          <label class="ai-chip"><input type="checkbox" value="budget" checked> 💰 <span id="ai-chip-budget">Budget</span></label>
+          <label class="ai-chip"><input type="checkbox" value="itinerary"> 📅 <span id="ai-chip-itin">Itinerary</span></label>
+          <label class="ai-chip"><input type="checkbox" value="transport"> 🚗 <span id="ai-chip-transport">Transport</span></label>
+        </div>
+      </div>
+
+      <!-- Status / Results -->
+      <div id="ai-status" style="display:none;padding:12px 14px;border-radius:var(--rsm);font-size:13px;margin-bottom:14px"></div>
+      <div id="ai-results" style="display:none"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-ai')" id="ai-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" style="background:linear-gradient(135deg,var(--purple),var(--accent2));width:auto;padding:10px 24px" onclick="runAI()" id="ai-run-btn">
+        <span id="ai-run-txt">✨ Analyze</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="modal-settings">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">⚙️ <span id="set-title">Settings</span></div>
+
+    <!-- Connected AI status -->
+    <div id="set-connected" style="display:none;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:var(--r);padding:14px;margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="set-connected-icon" style="font-size:22px"></span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--green)" id="set-connected-name"></div>
+          <div style="font-size:11px;color:var(--textm)" id="set-connected-sub">Connected ✓</div>
+        </div>
+        <button onclick="disconnectAI()" style="margin-inline-start:auto;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:var(--coral);border-radius:var(--rsm);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit" id="set-disconnect-btn">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Keys section -->
+    <div id="set-ai-section">
+      <div style="font-size:12px;font-weight:700;color:var(--textm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px" id="set-ai-title">🤖 AI API Keys</div>
+
+      <!-- Gemini (recommended) -->
+      <div style="border:1.5px solid rgba(66,133,244,.25);border-radius:var(--r);padding:14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:18px">🔵</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">Google Gemini <span style="background:rgba(16,185,129,.15);color:var(--green);font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px" id="set-free-badge">FREE</span></div>
+            <div style="font-size:11px;color:var(--textm)" id="set-gemini-sub">Recommended · 1,500 free requests/day</div>
+          </div>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" style="font-size:11px;color:var(--accent);font-weight:600;text-decoration:none" id="set-get-key">Get free key →</a>
+        </div>
+        <input class="inp" id="set-gemini" type="password" placeholder="AIza..." autocomplete="off">
+      </div>
+
+      <!-- OpenAI -->
+      <div class="field">
+        <div class="field-label" style="display:flex;align-items:center;gap:6px">
+          <span>🟢</span> OpenAI (ChatGPT)
+          <a href="https://platform.openai.com/api-keys" target="_blank" style="font-size:10px;color:var(--accent);margin-inline-start:auto" id="set-openai-link">Get key →</a>
+        </div>
+        <input class="inp" id="set-openai" type="password" placeholder="sk-..." autocomplete="off">
+      </div>
+
+      <!-- Claude -->
+      <div class="field">
+        <div class="field-label" style="display:flex;align-items:center;gap:6px">
+          <span>🟠</span> Anthropic (Claude)
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" style="font-size:10px;color:var(--accent);margin-inline-start:auto" id="set-claude-link">Get key →</a>
+        </div>
+        <input class="inp" id="set-anthropic" type="password" placeholder="sk-ant-..." autocomplete="off">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:7px;margin-top:8px;padding:9px 12px;background:var(--bg3);border-radius:var(--rsm);font-size:11px;color:var(--textm)">
+        <span>🔒</span><span id="set-key-warn">Keys stored only in your browser — never sent to LetsFly servers.</span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-settings')" id="set-cancel">Cancel</button>
+      <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="saveSettings()" id="set-save">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- SHARE MODAL -->
 <div class="overlay" id="modal-share">
   <div class="modal" style="max-width:460px">
