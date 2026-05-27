@@ -329,11 +329,60 @@ textarea.inp{resize:vertical;min-height:80px}
 .ai-apply-btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* RESPONSIVE */
+/* MOBILE BOTTOM TAB BAR */
+.mobile-tab-bar{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:490;
+  background:var(--bg2);border-top:1px solid var(--border);
+  padding:6px 0 max(6px,env(safe-area-inset-bottom));
+  overflow-x:auto;scrollbar-width:none;
+}
+.mobile-tab-bar::-webkit-scrollbar{display:none}
+.mobile-tab-bar-inner{display:flex;min-width:max-content;padding:0 8px;gap:2px}
+.mtb{background:none;border:none;cursor:pointer;font-family:inherit;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:4px 10px;border-radius:10px;transition:all .15s;min-width:52px;
+  color:var(--textm);font-size:10px;font-weight:500;}
+.mtb:hover{background:var(--bg3)}
+.mtb.active{color:var(--accent)}
+.mtb-icon{font-size:19px;line-height:1}
+.mtb-label{font-size:9px;font-weight:600;letter-spacing:.2px}
+
+/* TODAY VIEW */
+.today-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.today-section-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--bg3);font-size:14px;font-weight:700}
+.today-section-body{padding:14px 16px}
+.today-empty{text-align:center;padding:20px;color:var(--textm);font-size:13px}
+.today-flight-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.today-flight-row:last-child{border-bottom:none}
+.today-time{font-family:inherit;font-size:16px;font-weight:800;color:var(--accent);min-width:60px}
+.today-detail{flex:1;font-size:13px}
+.today-sub{font-size:11px;color:var(--textm);margin-top:2px}
+
+/* TIMELINE */
+.timeline-wrap{overflow-x:auto;padding-bottom:10px;margin:0 -4px;scrollbar-width:thin}
+.timeline-track{display:flex;gap:0;min-width:max-content;padding:0 4px;position:relative}
+.timeline-track::before{content:'';position:absolute;top:36px;left:24px;right:24px;height:2px;background:var(--border2);z-index:0}
+.tl-item{display:flex;flex-direction:column;align-items:center;gap:0;min-width:90px;max-width:110px;position:relative;z-index:1}
+.tl-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--bg);margin:29px 0 6px;flex-shrink:0;position:relative;z-index:2}
+.tl-label{font-size:10px;font-weight:700;text-align:center;color:var(--textm);line-height:1.3;padding:0 4px}
+.tl-day{font-size:9px;color:var(--textd);margin-top:2px;text-align:center}
+.tl-icon{position:absolute;top:20px;font-size:13px}
+.tl-active .tl-dot{width:18px;height:18px;margin:27px 0 4px;box-shadow:0 0 0 3px rgba(59,130,246,.3)}
+.tl-active .tl-label{color:var(--accent);font-weight:800}
+
+/* DUPLICATE TRIP */
+.tc-btn-dup{background:rgba(0,0,0,.55);border:none;color:#fff;width:27px;height:27px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.tc-btn-dup:hover{background:rgba(59,130,246,.8)}
+
+@media(max-width:768px){
+  .mobile-tab-bar{display:flex}
+  .nav-sections{display:none!important}
+  .page{padding:18px 12px 90px}
+}
 @media(max-width:640px){
   .trips-grid{grid-template-columns:1fr 1fr}
   .grid2{grid-template-columns:1fr}
   nav{padding:0 10px;gap:3px}
-  .page{padding:18px 12px 80px}
   .stats-row{grid-template-columns:1fr 1fr}
   .bsum{grid-template-columns:1fr 1fr 1fr}
   .nav-trip-name{max-width:80px}
@@ -400,6 +449,11 @@ textarea.inp{resize:vertical;min-height:80px}
     <div class="avatar" id="avatar" onclick="toggleMenu()"></div>
   </div>
 </nav>
+
+<!-- MOBILE BOTTOM TAB BAR (trip view) -->
+<div class="mobile-tab-bar" id="mobile-tab-bar" style="display:none">
+  <div class="mobile-tab-bar-inner" id="mobile-tab-inner"></div>
+</div>
 
 <div id="app">
   <!-- HOME -->
@@ -485,7 +539,7 @@ const T={
     deleteTrip:'🗑️ Delete Trip?',deleteWarn:'This will permanently delete the trip and all its data.',
     delete:'Delete',back:'← Back',nights:'nights',travelers2:'travelers',
     planNewTrip:'Plan a New Trip',greeting:'My Trips',
-    secDashboard:'Dashboard',secTasks:'Tasks',secFlights:'Flights',secHotels:'Hotels',
+    secToday:'Today',secDashboard:'Dashboard',secTasks:'Tasks',secFlights:'Flights',secHotels:'Hotels',
     secItinerary:'Itinerary',secBudget:'Budget',secCurrency:'Currency',
     secTransport:'Transport',secEmergency:'Emergency',
     daysLeft:'days until departure',tripInProgress:'Trip in progress!',tripDone:'Trip completed!',
@@ -520,7 +574,7 @@ const T={
     deleteTrip:'🗑️ מחק טיול?',deleteWarn:'הטיול וכל הנתונים שלו יימחקו לצמיתות.',
     delete:'מחק',back:'→ חזור',nights:'לילות',travelers2:'נוסעים',
     planNewTrip:'תכנן טיול חדש',greeting:'הטיולים שלי',
-    secDashboard:'דשבורד',secTasks:'משימות',secFlights:'טיסות',secHotels:'מלונות',
+    secToday:'היום',secDashboard:'דשבורד',secTasks:'משימות',secFlights:'טיסות',secHotels:'מלונות',
     secItinerary:'לו"ז',secBudget:'תקציב',secCurrency:'המרה',
     secTransport:'תחבורה',secEmergency:'חירום',
     daysLeft:'ימים עד היציאה',tripInProgress:'הטיול מתנהל!',tripDone:'הטיול הסתיים!',
@@ -665,6 +719,7 @@ function goHome(){
   document.getElementById('nav-sections').innerHTML='';
   document.getElementById('share-btn').style.display='none';
   document.getElementById('ai-btn').style.display='none';
+  document.getElementById('mobile-tab-bar').style.display='none';
   // Clean share param from URL
   history.replaceState(null,'',window.location.pathname);
   showPage('page-home');loadTrips();
@@ -681,6 +736,7 @@ function openTrip(trip,sec){
   document.getElementById('nav-sections').style.display='flex';
   document.getElementById('share-btn').style.display='inline-flex';
   document.getElementById('ai-btn').style.display=isViewOnly?'none':'inline-flex';
+  document.getElementById('mobile-tab-bar').style.display='flex';
   showPage('page-trip');
   showSec(sec||'dashboard');
   sessionStorage.setItem('lf-trip-id',trip.id);
@@ -690,6 +746,7 @@ function openTrip(trip,sec){
 }
 
 const SECTIONS=[
+  {id:'today',icon:'🌅',key:'secToday'},
   {id:'dashboard',icon:'📊',key:'secDashboard'},
   {id:'tasks',icon:'✅',key:'secTasks'},
   {id:'flights',icon:'✈️',key:'secFlights'},
@@ -704,6 +761,9 @@ const SECTIONS=[
 function buildNavSections(){
   const ns=document.getElementById('nav-sections');
   ns.innerHTML=SECTIONS.map(s=>`<button class="nb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}')">${s.icon} ${t(s.key)}</button>`).join('');
+  // Mobile tab bar
+  const mt=document.getElementById('mobile-tab-inner');
+  if(mt) mt.innerHTML=SECTIONS.map(s=>`<button class="mtb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}')"><span class="mtb-icon">${s.icon}</span><span class="mtb-label">${t(s.key)}</span></button>`).join('');
 }
 
 function buildTripPage(){
@@ -725,6 +785,10 @@ function showSec(sec){
     const m=b.getAttribute('onclick').match(/showSec\('(\w+)'\)/);
     if(m)b.classList.toggle('active',m[1]===sec);
   });
+  document.querySelectorAll('.mtb').forEach(b=>{
+    const m=b.getAttribute('onclick').match(/showSec\('(\w+)'\)/);
+    if(m)b.classList.toggle('active',m[1]===sec);
+  });
   sessionStorage.setItem('lf-sec',sec);
   renderSec(sec);
 }
@@ -733,6 +797,7 @@ function renderSec(sec){
   const el=document.getElementById('sec-content');
   if(!el)return;
   switch(sec){
+    case 'today':     el.innerHTML=renderToday();break;
     case 'dashboard': el.innerHTML=renderDashboard();startCountdown();updateStats();break;
     case 'tasks':     el.innerHTML=renderTasks();break;
     case 'flights':   el.innerHTML=renderFlights();break;
@@ -1060,6 +1125,211 @@ function addTodo(groupId){
   saveData();renderSec('tasks');updateStats();
 }
 
+// ══════════════════════════════════════════════════════
+// WAVE 1 — TODAY VIEW, TIMELINE, MAPS, DUPLICATE
+// ══════════════════════════════════════════════════════
+
+// ── TODAY VIEW ──
+function renderToday(){
+  const isHe=lang==='he';
+  const today=new Date();
+  const todayStr=today.toISOString().split('T')[0];
+  const cur=currentTrip?.currency||'USD';
+
+  let html=`<div class="page-title" style="font-size:20px;margin-bottom:6px">🌅 ${t('secToday')}</div>
+  <div style="font-size:13px;color:var(--textm);margin-bottom:18px">${today.toLocaleDateString(lang==='he'?'he-IL':'en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>`;
+
+  // Trip timeline bar
+  html += renderTimelineBar();
+
+  // Check if within trip dates
+  const tripStart=currentTrip.start_date;
+  const tripEnd=currentTrip.end_date;
+  const inTrip=tripStart&&tripEnd&&todayStr>=tripStart&&todayStr<=tripEnd;
+  const beforeTrip=tripStart&&todayStr<tripStart;
+  const afterTrip=tripEnd&&todayStr>tripEnd;
+
+  if(beforeTrip){
+    const days=Math.ceil((new Date(tripStart)-today)/86400000);
+    html+=`<div class="card" style="text-align:center;padding:28px">
+      <div style="font-size:40px;margin-bottom:10px">✈️</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:6px">${isHe?`${days} ימים עד הטיול`:`${days} days until your trip`}</div>
+      <div style="font-size:13px;color:var(--textm)">${isHe?'ממשיך בהכנות?':'Keep planning!'}</div>
+    </div>`;
+  } else if(afterTrip){
+    html+=`<div class="card" style="text-align:center;padding:28px">
+      <div style="font-size:40px;margin-bottom:10px">🎉</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:6px">${isHe?'הטיול הסתיים!':'Trip completed!'}</div>
+    </div>`;
+  }
+
+  // Today's flights
+  const todayFlights=(tripData.flights||[]).filter(f=>{
+    if(!f.depTime)return false;
+    const d=f.depTime.split(',')[0]||f.depTime;
+    return f.depTime.includes(todayStr)||todayStr===tripStart;
+  });
+
+  // Today's hotel
+  const todayHotel=(tripData.hotels||[]).find(h=>h.checkIn&&h.checkOut&&todayStr>=h.checkIn&&todayStr<h.checkOut);
+
+  // Today's itinerary
+  const todayDay=(tripData.days||[]).find(d=>d.date===todayStr);
+
+  // Today's tasks
+  const urgentTasks=(tripData.todos||[]).filter(t=>!t.done).slice(0,5);
+
+  // Flights section
+  html+=`<div class="today-section">
+    <div class="today-section-header"><span>✈️</span> ${isHe?'טיסות היום':'Flights Today'}</div>
+    <div class="today-section-body">`;
+  if(tripStart===todayStr||(tripData.flights||[]).length){
+    const flights=tripData.flights||[];
+    const shown=flights.filter(f=>inTrip||tripStart===todayStr);
+    if(!shown.length){
+      html+=`<div class="today-empty">${isHe?'אין טיסות מתוכננות להיום':'No flights scheduled today'}</div>`;
+    } else {
+      shown.forEach(f=>{
+        html+=`<div class="today-flight-row">
+          <div class="today-time">${f.depTime?.split(',').pop()?.trim()||'—'}</div>
+          <div class="today-detail">
+            <div style="font-weight:700">${f.from||'?'} → ${f.to||'?'}</div>
+            <div class="today-sub">${f.airline||''} ${f.flightNum||''} ${f.conf?'· '+f.conf:''}</div>
+          </div>
+        </div>`;
+      });
+    }
+  } else {
+    html+=`<div class="today-empty">${isHe?'אין טיסות מתוכננות להיום':'No flights scheduled today'}</div>`;
+  }
+  html+=`</div></div>`;
+
+  // Hotel section
+  html+=`<div class="today-section">
+    <div class="today-section-header"><span>🏨</span> ${isHe?'מלון הלילה':'Tonight\'s Hotel'}</div>
+    <div class="today-section-body">`;
+  if(todayHotel){
+    html+=`<div style="display:flex;align-items:center;gap:12px">
+      <div style="font-size:32px">🏨</div>
+      <div>
+        <div style="font-weight:700;font-size:15px">${todayHotel.name}</div>
+        <div style="font-size:12px;color:var(--textm)">${todayHotel.dest||''} · ${isHe?'צ׳ק-אאוט':'Check-out'}: ${todayHotel.checkOut}</div>
+        ${todayHotel.conf?`<div style="font-size:11px;color:var(--textd);margin-top:2px">${isHe?'אישור':'Conf'}: ${todayHotel.conf}</div>`:''}
+      </div>
+      ${todayHotel.dest?`<button onclick="openMaps('${todayHotel.name}, ${todayHotel.dest}')" class="btn-icon btn-sm" style="margin-inline-start:auto">🗺️</button>`:''}
+    </div>`;
+  } else {
+    html+=`<div class="today-empty">${isHe?'אין מלון מוזמן ללילה הזה':'No hotel booked for tonight'}</div>`;
+  }
+  html+=`</div></div>`;
+
+  // Itinerary section
+  html+=`<div class="today-section">
+    <div class="today-section-header"><span>📅</span> ${isHe?'לוז להיום':'Today\'s Schedule'}</div>
+    <div class="today-section-body">`;
+  if(todayDay&&todayDay.blocks?.length){
+    todayDay.blocks.forEach(b=>{
+      html+=`<div class="today-flight-row">
+        <div class="today-time" style="font-size:13px">${b.time||'—'}</div>
+        <div class="today-detail">
+          <div>${b.text}</div>
+          ${b.dur?`<div class="today-sub">⏱ ${b.dur}</div>`:''}
+        </div>
+        <button onclick="openMaps('${b.text.replace(/'/g,"\'")}')" class="btn-icon btn-sm" style="padding:4px 8px;font-size:11px">🗺️</button>
+      </div>`;
+    });
+    if(todayDay.note) html+=`<div style="margin-top:10px;font-size:13px;color:var(--textm);padding:10px;background:var(--bg3);border-radius:var(--rsm)">${todayDay.note}</div>`;
+  } else {
+    html+=`<div class="today-empty">${isHe?'אין פעילויות מתוכננות להיום':'No activities planned for today'}</div>`;
+  }
+  html+=`</div></div>`;
+
+  // Pending tasks
+  if(urgentTasks.length){
+    html+=`<div class="today-section">
+      <div class="today-section-header"><span>✅</span> ${isHe?'משימות פתוחות':'Open Tasks'}</div>
+      <div class="today-section-body">
+        ${urgentTasks.map(task=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div onclick="toggleTodo('${task.id}')" style="width:18px;height:18px;border-radius:5px;border:2px solid var(--border2);cursor:pointer;flex-shrink:0"></div>
+          <span style="font-size:13px">${task.text}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  return html;
+}
+
+// ── TIMELINE BAR ──
+function renderTimelineBar(){
+  const isHe=lang==='he';
+  if(!currentTrip.start_date||!currentTrip.end_date) return '';
+  const start=new Date(currentTrip.start_date+'T00:00:00');
+  const end=new Date(currentTrip.end_date+'T00:00:00');
+  const today=new Date();today.setHours(0,0,0,0);
+  const nights=Math.round((end-start)/86400000);
+  if(nights<1)return '';
+
+  const days=[];
+  for(let i=0;i<=nights;i++){
+    const d=new Date(start);d.setDate(d.getDate()+i);
+    const dStr=d.toISOString().split('T')[0];
+    const isToday=d.getTime()===today.getTime();
+    const hasDay=(tripData.days||[]).find(day=>day.date===dStr);
+    const hasFlight=(tripData.flights||[]).some(f=>f.depTime&&f.depTime.includes(dStr.slice(5)));
+    const hasHotel=(tripData.hotels||[]).some(h=>h.checkIn===dStr);
+    const icon=hasFlight?'✈️':hasHotel?'🏨':hasDay?'📍':'';
+    days.push({d,dStr,isToday,icon,label:d.toLocaleDateString(lang==='he'?'he-IL':'en-US',{month:'short',day:'numeric'}),dayLabel:`${isHe?'יום':'Day'} ${i+1}`});
+  }
+
+  const colors=['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4'];
+  let html=`<div class="card" style="margin-bottom:14px;overflow:hidden">
+    <div class="card-title"><div class="card-title-left">🗓️ ${isHe?'ציר זמן':'Trip Timeline'}</div></div>
+    <div class="timeline-wrap"><div class="timeline-track">`;
+  days.forEach((day,i)=>{
+    const color=colors[i%colors.length];
+    const cls=day.isToday?'tl-item tl-active':'tl-item';
+    html+=`<div class="${cls}" onclick="showSec('itinerary')">
+      ${day.icon?`<div class="tl-icon">${day.icon}</div>`:''}
+      <div class="tl-dot" style="background:${day.isToday?'var(--accent)':color}"></div>
+      <div class="tl-label">${day.label}</div>
+      <div class="tl-day">${day.dayLabel}</div>
+    </div>`;
+  });
+  html+=`</div></div></div>`;
+  return html;
+}
+
+// ── MAPS INTEGRATION ──
+function openMaps(query){
+  const encoded=encodeURIComponent(query);
+  window.open(`https://www.google.com/maps/search/?api=1&query=${encoded}`,'_blank');
+}
+
+// ── TRIP DUPLICATION ──
+async function duplicateTrip(id){
+  const isHe=lang==='he';
+  const{data,error}=await sb.from('trips').select('*').eq('id',id).single();
+  if(error||!data)return toast('❌ '+(isHe?'שגיאה':'Error'));
+  const newName=data.name+' ('+(isHe?'עותק':'Copy')+')';
+  const{data:newTrip,error:err2}=await sb.from('trips').insert({
+    user_id:currentUser.id,
+    name:newName,
+    emoji:data.emoji,
+    destination:data.destination,
+    start_date:data.start_date,
+    end_date:data.end_date,
+    travelers:data.travelers,
+    currency:data.currency,
+    notes:data.notes,
+    data:data.data||{}
+  }).select().single();
+  if(err2)return toast('❌ '+err2.message);
+  toast('✅ '+(isHe?'הטיול שוכפל':'Trip duplicated'));
+  loadTrips();
+}
+
 // ── FLIGHTS ──
 function renderFlights(){
   const flights=tripData.flights||[];
@@ -1105,6 +1375,7 @@ function renderHotels(){
           <div class="item-title">${h.name}</div>
           ${h.dest?`<div style="font-size:11px;color:var(--textm)">${h.dest}</div>`:''}
         </div>
+        <button class="btn-icon btn-sm" onclick="event.stopPropagation();openMaps('${h.name}${h.dest?', '+h.dest:''}')" style="padding:4px 8px;font-size:12px;margin-inline-start:auto">🗺️</button>
         <button class="del-btn" onclick="event.stopPropagation();delHotel('${h.id}')">×</button>
       </div>
       <div class="item-body">
@@ -1137,7 +1408,7 @@ function renderItinerary(){
         <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
       </div>
       <div class="itin-body">
-        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${b.dur}</span>`:''}</div>`).join('')}
+        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${b.dur}</span>`:''}<button onclick="openMaps('${day.city?day.city+' ':''}\${b.text.replace(/'/g,'\\')}')" style="background:none;border:none;cursor:pointer;font-size:14px;flex-shrink:0;opacity:.5" title="Open in Maps">🗺️</button></div>`).join('')}
         <textarea class="itin-note" placeholder="${lang==='he'?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${day.note||''}</textarea>
       </div>
     </div>`;
@@ -1856,7 +2127,10 @@ async function loadTrips(){
     const card=document.createElement('div');card.className='trip-card';
     card.innerHTML=`
       <div class="trip-cover"><div class="trip-cover-bg" style="--c1:${c1};--c2:${c2}"></div><div class="trip-cover-emoji">${trip.emoji||'🌍'}</div></div>
-      <div class="trip-card-actions"><button class="tc-btn" onclick="event.stopPropagation();askDelete('${trip.id}')">🗑️</button></div>
+      <div class="trip-card-actions">
+        <button class="tc-btn-dup" onclick="event.stopPropagation();duplicateTrip('${trip.id}')" title="Duplicate">⧉</button>
+        <button class="tc-btn" onclick="event.stopPropagation();askDelete('${trip.id}')">🗑️</button>
+      </div>
       <div class="trip-card-body">
         <div class="trip-card-name">${trip.name}</div>
         <div class="trip-card-meta">📅 ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)}<br>${nights} ${t('nights')} · ${trip.travelers||1} ${t('travelers2')}</div>
