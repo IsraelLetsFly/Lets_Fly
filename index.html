@@ -329,23 +329,45 @@ textarea.inp{resize:vertical;min-height:80px}
 .ai-apply-btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* RESPONSIVE */
-/* MOBILE BOTTOM TAB BAR */
-.mobile-tab-bar{
-  display:none;position:fixed;bottom:0;left:0;right:0;z-index:490;
-  background:var(--bg2);border-top:1px solid var(--border);
-  padding:6px 0 max(6px,env(safe-area-inset-bottom));
-  overflow-x:auto;scrollbar-width:none;
+/* MOBILE SIDE NAV */
+.mobile-tab-bar{display:none}
+/* Side nav drawer */
+.side-nav-overlay{display:none;position:fixed;inset:0;z-index:480;background:rgba(0,0,0,.5);backdrop-filter:blur(3px)}
+.side-nav-overlay.show{display:block}
+.side-nav{
+  position:fixed;top:0;bottom:0;inset-inline-start:0;z-index:485;
+  width:220px;background:var(--bg2);border-inline-end:1px solid var(--border);
+  transform:translateX(-100%);transition:transform .25s ease;
+  overflow-y:auto;padding:0;display:flex;flex-direction:column;
 }
-.mobile-tab-bar::-webkit-scrollbar{display:none}
-.mobile-tab-bar-inner{display:flex;min-width:max-content;padding:0 8px;gap:2px}
-.mtb{background:none;border:none;cursor:pointer;font-family:inherit;
-  display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:4px 10px;border-radius:10px;transition:all .15s;min-width:52px;
-  color:var(--textm);font-size:10px;font-weight:500;}
-.mtb:hover{background:var(--bg3)}
-.mtb.active{color:var(--accent)}
-.mtb-icon{font-size:19px;line-height:1}
-.mtb-label{font-size:9px;font-weight:600;letter-spacing:.2px}
+body[dir="rtl"] .side-nav{transform:translateX(100%)}
+.side-nav.open{transform:translateX(0)}
+body[dir="rtl"] .side-nav.open{transform:translateX(0)}
+.side-nav-header{
+  height:var(--nav-h);display:flex;align-items:center;padding:0 16px;
+  border-bottom:1px solid var(--border);font-size:16px;font-weight:800;
+  background:var(--accentg);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  flex-shrink:0;
+}
+.side-nav-trip{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--textm);flex-shrink:0}
+.side-nav-items{flex:1;padding:8px}
+.snb{
+  display:flex;align-items:center;gap:10px;width:100%;
+  background:none;border:none;cursor:pointer;font-family:inherit;
+  font-size:13px;font-weight:500;color:var(--textm);
+  padding:10px 12px;border-radius:var(--rsm);transition:all .15s;text-align:start;
+}
+.snb:hover{background:var(--bg3);color:var(--text)}
+.snb.active{background:rgba(59,130,246,.12);color:var(--accent);font-weight:700}
+.snb-icon{font-size:17px;width:22px;text-align:center;flex-shrink:0}
+/* Hamburger button in navbar */
+.hamburger-btn{
+  display:none;background:none;border:1px solid var(--border2);
+  border-radius:var(--rsm);width:34px;height:34px;cursor:pointer;
+  align-items:center;justify-content:center;font-size:16px;color:var(--textm);
+  flex-shrink:0;
+}
+.hamburger-btn:hover{border-color:var(--accent);color:var(--accent)}
 
 /* TODAY VIEW */
 .today-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
@@ -375,9 +397,9 @@ textarea.inp{resize:vertical;min-height:80px}
 .tc-btn-dup:hover{background:rgba(59,130,246,.8)}
 
 @media(max-width:768px){
-  .mobile-tab-bar{display:flex}
+  .hamburger-btn{display:flex}
   .nav-sections{display:none!important}
-  .page{padding:18px 12px 90px}
+  .page{padding:18px 12px 40px}
 }
 @media(max-width:640px){
   .trips-grid{grid-template-columns:1fr 1fr}
@@ -437,6 +459,7 @@ textarea.inp{resize:vertical;min-height:80px}
 
 <!-- NAVBAR -->
 <nav id="navbar" style="display:none">
+  <button class="hamburger-btn" id="hamburger-btn" style="display:none" onclick="openSideNav()">☰</button>
   <div class="nav-logo" onclick="goHome()">✈️ LetsFly</div>
   <div class="nav-trip-name" id="nav-trip-name"></div>
   <div class="nav-sections" id="nav-sections" style="display:none"></div>
@@ -450,9 +473,12 @@ textarea.inp{resize:vertical;min-height:80px}
   </div>
 </nav>
 
-<!-- MOBILE BOTTOM TAB BAR (trip view) -->
-<div class="mobile-tab-bar" id="mobile-tab-bar" style="display:none">
-  <div class="mobile-tab-bar-inner" id="mobile-tab-inner"></div>
+<!-- MOBILE SIDE NAV -->
+<div class="side-nav-overlay" id="side-nav-overlay" onclick="closeSideNav()"></div>
+<div class="side-nav" id="side-nav">
+  <div class="side-nav-header">✈️ LetsFly</div>
+  <div class="side-nav-trip" id="side-nav-trip-name"></div>
+  <div class="side-nav-items" id="side-nav-items"></div>
 </div>
 
 <div id="app">
@@ -719,7 +745,8 @@ function goHome(){
   document.getElementById('nav-sections').innerHTML='';
   document.getElementById('share-btn').style.display='none';
   document.getElementById('ai-btn').style.display='none';
-  document.getElementById('mobile-tab-bar').style.display='none';
+  document.getElementById('hamburger-btn').style.display='none';
+  closeSideNav();
   // Clean share param from URL
   history.replaceState(null,'',window.location.pathname);
   showPage('page-home');loadTrips();
@@ -736,7 +763,7 @@ function openTrip(trip,sec){
   document.getElementById('nav-sections').style.display='flex';
   document.getElementById('share-btn').style.display='inline-flex';
   document.getElementById('ai-btn').style.display=isViewOnly?'none':'inline-flex';
-  document.getElementById('mobile-tab-bar').style.display='flex';
+  document.getElementById('hamburger-btn').style.display='flex';
   showPage('page-trip');
   showSec(sec||'dashboard');
   sessionStorage.setItem('lf-trip-id',trip.id);
@@ -761,9 +788,11 @@ const SECTIONS=[
 function buildNavSections(){
   const ns=document.getElementById('nav-sections');
   ns.innerHTML=SECTIONS.map(s=>`<button class="nb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}')">${s.icon} ${t(s.key)}</button>`).join('');
-  // Mobile tab bar
-  const mt=document.getElementById('mobile-tab-inner');
-  if(mt) mt.innerHTML=SECTIONS.map(s=>`<button class="mtb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}')"><span class="mtb-icon">${s.icon}</span><span class="mtb-label">${t(s.key)}</span></button>`).join('');
+  // Side nav
+  const si=document.getElementById('side-nav-items');
+  if(si) si.innerHTML=SECTIONS.map(s=>`<button class="snb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}');closeSideNav()"><span class="snb-icon">${s.icon}</span>${t(s.key)}</button>`).join('');
+  const snt=document.getElementById('side-nav-trip-name');
+  if(snt&&currentTrip) snt.textContent=currentTrip.emoji+' '+currentTrip.name;
 }
 
 function buildTripPage(){
@@ -785,8 +814,8 @@ function showSec(sec){
     const m=b.getAttribute('onclick').match(/showSec\('(\w+)'\)/);
     if(m)b.classList.toggle('active',m[1]===sec);
   });
-  document.querySelectorAll('.mtb').forEach(b=>{
-    const m=b.getAttribute('onclick').match(/showSec\('(\w+)'\)/);
+  document.querySelectorAll('.snb').forEach(b=>{
+    const m=b.getAttribute('onclick')?.match(/showSec\('(\w+)'\)/);
     if(m)b.classList.toggle('active',m[1]===sec);
   });
   sessionStorage.setItem('lf-sec',sec);
@@ -1216,7 +1245,7 @@ function renderToday(){
         <div style="font-size:12px;color:var(--textm)">${todayHotel.dest||''} · ${isHe?'צ׳ק-אאוט':'Check-out'}: ${todayHotel.checkOut}</div>
         ${todayHotel.conf?`<div style="font-size:11px;color:var(--textd);margin-top:2px">${isHe?'אישור':'Conf'}: ${todayHotel.conf}</div>`:''}
       </div>
-      ${todayHotel.dest?`<button onclick="openMaps('${todayHotel.name}, ${todayHotel.dest}')" class="btn-icon btn-sm" style="margin-inline-start:auto">🗺️</button>`:''}
+      ${todayHotel.dest?`<button onclick="openMaps('${todayHotel.name}, ${todayHotel.dest}')" class="btn btn-outline btn-sm" style="margin-inline-start:auto;font-size:11px">📍 ${isHe?'מפה':'Map'}</button>`:''}
     </div>`;
   } else {
     html+=`<div class="today-empty">${isHe?'אין מלון מוזמן ללילה הזה':'No hotel booked for tonight'}</div>`;
@@ -1235,7 +1264,7 @@ function renderToday(){
           <div>${b.text}</div>
           ${b.dur?`<div class="today-sub">⏱ ${b.dur}</div>`:''}
         </div>
-        <button onclick="openMaps('${b.text.replace(/'/g,"\'")}')" class="btn-icon btn-sm" style="padding:4px 8px;font-size:11px">🗺️</button>
+        <button onclick="openMaps(document.getElementById('iday-${day.id}')?.querySelector('.itin-day-title')?.textContent||'${day.city||''}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:4px 10px;flex-shrink:0">📍 ${isHe?'מפה':'Map'}</button>
       </div>`;
     });
     if(todayDay.note) html+=`<div style="margin-top:10px;font-size:13px;color:var(--textm);padding:10px;background:var(--bg3);border-radius:var(--rsm)">${todayDay.note}</div>`;
@@ -1330,6 +1359,18 @@ async function duplicateTrip(id){
   loadTrips();
 }
 
+// ── SIDE NAV ──
+function openSideNav(){
+  document.getElementById('side-nav').classList.add('open');
+  document.getElementById('side-nav-overlay').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+function closeSideNav(){
+  document.getElementById('side-nav').classList.remove('open');
+  document.getElementById('side-nav-overlay').classList.remove('show');
+  document.body.style.overflow='';
+}
+
 // ── FLIGHTS ──
 function renderFlights(){
   const flights=tripData.flights||[];
@@ -1361,29 +1402,56 @@ function delFlight(id){tripData.flights=(tripData.flights||[]).filter(f=>f.id!==
 
 // ── HOTELS ──
 function renderHotels(){
-  const hotels=tripData.hotels||[];
+  const hotels=(tripData.hotels||[]).sort((a,b)=>a.checkIn>b.checkIn?1:-1);
+  const isHe=lang==='he';
+  const cur=currentTrip?.currency||'USD';
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div class="page-title" style="font-size:20px">🏨 ${t('secHotels')}</div>
     <button class="btn btn-outline btn-sm" onclick="openAddModal('hotel')">${t('addHotel')}</button>
   </div>`;
   if(!hotels.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noHotels')}</div>`;
   hotels.forEach(h=>{
+    // Calculate nights
+    const nights=(h.checkIn&&h.checkOut)?Math.round((new Date(h.checkOut)-new Date(h.checkIn))/86400000):null;
+    // Status badge
+    const today=new Date().toISOString().split('T')[0];
+    let statusBadge='';
+    if(h.checkIn&&h.checkOut){
+      if(today<h.checkIn) statusBadge=`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(59,130,246,.12);color:var(--accent)">${isHe?'עתידי':'Upcoming'}</span>`;
+      else if(today>=h.checkIn&&today<h.checkOut) statusBadge=`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(16,185,129,.12);color:var(--green)">${isHe?'פעיל כעת':'Active now'}</span>`;
+      else statusBadge=`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:var(--bg4);color:var(--textd)">${isHe?'הסתיים':'Completed'}</span>`;
+    }
     html+=`<div class="item-card" id="hc-${h.id}">
       <div class="item-header" onclick="document.getElementById('hc-${h.id}').classList.toggle('open')">
-        <span style="font-size:20px">🏨</span>
-        <div>
-          <div class="item-title">${h.name}</div>
-          ${h.dest?`<div style="font-size:11px;color:var(--textm)">${h.dest}</div>`:''}
+        <span style="font-size:22px">🏨</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+            <div class="item-title" style="margin:0">${h.name}</div>
+            ${statusBadge}
+          </div>
+          <div style="font-size:11px;color:var(--textm);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
+            ${h.dest?`<span>📍 ${h.dest}</span>`:''}
+            ${h.checkIn?`<span>📅 ${fmtDate(h.checkIn)} → ${h.checkOut?fmtDate(h.checkOut):'?'}</span>`:''}
+            ${nights?`<span>🌙 ${nights} ${isHe?'לילות':'nights'}</span>`:''}
+            ${h.cost?`<span>💰 ${parseFloat(h.cost).toLocaleString()} ${cur}</span>`:''}
+          </div>
         </div>
-        <button class="btn-icon btn-sm" onclick="event.stopPropagation();openMaps('${h.name}${h.dest?', '+h.dest:''}')" style="padding:4px 8px;font-size:12px;margin-inline-start:auto">🗺️</button>
         <button class="del-btn" onclick="event.stopPropagation();delHotel('${h.id}')">×</button>
       </div>
       <div class="item-body">
-        ${h.checkIn?`<div class="item-row"><span class="item-lbl">${t('checkIn')}</span><span class="item-val">${h.checkIn}</span></div>`:''}
-        ${h.checkOut?`<div class="item-row"><span class="item-lbl">${t('checkOut')}</span><span class="item-val">${h.checkOut}</span></div>`:''}
-        ${h.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val">${h.conf}</span></div>`:''}
-        ${h.cost?`<div class="item-row"><span class="item-lbl">${t('totalCost')}</span><span class="item-val">${h.cost} ${currentTrip.currency||''}</span></div>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          ${h.checkIn?`<div><div style="font-size:10px;font-weight:700;color:var(--textd);text-transform:uppercase;margin-bottom:3px">${t('checkIn')}</div><div style="font-size:14px;font-weight:600">${fmtDate(h.checkIn)}</div></div>`:''}
+          ${h.checkOut?`<div><div style="font-size:10px;font-weight:700;color:var(--textd);text-transform:uppercase;margin-bottom:3px">${t('checkOut')}</div><div style="font-size:14px;font-weight:600">${fmtDate(h.checkOut)}</div></div>`:''}
+          ${nights?`<div><div style="font-size:10px;font-weight:700;color:var(--textd);text-transform:uppercase;margin-bottom:3px">${isHe?'לילות':'Nights'}</div><div style="font-size:14px;font-weight:600">${nights}</div></div>`:''}
+          ${h.cost?`<div><div style="font-size:10px;font-weight:700;color:var(--textd);text-transform:uppercase;margin-bottom:3px">${t('totalCost')}</div><div style="font-size:14px;font-weight:600">${parseFloat(h.cost).toLocaleString()} ${cur}</div></div>`:''}
+        </div>
+        ${h.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val" style="font-family:monospace;letter-spacing:.5px">${h.conf}</span></div>`:''}
         ${h.notes?`<div class="item-row"><span class="item-lbl">${t('specialReq')}</span><span class="item-val" style="color:var(--textm)">${h.notes}</span></div>`:''}
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+          <button onclick="openMaps('${h.name.replace(/'/g,"\'")}${h.dest?', '+h.dest:''}')" class="btn btn-outline btn-sm" style="font-size:12px">
+            📍 ${isHe?'הצג על המפה':'View on map'}
+          </button>
+        </div>
       </div>
     </div>`;
   });
@@ -1408,7 +1476,7 @@ function renderItinerary(){
         <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
       </div>
       <div class="itin-body">
-        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${b.dur}</span>`:''}<button onclick="openMaps('${day.city?day.city+' ':''}\${b.text.replace(/'/g,'\\')}')" style="background:none;border:none;cursor:pointer;font-size:14px;flex-shrink:0;opacity:.5" title="Open in Maps">🗺️</button></div>`).join('')}
+        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${b.dur}</span>`:''}<button onclick="openMaps('${b.text}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;flex-shrink:0;opacity:.7">📍</button></div>`).join('')}
         <textarea class="itin-note" placeholder="${lang==='he'?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${day.note||''}</textarea>
       </div>
     </div>`;
