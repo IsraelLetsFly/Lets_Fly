@@ -178,13 +178,19 @@ textarea.inp{resize:vertical;min-height:80px}
 .pbar-fill{height:7px;border-radius:100px;background:var(--accentg);transition:width .6s ease}
 .pbar-row{display:flex;justify-content:space-between;font-size:12px;color:var(--textm);margin-bottom:6px}
 
-/* TODO */
-.cat-head{font-size:11px;font-weight:700;color:var(--textd);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 7px}
-.todo-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:6px;cursor:pointer;transition:all .15s}
+/* TODO GROUPS */
+.task-group{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.task-group-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.task-group-toggle{font-size:11px;color:var(--textm);cursor:pointer;flex-shrink:0;width:16px;user-select:none}
+.task-group-name{font-size:14px;font-weight:700;flex:1;outline:none;background:none;border:none;color:var(--text);cursor:text;border-bottom:1px dashed transparent;transition:border-color .2s}
+.task-group-name:focus{border-bottom-color:var(--accent)}
+.task-group-count{font-size:11px;font-weight:600;color:var(--textm);background:var(--bg4);padding:2px 8px;border-radius:100px;flex-shrink:0}
+.task-group-body{padding:10px 14px 14px}
+.todo-item{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:6px;cursor:pointer;transition:all .15s}
 .todo-item:hover{border-color:var(--border2)}
 .todo-item.done{opacity:.55}
 .todo-item.done .todo-txt{text-decoration:line-through;color:var(--textm)}
-.todo-chk{width:19px;height:19px;border-radius:6px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;transition:all .2s}
+.todo-chk{width:18px;height:18px;border-radius:5px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;transition:all .2s}
 .todo-item.done .todo-chk{background:var(--green);border-color:var(--green);color:var(--bg)}
 .todo-txt{font-size:13px;flex:1}
 .todo-del{opacity:0;background:none;border:none;color:var(--textd);cursor:pointer;font-size:16px;padding:0 2px;transition:opacity .15s}
@@ -732,43 +738,103 @@ function updateStats(){
 }
 
 // ── TASKS ──
-const TODO_CATS=()=>lang==='he'
-  ?['הכנות לפני הטיול','מסמכים','בריאות','קניות','במהלך הטיול','אחרי הטיול']
-  :['Pre-Trip Prep','Documents','Health','Shopping','During Trip','Post-Trip'];
+// Groups are stored in tripData.todoGroups = [{id, name}]
+// Todos stored in tripData.todos = [{id, text, cat(=groupId), done}]
+
+const DEFAULT_GROUPS = () => lang==='he'
+  ? [{id:'g1',name:'הכנות לפני הטיול'},{id:'g2',name:'מסמכים'},{id:'g3',name:'בריאות'},{id:'g4',name:'קניות'},{id:'g5',name:'במהלך הטיול'},{id:'g6',name:'אחרי הטיול'}]
+  : [{id:'g1',name:'Pre-Trip Prep'},{id:'g2',name:'Documents'},{id:'g3',name:'Health'},{id:'g4',name:'Shopping'},{id:'g5',name:'During Trip'},{id:'g6',name:'Post-Trip'}];
+
+function getGroups(){
+  if(!tripData.todoGroups||tripData.todoGroups.length===0){
+    tripData.todoGroups=DEFAULT_GROUPS();
+    saveData();
+  }
+  return tripData.todoGroups;
+}
 
 function renderTasks(){
   const todos=tripData.todos||[];
-  const cats=TODO_CATS();
+  const groups=getGroups();
+  const done=todos.filter(i=>i.done).length;
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div class="page-title" style="font-size:20px">✅ ${t('secTasks')}</div>
+    <button class="btn btn-outline btn-sm" onclick="addGroup()">${lang==='he'?'+ קבוצה חדשה':'+ New Group'}</button>
   </div>`;
-  cats.forEach(cat=>{
-    const items=todos.filter(i=>i.cat===cat);
-    html+=`<div class="cat-head">${cat}</div>`;
-    items.forEach(item=>{
-      html+=`<div class="todo-item${item.done?' done':''}" onclick="toggleTodo('${item.id}')">
-        <div class="todo-chk">${item.done?'✓':''}</div>
-        <div class="todo-txt">${item.text}</div>
-        <button class="todo-del" onclick="event.stopPropagation();delTodo('${item.id}')">×</button>
-      </div>`;
-    });
-    const safeId=cat.replace(/[^a-zA-Z0-9]/g,'_');
-    html+=`<div class="add-row"><input class="inp" id="ti-${safeId}" placeholder="${lang==='he'?'הוסף משימה...':'Add task...'}" onkeydown="if(event.key==='Enter')addTodo('${cat}')"><button onclick="addTodo('${cat}')">+</button></div>`;
+
+  groups.forEach(group=>{
+    const items=todos.filter(i=>i.cat===group.id);
+    const groupDone=items.filter(i=>i.done).length;
+    html+=`<div class="task-group" id="tg-${group.id}">
+      <div class="task-group-header">
+        <div class="task-group-toggle" onclick="toggleGroup('${group.id}')">▼</div>
+        <div class="task-group-name" contenteditable="true" 
+          onblur="renameGroup('${group.id}',this.textContent.trim())"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+          >${group.name}</div>
+        <div class="task-group-count">${groupDone}/${items.length}</div>
+        <button class="del-btn" onclick="delGroup('${group.id}')" title="${lang==='he'?'מחק קבוצה':'Delete group'}">×</button>
+      </div>
+      <div class="task-group-body" id="tgb-${group.id}">
+        ${items.map(item=>`
+        <div class="todo-item${item.done?' done':''}" onclick="toggleTodo('${item.id}')">
+          <div class="todo-chk">${item.done?'✓':''}</div>
+          <div class="todo-txt">${item.text}</div>
+          <button class="todo-del" onclick="event.stopPropagation();delTodo('${item.id}')">×</button>
+        </div>`).join('')}
+        <div class="add-row" style="margin-top:6px">
+          <input class="inp" id="ti-${group.id}" placeholder="${lang==='he'?'הוסף משימה...':'Add task...'}" 
+            onkeydown="if(event.key==='Enter')addTodo('${group.id}')">
+          <button onclick="addTodo('${group.id}')">+</button>
+        </div>
+      </div>
+    </div>`;
   });
   return html;
 }
+
+function toggleGroup(id){
+  const body=document.getElementById('tgb-'+id);
+  const header=document.querySelector(`#tg-${id} .task-group-toggle`);
+  if(!body)return;
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block';
+  if(header)header.textContent=isOpen?'▶':'▼';
+}
+
+function addGroup(){
+  const name=prompt(lang==='he'?'שם הקבוצה החדשה:':'New group name:','');
+  if(!name||!name.trim())return;
+  if(!tripData.todoGroups)tripData.todoGroups=getGroups();
+  tripData.todoGroups.push({id:'g'+uid(),name:name.trim()});
+  saveData();renderSec('tasks');
+}
+
+function renameGroup(id,newName){
+  if(!newName)return;
+  const groups=tripData.todoGroups||[];
+  const g=groups.find(g=>g.id===id);
+  if(g&&g.name!==newName){g.name=newName;saveData();}
+}
+
+function delGroup(id){
+  if(!confirm(lang==='he'?'מחק קבוצה זו ואת כל המשימות שבה?':'Delete this group and all its tasks?'))return;
+  tripData.todoGroups=(tripData.todoGroups||[]).filter(g=>g.id!==id);
+  tripData.todos=(tripData.todos||[]).filter(t=>t.cat!==id);
+  saveData();renderSec('tasks');updateStats();
+}
+
 function toggleTodo(id){
   const todos=tripData.todos||[];
   const item=todos.find(i=>i.id===id);if(item)item.done=!item.done;
   tripData.todos=todos;saveData();renderSec('tasks');updateStats();
 }
 function delTodo(id){tripData.todos=(tripData.todos||[]).filter(i=>i.id!==id);saveData();renderSec('tasks');updateStats();}
-function addTodo(cat){
-  const safeId=cat.replace(/[^a-zA-Z0-9]/g,'_');
-  const inp=document.getElementById('ti-'+safeId);
+function addTodo(groupId){
+  const inp=document.getElementById('ti-'+groupId);
   const text=inp?.value.trim();if(!text)return;
   if(!tripData.todos)tripData.todos=[];
-  tripData.todos.push({id:uid(),text,cat,done:false});
+  tripData.todos.push({id:uid(),text,cat:groupId,done:false});
   saveData();renderSec('tasks');updateStats();
 }
 
@@ -849,7 +915,7 @@ function renderItinerary(){
         <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
       </div>
       <div class="itin-body">
-        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div></div>`).join('')}
+        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${b.dur}</span>`:''}</div>`).join('')}
         <textarea class="itin-note" placeholder="${lang==='he'?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${day.note||''}</textarea>
       </div>
     </div>`;
@@ -1006,15 +1072,37 @@ function saveEm(key,val){if(!tripData.emergency)tripData.emergency={};tripData.e
 
 // ── ADD MODALS ──
 function openAddModal(type){
+  if(type==='day') actLines=[];
   const inner=document.getElementById('modal-add-inner');
   const modal=document.getElementById('modal-add');
   inner.innerHTML=getModalContent(type);
   modal.classList.add('show');
+  if(type==='day') updateActDuration();
 }
 
 function getModalContent(type){
-  
-    if(type==='hotel') return`
+  if(type==='flight') return`
+    <div class="modal-title">✈️ ${lang==='he'?'הוסף טיסה':'Add Flight'}</div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('from')}</div><input class="inp" id="fl-from" placeholder="TLV" style="text-transform:uppercase"></div>
+      <div class="field"><div class="field-label">${t('to')}</div><input class="inp" id="fl-to" placeholder="BKK" style="text-transform:uppercase"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('departure')}</div><input class="inp" id="fl-dep" type="datetime-local"></div>
+      <div class="field"><div class="field-label">${t('arrival')}</div><input class="inp" id="fl-arr" type="datetime-local"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('flightNum')}</div><input class="inp" id="fl-num" placeholder="EK 371"></div>
+      <div class="field"><div class="field-label">${t('airline')}</div><input class="inp" id="fl-airline" placeholder="Emirates"></div>
+    </div>
+    <div class="field"><div class="field-label">${t('confirmation')}</div><input class="inp" id="fl-conf" placeholder="ABC123"></div>
+    <div class="field"><div class="field-label">${t('notes')}</div><textarea class="inp" id="fl-notes" placeholder="..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="saveFlight()">${t('save')}</button>
+    </div>`;
+
+  if(type==='hotel') return`
     <div class="modal-title">🏨 ${lang==='he'?'הוסף מלון':'Add Hotel'}</div>
     <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" placeholder="Marriott Bangkok"></div>
     <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" placeholder="Bangkok"></div>
@@ -1040,7 +1128,17 @@ function getModalContent(type){
     </div>
     <div class="field"><div class="field-label">${t('title')}</div><input class="inp" id="dy-title" placeholder="${lang==='he'?'יום הגעה':'Arrival Day'} 🌴"></div>
     <div class="field"><div class="field-label">${t('city')}</div><input class="inp" id="dy-city" placeholder="Bangkok"></div>
-    <div class="field"><div class="field-label">${t('activities')}</div><textarea class="inp" id="dy-blocks" placeholder="09:00 | Breakfast&#10;11:00 | Temple visit&#10;18:00 | Sunset" style="min-height:110px"></textarea></div>
+    <div class="field">
+      <div class="field-label">${lang==='he'?'הוסף פעילויות':'Add Activities'}</div>
+      <div id="act-list" style="margin-bottom:8px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+        <div><div class="field-label" style="font-size:10px">${lang==='he'?'התחלה':'Start'}</div><input class="inp" id="act-start" type="time" value="09:00"></div>
+        <div><div class="field-label" style="font-size:10px">${lang==='he'?'סיום':'End'}</div><input class="inp" id="act-end" type="time" value="10:00" oninput="updateActDuration()"></div>
+        <div><div class="field-label" style="font-size:10px">${lang==='he'?'משך':'Duration'}</div><div id="act-dur" style="font-size:13px;font-weight:700;color:var(--accent);padding:11px 0">1h 0m</div></div>
+        <div style="padding-bottom:2px"><button class="btn btn-outline btn-sm" onclick="addActLine()" style="white-space:nowrap">+ ${lang==='he'?'הוסף':'Add'}</button></div>
+      </div>
+      <div class="field" style="margin-top:8px"><input class="inp" id="act-text" placeholder="${lang==='he'?'תיאור הפעילות...':'Activity description...'}" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addActLine()}"></div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
       <button class="btn btn-primary" onclick="saveDay()">${t('save')}</button>
@@ -1099,6 +1197,54 @@ function getModalContent(type){
   return '';
 }
 
+// Activity lines for itinerary day modal
+let actLines = [];
+function updateActDuration(){
+  const s=document.getElementById('act-start')?.value;
+  const e=document.getElementById('act-end')?.value;
+  const el=document.getElementById('act-dur');
+  if(!s||!e||!el)return;
+  const [sh,sm]=s.split(':').map(Number);
+  const [eh,em]=e.split(':').map(Number);
+  let mins=(eh*60+em)-(sh*60+sm);
+  if(mins<0)mins+=1440;
+  const h=Math.floor(mins/60),m=mins%60;
+  el.textContent=h>0?(m>0?`${h}h ${m}m`:`${h}h`):(m>0?`${m}m`:'—');
+}
+function addActLine(){
+  const start=document.getElementById('act-start')?.value;
+  const end=document.getElementById('act-end')?.value;
+  const text=document.getElementById('act-text')?.value.trim();
+  if(!text)return;
+  const [sh,sm]=start.split(':').map(Number);
+  const [eh,em]=end.split(':').map(Number);
+  let mins=(eh*60+em)-(sh*60+sm);
+  if(mins<0)mins+=1440;
+  const h=Math.floor(mins/60),m=mins%60;
+  const dur=h>0?(m>0?`${h}h ${m}m`:`${h}h`):(m>0?`${m}m`:'');
+  actLines.push({start,end,text,dur});
+  renderActList();
+  document.getElementById('act-text').value='';
+  // Advance start time to end time
+  document.getElementById('act-start').value=end;
+  const newEnd=new Date(0,0,0,eh,em+60);
+  document.getElementById('act-end').value=`${String(newEnd.getHours()).padStart(2,'0')}:${String(newEnd.getMinutes()).padStart(2,'0')}`;
+  updateActDuration();
+}
+function renderActList(){
+  const el=document.getElementById('act-list');
+  if(!el)return;
+  el.innerHTML=actLines.map((a,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:var(--rsm);margin-bottom:5px;font-size:13px">
+      <span style="color:var(--accent);font-weight:700;min-width:110px;font-size:12px">${a.start} – ${a.end}</span>
+      <span style="flex:1;color:var(--textm)">${a.text}</span>
+      ${a.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 7px;border-radius:100px">${a.dur}</span>`:''}
+      <button onclick="removeActLine(${i})" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:16px">×</button>
+    </div>`).join('');
+}
+function removeActLine(i){actLines.splice(i,1);renderActList();}
+
+
 function saveFlight(){
   const from=document.getElementById('fl-from').value.trim().toUpperCase();
   const to=document.getElementById('fl-to').value.trim().toUpperCase();
@@ -1131,14 +1277,16 @@ function saveDay(){
   const num=parseInt(document.getElementById('dy-num').value);
   const title=document.getElementById('dy-title').value.trim();
   if(!num||!title)return toast('⚠️ Enter day number and title');
-  const raw=document.getElementById('dy-blocks').value.trim();
-  const blocks=raw?raw.split('\n').filter(Boolean).map(l=>{
-    const p=l.split('|');return p.length>=2?{time:p[0].trim(),text:p.slice(1).join('|').trim()}:{time:'',text:l.trim()};
-  }):[];
+  // Check if there's a pending activity not yet added
+  const pendingText=document.getElementById('act-text')?.value.trim();
+  if(pendingText)addActLine();
+  const blocks=actLines.map(a=>({time:`${a.start}–${a.end}`,text:a.text,dur:a.dur}));
   const day={id:uid(),num,title,date:document.getElementById('dy-date').value,
     city:document.getElementById('dy-city').value.trim(),blocks};
   if(!tripData.days)tripData.days=[];
-  tripData.days.push(day);saveData();closeModal('modal-add');renderSec('itinerary');toast('✅ Day added');
+  tripData.days.push(day);
+  actLines=[];
+  saveData();closeModal('modal-add');renderSec('itinerary');toast('✅ Day added');
 }
 
 function saveBudget(){
@@ -1239,7 +1387,9 @@ function initEmojiPicker(){
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
 function openModal(id){document.getElementById(id).classList.add('show');}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show');}));
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
+  if(e.target===o){e.stopPropagation();closeModal(o.id);}
+}));
 function toggleMenu(){document.getElementById('user-menu').classList.toggle('show');}
 function closeMenu(){document.getElementById('user-menu').classList.remove('show');}
 document.addEventListener('click',e=>{if(!e.target.closest('#avatar')&&!e.target.closest('#user-menu'))closeMenu();});
