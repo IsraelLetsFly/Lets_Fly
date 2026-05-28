@@ -822,17 +822,15 @@ function goHome(){
   sessionStorage.removeItem('lf-trip-id');
   sessionStorage.removeItem('lf-sec');
   if(cdInterval){clearInterval(cdInterval);cdInterval=null;}
-  document.getElementById('nav-trip-name').textContent='';
-  document.getElementById('nav-sections').style.display='none';
-  document.getElementById('nav-sections').innerHTML='';
-  document.getElementById('share-btn').style.display='none';
-  document.getElementById('ai-btn').style.display='none';
-  document.getElementById('hamburger-btn').style.display='none';
+  const ntEl=document.getElementById('nav-trip-name');if(ntEl)ntEl.textContent='';
+  const nsEl=document.getElementById('nav-sections');if(nsEl){nsEl.style.display='none';nsEl.innerHTML='';}
+  const sbEl=document.getElementById('share-btn');if(sbEl)sbEl.style.display='none';
+  const hbEl=document.getElementById('hamburger-btn');if(hbEl)hbEl.style.display='none';
   updateSideNavMode(false);
   if(!navLocked) closeSideNav();
-  // Clean share param from URL
   history.replaceState(null,'',window.location.pathname);
-  showPage('page-home');loadTrips();
+  showPage('page-home');
+  if(currentUser) loadTrips();
 }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -844,8 +842,7 @@ function openTrip(trip,sec){
   buildTripPage();
   buildNavSections();
   document.getElementById('nav-sections').style.display='flex';
-  document.getElementById('share-btn').style.display='inline-flex';
-  document.getElementById('ai-btn').style.display=isViewOnly?'none':'inline-flex';
+  const sBtn=document.getElementById('share-btn');if(sBtn)sBtn.style.display='inline-flex';
   document.getElementById('hamburger-btn').style.display='flex';
   updateSideNavMode(true);
   showPage('page-trip');
@@ -2326,7 +2323,9 @@ function saveTransport(){
 
 // ── TRIPS CRUD ──
 async function loadTrips(){
+  if(!currentUser){console.warn('loadTrips called without user');return;}
   const grid=document.getElementById('trips-grid');
+  if(!grid)return;
   grid.innerHTML=`<div style="color:var(--textm);font-size:14px;padding:20px">Loading...</div>`;
   const{data,error}=await sb.from('trips').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false});
   if(error){grid.innerHTML=`<div style="color:var(--coral);padding:20px">Error: ${error.message}</div>`;return;}
