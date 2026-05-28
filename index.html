@@ -723,7 +723,6 @@ function applyLang(){
 function toggleLang(){lang=lang==='en'?'he':'en';applyLang();if(currentUser)loadTrips();}
 function applyTheme(){
   const isL=theme==='light';document.body.classList.toggle('light',isL);
-  const b=document.getElementById('theme-btn');if(b)b.textContent=isL?'☀️':'🌙';
   localStorage.setItem('lf-theme',theme);
   updateSideNavTheme();
 }
@@ -761,11 +760,12 @@ function showApp(){
   document.getElementById('navbar').style.display='flex';
   document.getElementById('app').style.display='block';
   const email=currentUser.email||'';
-  const init=(currentUser.user_metadata?.full_name||email)[0]?.toUpperCase()||'?';
-  document.getElementById('avatar').textContent=init;
-  document.getElementById('user-email').textContent=email;
   const name=currentUser.user_metadata?.full_name||email.split('@')[0]||'';
-  document.getElementById('home-title').textContent=name?`👋 ${name}`:t('greeting');
+  const initial=name[0]?.toUpperCase()||'?';
+  // avatar is in side nav now
+  const avatarEl=document.getElementById('avatar');if(avatarEl)avatarEl.textContent=initial;
+  const emailEl=document.getElementById('user-email');if(emailEl)emailEl.textContent=email;
+  const homeTitle=document.getElementById('home-title');if(homeTitle)homeTitle.textContent=name?`👋 ${name}`:t('greeting');
   applyLang();
   addSettingsToMenu();
   updateSideNavUser();
@@ -2411,9 +2411,12 @@ function closeModal(id){document.getElementById(id).classList.remove('show');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   if(e.target===o){e.stopPropagation();closeModal(o.id);}
 }));
-function toggleMenu(){document.getElementById('user-menu').classList.toggle('show');}
-function closeMenu(){document.getElementById('user-menu').classList.remove('show');}
-document.addEventListener('click',e=>{if(!e.target.closest('#avatar')&&!e.target.closest('#user-menu'))closeMenu();});
+function toggleMenu(){const m=document.getElementById('user-menu');if(m)m.classList.toggle('show');}
+function closeMenu(){const m=document.getElementById('user-menu');if(m)m.classList.remove('show');}
+document.addEventListener('click',e=>{
+  const av=document.getElementById('avatar');
+  if((!av||!e.target.closest('#avatar'))&&!e.target.closest('#user-menu')&&!e.target.closest('#side-nav-user'))closeMenu();
+});
 function hide(id){document.getElementById(id).style.display='none';}
 let toastTimer;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600);}
@@ -2687,7 +2690,7 @@ async function checkSharedTrip(){
   // Push page content down
   document.getElementById('app').style.paddingTop='calc(var(--nav-h) + 34px)';
 
-  document.getElementById('avatar').textContent='👤';
+  const shAv=document.getElementById('avatar');if(shAv)shAv.textContent='👤';
   document.getElementById('nav-trip-name').textContent=data.emoji+' '+data.name;
   buildTripPage();
   buildNavSections();
