@@ -50,6 +50,11 @@ body.nav-locked nav{padding-inline-start:252px;transition:padding .25s ease}
 .theme-btn{background:none;border:1px solid var(--border2);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;transition:all .2s;color:var(--textm)}
 .theme-btn:hover{border-color:var(--accent)}
 
+/* MAPS CHOICE POPUP */
+.maps-choice-popup{position:fixed;z-index:900;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rsm);padding:6px;min-width:190px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:2px;animation:fadeDown .15s ease}
+.maps-choice-popup button{display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--text);border-radius:7px;cursor:pointer;transition:background .15s;text-align:start}
+.maps-choice-popup button:hover{background:var(--bg3)}
+
 /* USER MENU */
 .user-menu{display:none;position:fixed;top:54px;inset-inline-end:16px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:8px;min-width:200px;z-index:600;box-shadow:var(--shadow);animation:fadeDown .15s ease}
 .user-menu.show{display:block}
@@ -81,6 +86,17 @@ select.inp{cursor:pointer}
 textarea.inp{resize:vertical;min-height:80px}
 .field{margin-bottom:12px}
 .field-label{font-size:12px;font-weight:600;color:var(--textm);margin-bottom:5px}
+
+/* AIRPORT AUTOCOMPLETE */
+.ac-suggest{display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rsm);box-shadow:var(--shadow);z-index:50;max-height:240px;overflow-y:auto}
+.ac-suggest.show{display:block}
+.ac-suggest-row{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;transition:background .15s}
+.ac-suggest-row:hover{background:var(--bg3)}
+.ac-suggest-row:not(:last-child){border-bottom:1px solid var(--border)}
+.ac-code{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);background:rgba(55,198,186,.12);padding:3px 7px;border-radius:6px;flex-shrink:0}
+.ac-info{display:flex;flex-direction:column;min-width:0}
+.ac-city{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-name{font-size:11px;color:var(--textm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* BUTTONS */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;font-size:14px;font-weight:600;padding:11px 22px;border-radius:100px;border:none;cursor:pointer;transition:all .2s}
@@ -419,7 +435,9 @@ body.nav-locked .side-nav-overlay{display:none!important}
   flex-shrink:0;
 }
 .hamburger-btn:hover{background:var(--bg3);color:var(--text)}
+.hamburger-btn.locked{color:var(--accent);background:rgba(55,198,186,.12)}
 body.nav-locked .hamburger-btn{display:none!important}
+body.nav-locked #navbar-pin-btn{display:flex!important}
 
 /* TODAY VIEW */
 .today-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
@@ -512,6 +530,8 @@ body.nav-locked .hamburger-btn{display:none!important}
 <!-- NAVBAR -->
 <nav id="navbar" style="display:none">
   <button class="hamburger-btn" id="hamburger-btn" onclick="openSideNav()">☰</button>
+  <button class="hamburger-btn" id="home-btn" onclick="goHome()" title="My Trips" style="display:none">🏠</button>
+  <button class="hamburger-btn" id="navbar-pin-btn" onclick="toggleNavLock()" title="Pin sidebar">🔓</button>
   <div class="nav-trip-name" id="nav-trip-name" style="font-size:14px;font-weight:700"></div>
   <div class="nav-sections" id="nav-sections" style="display:none"></div>
   <div class="nav-right">
@@ -624,7 +644,7 @@ const SB_KEY='sb_publishable_KEcpcc9mptTU3ydvH_LvhQ_x-6-uNun';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
 let currentUser=null,currentTrip=null,tripData={},currentSec='dashboard';
-let selectedEmoji='🌴',deleteTripId=null,saveTimer=null,cdInterval=null,convRates={};
+let selectedEmoji='🌴',deleteTripId=null,saveTimer=null,pendingSave=false,cdInterval=null,convRates={};
 let lang=localStorage.getItem('lf-lang')||'en';
 let theme=localStorage.getItem('lf-theme')||'dark';
 
@@ -753,6 +773,13 @@ function showAuth(){
   document.getElementById('auth-screen').classList.add('show');
   document.getElementById('navbar').style.display='none';
   document.getElementById('app').style.display='none';
+  // Collapse the sidebar visually (a pinned/locked sidebar would otherwise stay
+  // forced open via body.nav-locked even with no trip content behind it).
+  // The navLocked preference itself is untouched, so it's restored on next login.
+  document.body.classList.remove('nav-locked');
+  const snEl=document.getElementById('side-nav');if(snEl)snEl.classList.remove('open');
+  const snoEl=document.getElementById('side-nav-overlay');if(snoEl)snoEl.classList.remove('show');
+  document.body.style.overflow='';
 }
 function showApp(){
   hide('loading');
@@ -813,7 +840,23 @@ async function googleLogin(){
   const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:'https://israelletsfly.github.io/trip_platform'}});
   if(error)showErr(error.message);
 }
-async function doLogout(){closeMenu();await sb.auth.signOut();}
+async function doLogout(){
+  closeMenu();
+  const{error}=await sb.auth.signOut();
+  currentUser=null;currentTrip=null;tripData={};isViewOnly=false;
+  sessionStorage.removeItem('lf-trip-id');
+  sessionStorage.removeItem('lf-sec');
+  if(cdInterval){clearInterval(cdInterval);cdInterval=null;}
+  const ntEl=document.getElementById('nav-trip-name');if(ntEl)ntEl.textContent='';
+  const nsEl=document.getElementById('nav-sections');if(nsEl){nsEl.style.display='none';nsEl.innerHTML='';}
+  const sbtnEl=document.getElementById('share-btn');if(sbtnEl)sbtnEl.style.display='none';
+  const hbEl=document.getElementById('hamburger-btn');if(hbEl)hbEl.style.display='none';
+  const homeBtnEl=document.getElementById('home-btn');if(homeBtnEl)homeBtnEl.style.display='none';
+  const pbEl=document.getElementById('navbar-pin-btn');if(pbEl)pbEl.style.display='none';
+  history.replaceState(null,'',window.location.pathname);
+  showAuth();
+  if(error)toast('⚠️ '+error.message);
+}
 
 // ── NAVIGATION ──
 function goHome(){
@@ -825,6 +868,8 @@ function goHome(){
   const nsEl=document.getElementById('nav-sections');if(nsEl){nsEl.style.display='none';nsEl.innerHTML='';}
   const sbEl=document.getElementById('share-btn');if(sbEl)sbEl.style.display='none';
   const hbEl=document.getElementById('hamburger-btn');if(hbEl)hbEl.style.display='none';
+  const homeBtnEl=document.getElementById('home-btn');if(homeBtnEl)homeBtnEl.style.display='none';
+  const pbEl=document.getElementById('navbar-pin-btn');if(pbEl)pbEl.style.display='none';
   updateSideNavMode(false);
   if(!navLocked) closeSideNav();
   history.replaceState(null,'',window.location.pathname);
@@ -843,6 +888,7 @@ function openTrip(trip,sec){
   document.getElementById('nav-sections').style.display='flex';
   const sBtn=document.getElementById('share-btn');if(sBtn)sBtn.style.display='inline-flex';
   document.getElementById('hamburger-btn').style.display='flex';
+  const pbEl2=document.getElementById('navbar-pin-btn');if(pbEl2)pbEl2.style.display='flex';
   updateSideNavMode(true);
   showPage('page-trip');
   showSec(sec||'dashboard');
@@ -850,6 +896,7 @@ function openTrip(trip,sec){
   // Check if URL has share token (view-only mode)
   const urlParams=new URLSearchParams(window.location.search);
   if(urlParams.get('share'))isViewOnly=true;
+  const homeBtnEl2=document.getElementById('home-btn');if(homeBtnEl2)homeBtnEl2.style.display=isViewOnly?'none':'flex';
 }
 
 const SECTIONS=[
@@ -930,16 +977,33 @@ function saveData(){
   if(!currentTrip)return;
   if(isViewOnly)return; // no saving in view-only mode
   const ind=document.getElementById('save-ind');if(ind)ind.style.display='inline';
+  pendingSave=true;
   if(saveTimer)clearTimeout(saveTimer);
-  saveTimer=setTimeout(async()=>{
-    // For edit-share mode, save without user_id check
-    const query=currentUser
-      ? sb.from('trips').update({data:tripData}).eq('id',currentTrip.id).eq('user_id',currentUser.id)
-      : sb.from('trips').update({data:tripData}).eq('id',currentTrip.id);
-    await query;
-    if(ind)ind.style.display='none';
-  },900);
+  saveTimer=setTimeout(flushSave,600);
 }
+async function flushSave(){
+  if(!pendingSave||!currentTrip)return;
+  if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+  pendingSave=false;
+  const tripId=currentTrip.id;
+  const payload=tripData;
+  const ind=document.getElementById('save-ind');
+  const query=currentUser
+    ? sb.from('trips').update({data:payload}).eq('id',tripId).eq('user_id',currentUser.id)
+    : sb.from('trips').update({data:payload}).eq('id',tripId);
+  const{error}=await query;
+  if(ind)ind.style.display='none';
+  if(error){
+    console.error('Save failed:',error);
+    toast('⚠️ '+(lang==='he'?'השמירה נכשלה - בדוק את החיבור לאינטרנט':'Save failed — check your connection'));
+  }
+}
+window.addEventListener('beforeunload',(e)=>{
+  if(!pendingSave)return;
+  flushSave();
+  e.preventDefault();
+  e.returnValue='';
+});
 
 // ── DASHBOARD ──
 function renderDashboard(){
@@ -978,7 +1042,7 @@ function renderDashboard(){
   <div class="card">
     <div class="card-title"><div class="card-title-left">ℹ️ ${lang==='he'?'פרטי הטיול':'Trip Details'}</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
-      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('destinations')}</div>${esc(currentTrip.destination||'—')}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('destinations')}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${esc(currentTrip.destination||'—')}</span>${currentTrip.destination?`<button onclick="openMapsChoice('${escJS(currentTrip.destination)}', this)" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 9px">📍 ${isHe?'מפה':'Map'}</button>`:''}</div></div>
       <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('travelers')}</div>${currentTrip.travelers||1}</div>
       <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('currency')}</div>${esc(currentTrip.currency||'USD')}</div>
       <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('notes')}</div>${esc(currentTrip.notes||'—')}</div>
@@ -1328,7 +1392,7 @@ function renderToday(){
         <div style="font-size:12px;color:var(--textm)">${todayHotel.dest||''} · ${isHe?'צ׳ק-אאוט':'Check-out'}: ${todayHotel.checkOut}</div>
         ${todayHotel.conf?`<div style="font-size:11px;color:var(--textd);margin-top:2px">${isHe?'אישור':'Conf'}: ${todayHotel.conf}</div>`:''}
       </div>
-      ${todayHotel.dest?`<button onclick="openMaps('${escJS(todayHotel.name)}, ${escJS(todayHotel.dest)}')" class="btn btn-outline btn-sm" style="margin-inline-start:auto;font-size:11px">📍 ${isHe?'מפה':'Map'}</button>`:''}
+      ${todayHotel.dest?`<button onclick="openMapsChoice('${escJS(todayHotel.name)}, ${escJS(todayHotel.dest)}', this)" class="btn btn-outline btn-sm" style="margin-inline-start:auto;font-size:11px">📍 ${isHe?'מפה':'Map'}</button>`:''}
     </div>`;
   } else {
     html+=`<div class="today-empty">${isHe?'אין מלון מוזמן ללילה הזה':'No hotel booked for tonight'}</div>`;
@@ -1347,7 +1411,7 @@ function renderToday(){
           <div>${b.text}</div>
           ${b.dur?`<div class="today-sub">⏱ ${b.dur}</div>`:''}
         </div>
-        <button onclick="openMaps(document.getElementById('iday-${todayDay.id}')?.querySelector('.itin-day-title')?.textContent||'${escJS(todayDay.city||'')}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:4px 10px;flex-shrink:0">📍 ${isHe?'מפה':'Map'}</button>
+        <button onclick="openMapsChoice(document.getElementById('iday-${todayDay.id}')?.querySelector('.itin-day-title')?.textContent||'${escJS(todayDay.city||'')}', this)" class="btn btn-outline btn-sm" style="font-size:10px;padding:4px 10px;flex-shrink:0">📍 ${isHe?'מפה':'Map'}</button>
       </div>`;
     });
     if(todayDay.note) html+=`<div style="margin-top:10px;font-size:13px;color:var(--textm);padding:10px;background:var(--bg3);border-radius:var(--rsm)">${todayDay.note}</div>`;
@@ -1414,9 +1478,48 @@ function renderTimelineBar(){
 }
 
 // ── MAPS INTEGRATION ──
-function openMaps(query){
-  const encoded=encodeURIComponent(query);
-  window.open(`https://www.google.com/maps/search/?api=1&query=${encoded}`,'_blank');
+function openMapsChoice(query,btn){
+  document.querySelectorAll('.maps-choice-popup').forEach(el=>el.remove());
+  if(!query||!query.trim()||!btn)return;
+  const isHe=lang==='he';
+  const popup=document.createElement('div');
+  popup.className='maps-choice-popup';
+
+  const gmapsBtn=document.createElement('button');
+  gmapsBtn.innerHTML=`🗺️ ${isHe?'פתח ב-Google Maps':'Open in Google Maps'}`;
+  gmapsBtn.onclick=(e)=>{
+    e.stopPropagation();
+    window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(query),'_blank');
+    popup.remove();
+  };
+
+  const wazeBtn=document.createElement('button');
+  wazeBtn.innerHTML=`🚗 ${isHe?'פתח ב-Waze':'Open in Waze'}`;
+  wazeBtn.onclick=(e)=>{
+    e.stopPropagation();
+    window.open('https://waze.com/ul?q='+encodeURIComponent(query)+'&navigate=yes','_blank');
+    popup.remove();
+  };
+
+  popup.appendChild(gmapsBtn);
+  popup.appendChild(wazeBtn);
+  document.body.appendChild(popup);
+
+  const rect=btn.getBoundingClientRect();
+  const popupWidth=popup.offsetWidth||190;
+  const popupHeight=popup.offsetHeight||90;
+  let left=rect.left;
+  if(left+popupWidth>window.innerWidth-8) left=Math.max(8,window.innerWidth-popupWidth-8);
+  let top=rect.bottom+6;
+  if(top+popupHeight>window.innerHeight-8) top=Math.max(8,rect.top-popupHeight-6);
+  popup.style.left=left+'px';
+  popup.style.top=top+'px';
+
+  setTimeout(()=>{
+    document.addEventListener('click',function closeOnce(e){
+      if(!popup.contains(e.target)){ popup.remove(); document.removeEventListener('click',closeOnce); }
+    });
+  },0);
 }
 
 // ── TRIP DUPLICATION ──
@@ -1450,6 +1553,8 @@ function applySideNavLock(){
   document.body.classList.toggle('nav-locked', isLocked);
   const lockBtn = document.getElementById('lock-btn');
   if(lockBtn){ lockBtn.textContent = isLocked ? '🔒' : '🔓'; lockBtn.classList.toggle('locked', isLocked); }
+  const navPinBtn = document.getElementById('navbar-pin-btn');
+  if(navPinBtn){ navPinBtn.textContent = isLocked ? '🔒' : '🔓'; navPinBtn.classList.toggle('locked', isLocked); navPinBtn.title = isLocked ? (lang==='he'?'בטל נעילת סרגל צד':'Unpin sidebar') : (lang==='he'?'נעל סרגל צד פתוח':'Pin sidebar open'); }
   if(isLocked){
     document.getElementById('side-nav').classList.add('open');
     document.getElementById('side-nav-overlay').classList.remove('show');
@@ -1530,6 +1635,10 @@ function renderFlights(){
         ${f.flightNum?`<div class="item-row"><span class="item-lbl">${t('flightNum')}</span><span class="item-val-mono">${esc(f.flightNum)}</span></div>`:''}
         ${f.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val-mono">${esc(f.conf)}</span></div>`:''}
         ${f.notes?`<div class="item-row"><span class="item-lbl">${t('notes')}</span><span class="item-val" style="color:var(--textm)">${esc(f.notes)}</span></div>`:''}
+        ${(f.from||f.to)?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
+          ${f.from?`<button onclick="openMapsChoice('${escJS(f.from)} ${lang==='he'?'שדה תעופה':'airport'}', this)" class="btn btn-outline btn-sm" style="font-size:12px">📍 ${lang==='he'?'כיוונים ליציאה':'Directions to departure'}</button>`:''}
+          ${f.to?`<button onclick="openMapsChoice('${escJS(f.to)} ${lang==='he'?'שדה תעופה':'airport'}', this)" class="btn btn-outline btn-sm" style="font-size:12px">📍 ${lang==='he'?'כיוונים להגעה':'Directions to arrival'}</button>`:''}
+        </div>`:''}
       </div>
     </div>`;
   });
@@ -1585,7 +1694,7 @@ function renderHotels(){
         ${h.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val-mono" style="letter-spacing:.5px">${esc(h.conf)}</span></div>`:''}
         ${h.notes?`<div class="item-row"><span class="item-lbl">${t('specialReq')}</span><span class="item-val" style="color:var(--textm)">${esc(h.notes)}</span></div>`:''}
         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
-          <button onclick="openMaps('${escJS(h.name)}${h.dest?', '+escJS(h.dest):''}')" class="btn btn-outline btn-sm" style="font-size:12px">
+          <button onclick="openMapsChoice('${escJS(h.name)}${h.dest?', '+escJS(h.dest):''}', this)" class="btn btn-outline btn-sm" style="font-size:12px">
             📍 ${isHe?'הצג על המפה':'View on map'}
           </button>
         </div>
@@ -1613,7 +1722,7 @@ function renderItinerary(){
         <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
       </div>
       <div class="itin-body">
-        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${esc(b.time||'')}</div><div class="itin-text">${esc(b.text)}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(61,214,140,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${esc(b.dur)}</span>`:''}<button onclick="openMaps('${escJS(b.text)}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;flex-shrink:0;opacity:.7">📍</button></div>`).join('')}
+        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${esc(b.time||'')}</div><div class="itin-text">${esc(b.text)}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(61,214,140,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${esc(b.dur)}</span>`:''}<button onclick="openMapsChoice('${escJS(b.text)}', this)" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;flex-shrink:0;opacity:.7">📍</button></div>`).join('')}
         <textarea class="itin-note" placeholder="${lang==='he'?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${esc(day.note||'')}</textarea>
       </div>
     </div>`;
@@ -2061,7 +2170,9 @@ function delTransport(id){tripData.transport=(tripData.transport||[]).filter(i=>
 // ── EMERGENCY ──
 function renderEmergency(){
   const em=tripData.emergency||{};
+  const isHe=lang==='he';
   const field=(key,lbl,ph)=>`<div class="em-row"><div style="flex:1"><div class="em-lbl">${lbl}</div><input class="em-inp" value="${esc(em[key]||'')}" placeholder="${esc(ph||'')}" onchange="saveEm('${key}',this.value)"></div></div>`;
+  const fieldWithMap=(key,lbl,ph)=>`<div class="em-row"><div style="flex:1"><div class="em-lbl">${lbl}</div><input class="em-inp" id="em-inp-${key}" value="${esc(em[key]||'')}" placeholder="${esc(ph||'')}" onchange="saveEm('${key}',this.value)"></div><button onclick="openMapsChoice(document.getElementById('em-inp-${key}').value, this)" class="btn btn-outline btn-sm" style="font-size:11px;flex-shrink:0">📍 ${isHe?'מפה':'Map'}</button></div>`;
   return`<div class="page-title" style="font-size:20px;margin-bottom:16px">📞 ${t('secEmergency')}</div>
   <div class="em-card"><div class="em-title">${t('emMedical')}</div>
     ${field('insurance',lang==='he'?'פוליסת ביטוח':'Insurance Policy','Policy #')}
@@ -2078,7 +2189,7 @@ function renderEmergency(){
   <div class="em-card"><div class="em-title">${t('emLocal')}</div>
     ${field('police',lang==='he'?'משטרה':'Police','112')}
     ${field('ambulance',lang==='he'?'אמבולנס':'Ambulance','911')}
-    ${field('embassy',lang==='he'?'שגרירות':'Embassy / Consulate','')}
+    ${fieldWithMap('embassy',lang==='he'?'שגרירות':'Embassy / Consulate','')}
   </div>
   <div class="em-card"><div class="em-title">${t('emDocs')}</div>
     ${field('passport',lang==='he'?'מספר דרכון':'Passport Number(s)','')}
@@ -2095,6 +2206,14 @@ function openAddModal(type){
   inner.innerHTML=getModalContent(type);
   modal.classList.add('show');
   if(type==='day') updateActDuration();
+  if(type==='flight'){
+    airportAutocomplete('fl-from');
+    airportAutocomplete('fl-to');
+    linkDateRange('fl-dep','fl-arr');
+  }
+  if(type==='hotel'){
+    linkDateRange('ht-in','ht-out');
+  }
 }
 
 function modalTitleBar(titleHtml){
@@ -2107,8 +2226,8 @@ function getModalContent(type){
   if(type==='flight') return`
     ${modalTitleBar(`✈️ ${isHe?'הוסף טיסה':'Add Flight'}`)}
     <div class="grid2">
-      <div class="field"><div class="field-label">${t('from')}</div><input class="inp" id="fl-from" placeholder="TLV" style="text-transform:uppercase"></div>
-      <div class="field"><div class="field-label">${t('to')}</div><input class="inp" id="fl-to" placeholder="BKK" style="text-transform:uppercase"></div>
+      <div class="field"><div class="field-label">${t('from')}</div><input class="inp" id="fl-from" placeholder="${isHe?'תל אביב או TLV':'Tel Aviv or TLV'}" style="text-transform:uppercase" autocomplete="off"></div>
+      <div class="field"><div class="field-label">${t('to')}</div><input class="inp" id="fl-to" placeholder="${isHe?'בנגקוק או BKK':'Bangkok or BKK'}" style="text-transform:uppercase" autocomplete="off"></div>
     </div>
     <div class="grid2">
       <div class="field"><div class="field-label">${t('departure')}</div><input class="inp" id="fl-dep" type="datetime-local"></div>
@@ -2244,9 +2363,10 @@ function removeActLine(i){actLines.splice(i,1);renderActList();}
 function saveFlight(){
   const from=document.getElementById('fl-from').value.trim().toUpperCase();
   const to=document.getElementById('fl-to').value.trim().toUpperCase();
-  if(!from||!to)return toast('⚠️ Enter airports');
+  if(!from||!to)return toast('⚠️ '+(lang==='he'?'הזן שדות תעופה':'Enter airports'));
   const dep=document.getElementById('fl-dep').value;
   const arr=document.getElementById('fl-arr').value;
+  if(dep&&arr&&arr<dep)return toast('⚠️ '+(lang==='he'?'זמן הנחיתה לא יכול להיות לפני ההמראה':'Arrival can\u2019t be before departure'));
   const f={id:uid(),from,to,
     depTime:dep?new Date(dep).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'',
     arrTime:arr?new Date(arr).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'',
@@ -2256,7 +2376,7 @@ function saveFlight(){
     conf:document.getElementById('fl-conf').value.trim(),
     notes:document.getElementById('fl-notes').value.trim()};
   if(!tripData.flights)tripData.flights=[];
-  tripData.flights.push(f);saveData();closeModal('modal-add');renderSec('flights');toast('✅ Flight added');
+  tripData.flights.push(f);saveData();closeModal('modal-add');renderSec('flights');toast('✅ '+(lang==='he'?'הטיסה נוספה':'Flight added'));
 }
 
 function saveHotel(){
@@ -2382,6 +2502,113 @@ function initEmojiPicker(){
 
 // ── HELPERS ──
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
+
+// ── AIRPORTS (autocomplete) ──
+// Compact list of major world airports: [IATA code, city, airport name, country]
+const AIRPORTS=[
+['TLV','Tel Aviv','Ben Gurion Airport','Israel'],['ETH','Eilat','Ramon Airport','Israel'],
+['JFK','New York','John F. Kennedy International','USA'],['EWR','Newark','Newark Liberty International','USA'],
+['LGA','New York','LaGuardia Airport','USA'],['LAX','Los Angeles','Los Angeles International','USA'],
+['ORD','Chicago','O\u2019Hare International','USA'],['MIA','Miami','Miami International','USA'],
+['SFO','San Francisco','San Francisco International','USA'],['BOS','Boston','Logan International','USA'],
+['ATL','Atlanta','Hartsfield-Jackson Atlanta International','USA'],['DFW','Dallas','Dallas/Fort Worth International','USA'],
+['SEA','Seattle','Seattle-Tacoma International','USA'],['LAS','Las Vegas','Harry Reid International','USA'],
+['IAD','Washington','Washington Dulles International','USA'],['DCA','Washington','Ronald Reagan National','USA'],
+['PHL','Philadelphia','Philadelphia International','USA'],['DEN','Denver','Denver International','USA'],
+['IAH','Houston','George Bush Intercontinental','USA'],['MCO','Orlando','Orlando International','USA'],
+['YYZ','Toronto','Toronto Pearson International','Canada'],['YUL','Montreal','Montr\u00e9al-Trudeau International','Canada'],
+['YVR','Vancouver','Vancouver International','Canada'],['MEX','Mexico City','Mexico City International','Mexico'],
+['CUN','Canc\u00fan','Canc\u00fan International','Mexico'],
+['LHR','London','Heathrow Airport','United Kingdom'],['LGW','London','Gatwick Airport','United Kingdom'],
+['STN','London','Stansted Airport','United Kingdom'],['LTN','London','Luton Airport','United Kingdom'],
+['MAN','Manchester','Manchester Airport','United Kingdom'],['EDI','Edinburgh','Edinburgh Airport','United Kingdom'],
+['DUB','Dublin','Dublin Airport','Ireland'],['CDG','Paris','Charles de Gaulle Airport','France'],
+['ORY','Paris','Orly Airport','France'],['NCE','Nice','C\u00f4te d\u2019Azur Airport','France'],
+['AMS','Amsterdam','Schiphol Airport','Netherlands'],['FRA','Frankfurt','Frankfurt Airport','Germany'],
+['MUC','Munich','Munich Airport','Germany'],['BER','Berlin','Berlin Brandenburg Airport','Germany'],
+['MAD','Madrid','Adolfo Su\u00e1rez Madrid\u2013Barajas','Spain'],['BCN','Barcelona','Barcelona\u2013El Prat Airport','Spain'],
+['PMI','Palma de Mallorca','Palma de Mallorca Airport','Spain'],['LIS','Lisbon','Humberto Delgado Airport','Portugal'],
+['OPO','Porto','Francisco S\u00e1 Carneiro Airport','Portugal'],['FCO','Rome','Leonardo da Vinci\u2013Fiumicino','Italy'],
+['MXP','Milan','Milan Malpensa Airport','Italy'],['VCE','Venice','Venice Marco Polo Airport','Italy'],
+['NAP','Naples','Naples International','Italy'],['ATH','Athens','Athens International','Greece'],
+['JTR','Santorini','Santorini (Thira) Airport','Greece'],['JMK','Mykonos','Mykonos Airport','Greece'],
+['ZRH','Zurich','Zurich Airport','Switzerland'],['GVA','Geneva','Geneva Airport','Switzerland'],
+['VIE','Vienna','Vienna International','Austria'],['BRU','Brussels','Brussels Airport','Belgium'],
+['CPH','Copenhagen','Copenhagen Airport','Denmark'],['ARN','Stockholm','Stockholm Arlanda Airport','Sweden'],
+['OSL','Oslo','Oslo Airport','Norway'],['HEL','Helsinki','Helsinki-Vantaa Airport','Finland'],
+['WAW','Warsaw','Warsaw Chopin Airport','Poland'],['PRG','Prague','V\u00e1clav Havel Airport Prague','Czech Republic'],
+['BUD','Budapest','Budapest Ferenc Liszt International','Hungary'],['IST','Istanbul','Istanbul Airport','Turkey'],
+['SAW','Istanbul','Sabiha G\u00f6k\u00e7en International','Turkey'],['AYT','Antalya','Antalya Airport','Turkey'],
+['LCA','Larnaca','Larnaca International','Cyprus'],['SVO','Moscow','Sheremetyevo International','Russia'],
+['CAI','Cairo','Cairo International','Egypt'],['HRG','Hurghada','Hurghada International','Egypt'],
+['SSH','Sharm El Sheikh','Sharm El Sheikh International','Egypt'],['AMM','Amman','Queen Alia International','Jordan'],
+['DXB','Dubai','Dubai International','UAE'],['AUH','Abu Dhabi','Abu Dhabi International','UAE'],
+['DOH','Doha','Hamad International','Qatar'],['RUH','Riyadh','King Khalid International','Saudi Arabia'],
+['JED','Jeddah','King Abdulaziz International','Saudi Arabia'],
+['DEL','Delhi','Indira Gandhi International','India'],['BOM','Mumbai','Chhatrapati Shivaji Maharaj International','India'],
+['GOI','Goa','Goa International','India'],['BKK','Bangkok','Suvarnabhumi Airport','Thailand'],
+['DMK','Bangkok','Don Mueang International','Thailand'],['HKT','Phuket','Phuket International','Thailand'],
+['USM','Koh Samui','Samui Airport','Thailand'],['SIN','Singapore','Singapore Changi Airport','Singapore'],
+['KUL','Kuala Lumpur','Kuala Lumpur International','Malaysia'],['DPS','Bali','Ngurah Rai International','Indonesia'],
+['CGK','Jakarta','Soekarno\u2013Hatta International','Indonesia'],['MNL','Manila','Ninoy Aquino International','Philippines'],
+['CEB','Cebu','Mactan-Cebu International','Philippines'],['HAN','Hanoi','Noi Bai International','Vietnam'],
+['SGN','Ho Chi Minh City','Tan Son Nhat International','Vietnam'],['HKG','Hong Kong','Hong Kong International','China'],
+['PEK','Beijing','Beijing Capital International','China'],['PVG','Shanghai','Shanghai Pudong International','China'],
+['CAN','Guangzhou','Guangzhou Baiyun International','China'],['TPE','Taipei','Taiwan Taoyuan International','Taiwan'],
+['ICN','Seoul','Incheon International','South Korea'],['NRT','Tokyo','Narita International','Japan'],
+['HND','Tokyo','Haneda Airport','Japan'],['KIX','Osaka','Kansai International','Japan'],
+['KTM','Kathmandu','Tribhuvan International','Nepal'],['MLE','Mal\u00e9','Velana International','Maldives'],
+['CMB','Colombo','Bandaranaike International','Sri Lanka'],
+['SYD','Sydney','Sydney Kingsford Smith','Australia'],['MEL','Melbourne','Melbourne Airport','Australia'],
+['BNE','Brisbane','Brisbane Airport','Australia'],['PER','Perth','Perth Airport','Australia'],
+['AKL','Auckland','Auckland Airport','New Zealand'],
+['JNB','Johannesburg','O.R. Tambo International','South Africa'],['CPT','Cape Town','Cape Town International','South Africa'],
+['NBO','Nairobi','Jomo Kenyatta International','Kenya'],['ADD','Addis Ababa','Bole International','Ethiopia'],
+['CMN','Casablanca','Mohammed V International','Morocco'],['RAK','Marrakech','Marrakesh Menara Airport','Morocco'],
+['TUN','Tunis','Tunis-Carthage International','Tunisia'],
+['GRU','S\u00e3o Paulo','S\u00e3o Paulo/Guarulhos International','Brazil'],['GIG','Rio de Janeiro','Rio Galeão International','Brazil'],
+['EZE','Buenos Aires','Ministro Pistarini International','Argentina'],['SCL','Santiago','Arturo Merino Ben\u00edtez International','Chile'],
+['BOG','Bogot\u00e1','El Dorado International','Colombia'],['LIM','Lima','Jorge Ch\u00e1vez International','Peru'],
+];
+let airportAcActiveInput=null;
+function airportAutocomplete(inputId){
+  const input=document.getElementById(inputId);
+  if(!input)return;
+  const box=document.createElement('div');
+  box.className='ac-suggest';box.id=inputId+'-ac';
+  input.parentElement.style.position='relative';
+  input.parentElement.appendChild(box);
+  input.addEventListener('input',()=>{
+    const q=input.value.trim().toLowerCase();
+    box.innerHTML='';
+    if(q.length<2){box.classList.remove('show');return;}
+    const matches=AIRPORTS.filter(a=>a[1].toLowerCase().includes(q)||a[2].toLowerCase().includes(q)||a[0].toLowerCase()===q).slice(0,8);
+    if(!matches.length){box.classList.remove('show');return;}
+    matches.forEach(a=>{
+      const row=document.createElement('div');
+      row.className='ac-suggest-row';
+      row.innerHTML=`<span class="ac-code">${a[0]}</span><span class="ac-info"><span class="ac-city">${esc(a[1])}</span><span class="ac-name">${esc(a[2])}</span></span>`;
+      row.onclick=()=>{ input.value=a[0]; box.classList.remove('show'); input.dispatchEvent(new Event('change')); };
+      box.appendChild(row);
+    });
+    box.classList.add('show');
+  });
+  input.addEventListener('blur',()=>{ setTimeout(()=>box.classList.remove('show'),150); });
+  input.addEventListener('focus',()=>{ if(input.value.trim().length>=2) input.dispatchEvent(new Event('input')); });
+}
+// Ensure the arrival/return field can never be set earlier than departure
+function linkDateRange(startId,endId){
+  const startEl=document.getElementById(startId);
+  const endEl=document.getElementById(endId);
+  if(!startEl||!endEl)return;
+  const sync=()=>{ if(startEl.value) endEl.min=startEl.value; };
+  sync();
+  startEl.addEventListener('change',()=>{
+    sync();
+    if(endEl.value&&startEl.value&&endEl.value<startEl.value) endEl.value=startEl.value;
+  });
+}
+
 // Escape text for safe insertion into innerHTML (prevents broken rendering / injected markup
 // from user-typed fields — important since shared "edit access" links let other people write
 // into this trip's data).
