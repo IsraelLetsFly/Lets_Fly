@@ -260,6 +260,9 @@ textarea.inp{resize:vertical;min-height:80px}
 .item-val-mono{color:var(--text);font-family:var(--mono);font-weight:600}
 .del-btn{background:none;border:none;color:var(--textd);cursor:pointer;font-size:17px;padding:0;margin-inline-start:auto;flex-shrink:0}
 .del-btn:hover{color:var(--coral)}
+.edit-btn{background:none;border:none;color:var(--textd);cursor:pointer;font-size:15px;padding:0;margin-inline-start:auto;flex-shrink:0}
+.edit-btn:hover{color:var(--accent)}
+.edit-btn+.del-btn{margin-inline-start:12px}
 
 /* ITINERARY */
 .itin-day{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
@@ -1615,30 +1618,59 @@ function updateSideNavTheme(){
 
 // ── FLIGHTS ──
 function renderFlights(){
-  const flights=tripData.flights||[];
+  const isHe=lang==='he';
+  const cur=currentTrip?.currency||'USD';
+  const flights=[...(tripData.flights||[])].sort((a,b)=>{
+    const ka=a.depTimeISO||(flightDateStr(a)?flightDateStr(a)+'T00:00':'9999-99-99T99:99');
+    const kb=b.depTimeISO||(flightDateStr(b)?flightDateStr(b)+'T00:00':'9999-99-99T99:99');
+    return ka<kb?-1:ka>kb?1:0;
+  });
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div class="page-title" style="font-size:20px">✈️ ${t('secFlights')}</div>
     <button class="btn btn-outline btn-sm" onclick="openAddModal('flight')">${t('addFlight')}</button>
   </div>`;
   if(!flights.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noFlights')}</div>`;
+  const today=new Date().toISOString().split('T')[0];
   flights.forEach(f=>{
+    const fDate=flightDateStr(f);
+    let statusBadge='';
+    if(fDate){
+      if(fDate>today) statusBadge=`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(55,198,186,.12);color:var(--accent)">${isHe?'עתידי':'Upcoming'}</span>`;
+      else if(fDate===today) statusBadge=`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(61,214,140,.12);color:var(--green)">${isHe?'היום':'Today'}</span>`;
+      else statusBadge=`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:var(--bg4);color:var(--textd)">${isHe?'הסתיים':'Completed'}</span>`;
+    }
+    const duration=flightDuration(f);
+    const tzDiff=(f.from&&f.to)?tzDiffLabel(f.from,f.to,f.depTimeISO):null;
+    const checkin=checkinOpensLabel(f,isHe);
     html+=`<div class="item-card" id="fc-${f.id}">
       <div class="item-header" onclick="document.getElementById('fc-${f.id}').classList.toggle('open')">
         <span style="font-size:20px">✈️</span>
-        <div class="item-title">${esc(f.from||'?')} → ${esc(f.to||'?')}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+            <div class="item-title" style="margin:0">${esc(f.from||'?')} → ${esc(f.to||'?')}</div>
+            ${statusBadge}
+          </div>
+          ${f.layoverAirport?`<div style="font-size:11px;color:var(--textm);margin-top:3px">${isHe?'עצירה ב-':'via '}${esc(f.layoverAirport)}${f.layoverDuration?` · ${esc(f.layoverDuration)}`:''}</div>`:''}
+        </div>
         <span class="tag tag-blue" style="font-size:11px">${esc(f.airline||'')}</span>
+        <button class="edit-btn" onclick="event.stopPropagation();openAddModal('flight','${f.id}')" title="${isHe?'ערוך':'Edit'}">✏️</button>
         <button class="del-btn" onclick="event.stopPropagation();delFlight('${f.id}')">×</button>
       </div>
       <div class="item-body">
         ${f.depTime?`<div class="item-row"><span class="item-lbl">${t('departure')}</span><span class="item-val-mono">${esc(f.depTime)}</span></div>`:''}
-        ${f.arrTime?`<div class="item-row"><span class="item-lbl">${t('arrival')}</span><span class="item-val-mono">${esc(f.arrTime)}</span></div>`:''}
+        ${f.arrTime?`<div class="item-row"><span class="item-lbl">${t('arrival')}</span><span class="item-val-mono">${esc(f.arrTime)}${tzDiff?` <span style="color:var(--textm);font-weight:500">(${tzDiff} ${isHe?'הפרש שעון':'time diff'})</span>`:''}</span></div>`:''}
+        ${duration?`<div class="item-row"><span class="item-lbl">${isHe?'משך טיסה':'Duration'}</span><span class="item-val-mono">${duration}</span></div>`:''}
         ${f.flightNum?`<div class="item-row"><span class="item-lbl">${t('flightNum')}</span><span class="item-val-mono">${esc(f.flightNum)}</span></div>`:''}
         ${f.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val-mono">${esc(f.conf)}</span></div>`:''}
-        ${f.notes?`<div class="item-row"><span class="item-lbl">${t('notes')}</span><span class="item-val" style="color:var(--textm)">${esc(f.notes)}</span></div>`:''}
-        ${(f.from||f.to)?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
-          ${f.from?`<button onclick="openMapsChoice('${escJS(f.from)} ${lang==='he'?'שדה תעופה':'airport'}', this)" class="btn btn-outline btn-sm" style="font-size:12px">📍 ${lang==='he'?'כיוונים ליציאה':'Directions to departure'}</button>`:''}
-          ${f.to?`<button onclick="openMapsChoice('${escJS(f.to)} ${lang==='he'?'שדה תעופה':'airport'}', this)" class="btn btn-outline btn-sm" style="font-size:12px">📍 ${lang==='he'?'כיוונים להגעה':'Directions to arrival'}</button>`:''}
-        </div>`:''}
+        ${f.cost?`<div class="item-row"><span class="item-lbl">${t('totalCost')}</span><span class="item-val-mono">${parseFloat(f.cost).toLocaleString()} ${esc(cur)}</span></div>`:''}
+        ${checkin?`<div style="margin-top:10px;font-size:12px;color:var(--gold);background:rgba(242,179,61,.08);border:1px solid rgba(242,179,61,.2);border-radius:var(--rsm);padding:8px 11px">${checkin}</div>`:''}
+        ${f.notes?`<div class="item-row" style="margin-top:10px"><span class="item-lbl">${t('notes')}</span><span class="item-val" style="color:var(--textm)">${esc(f.notes)}</span></div>`:''}
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
+          ${f.from?`<button onclick="openMapsChoice('${escJS(f.from)} ${isHe?'שדה תעופה':'airport'}', this)" class="btn btn-outline btn-sm" style="font-size:12px">📍 ${isHe?'כיוונים ליציאה':'Directions to departure'}</button>`:''}
+          ${f.to?`<button onclick="openMapsChoice('${escJS(f.to)} ${isHe?'שדה תעופה':'airport'}', this)" class="btn btn-outline btn-sm" style="font-size:12px">📍 ${isHe?'כיוונים להגעה':'Directions to arrival'}</button>`:''}
+          ${f.depTimeISO?`<button onclick="downloadFlightICS('${f.id}')" class="btn btn-outline btn-sm" style="font-size:12px">📅 ${isHe?'הוסף ליומן':'Add to calendar'}</button>`:''}
+          <button onclick="addReturnFlight('${f.id}')" class="btn btn-outline btn-sm" style="font-size:12px">↩ ${isHe?'הוסף טיסת חזור':'Add return flight'}</button>
+        </div>
       </div>
     </div>`;
   });
@@ -2199,16 +2231,24 @@ function renderEmergency(){
 function saveEm(key,val){if(!tripData.emergency)tripData.emergency={};tripData.emergency[key]=val;saveData();}
 
 // ── ADD MODALS ──
-function openAddModal(type){
+let editingFlightId=null;
+function openAddModal(type,editId){
   if(type==='day') actLines=[];
+  editingFlightId=null;
+  let editData=null;
+  if(type==='flight'&&editId){
+    editingFlightId=editId;
+    editData=(tripData.flights||[]).find(f=>f.id===editId)||null;
+  }
   const inner=document.getElementById('modal-add-inner');
   const modal=document.getElementById('modal-add');
-  inner.innerHTML=getModalContent(type);
+  inner.innerHTML=getModalContent(type,editData);
   modal.classList.add('show');
   if(type==='day') updateActDuration();
   if(type==='flight'){
     airportAutocomplete('fl-from');
     airportAutocomplete('fl-to');
+    airportAutocomplete('fl-layover-airport');
     linkDateRange('fl-dep','fl-arr');
   }
   if(type==='hotel'){
@@ -2220,29 +2260,46 @@ function modalTitleBar(titleHtml){
   return `<div class="modal-title-bar"><div class="modal-title-bar-text">${titleHtml}</div></div>`;
 }
 
-function getModalContent(type){
+function getModalContent(type,editData){
   const isHe=lang==='he';
 
-  if(type==='flight') return`
-    ${modalTitleBar(`✈️ ${isHe?'הוסף טיסה':'Add Flight'}`)}
+  if(type==='flight'){
+    const f=editData||{};
+    const hasLayover=!!(f.layoverAirport||f.layoverDuration);
+    return`
+    ${modalTitleBar(f.id?`✏️ ${isHe?'ערוך טיסה':'Edit Flight'}`:`✈️ ${isHe?'הוסף טיסה':'Add Flight'}`)}
     <div class="grid2">
-      <div class="field"><div class="field-label">${t('from')}</div><input class="inp" id="fl-from" placeholder="${isHe?'תל אביב או TLV':'Tel Aviv or TLV'}" style="text-transform:uppercase" autocomplete="off"></div>
-      <div class="field"><div class="field-label">${t('to')}</div><input class="inp" id="fl-to" placeholder="${isHe?'בנגקוק או BKK':'Bangkok or BKK'}" style="text-transform:uppercase" autocomplete="off"></div>
+      <div class="field"><div class="field-label">${t('from')}</div><input class="inp" id="fl-from" value="${esc(f.from||'')}" placeholder="${isHe?'תל אביב או TLV':'Tel Aviv or TLV'}" style="text-transform:uppercase" autocomplete="off"></div>
+      <div class="field"><div class="field-label">${t('to')}</div><input class="inp" id="fl-to" value="${esc(f.to||'')}" placeholder="${isHe?'בנגקוק או BKK':'Bangkok or BKK'}" style="text-transform:uppercase" autocomplete="off"></div>
     </div>
     <div class="grid2">
-      <div class="field"><div class="field-label">${t('departure')}</div><input class="inp" id="fl-dep" type="datetime-local"></div>
-      <div class="field"><div class="field-label">${t('arrival')}</div><input class="inp" id="fl-arr" type="datetime-local"></div>
+      <div class="field"><div class="field-label">${t('departure')}</div><input class="inp" id="fl-dep" type="datetime-local" value="${esc(f.depTimeISO||'')}"></div>
+      <div class="field"><div class="field-label">${t('arrival')}</div><input class="inp" id="fl-arr" type="datetime-local" value="${esc(f.arrTimeISO||'')}"></div>
     </div>
     <div class="grid2">
-      <div class="field"><div class="field-label">${t('flightNum')}</div><input class="inp" id="fl-num" placeholder="EK 371"></div>
-      <div class="field"><div class="field-label">${t('airline')}</div><input class="inp" id="fl-airline" placeholder="Emirates"></div>
+      <div class="field"><div class="field-label">${t('flightNum')}</div><input class="inp" id="fl-num" value="${esc(f.flightNum||'')}" placeholder="EK 371"></div>
+      <div class="field"><div class="field-label">${t('airline')}</div><input class="inp" id="fl-airline" value="${esc(f.airline||'')}" placeholder="Emirates"></div>
     </div>
-    <div class="field"><div class="field-label">${t('confirmation')}</div><input class="inp" id="fl-conf" placeholder="ABC123"></div>
-    <div class="field"><div class="field-label">${t('notes')}</div><textarea class="inp" id="fl-notes" placeholder="..."></textarea></div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('confirmation')}</div><input class="inp" id="fl-conf" value="${esc(f.conf||'')}" placeholder="ABC123"></div>
+      <div class="field"><div class="field-label">${t('totalCost')} (${esc(currentTrip?.currency||'USD')})</div><input class="inp" id="fl-cost" type="number" value="${esc(f.cost||'')}" placeholder="0"></div>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--textm);cursor:pointer">
+        <input type="checkbox" id="fl-has-layover" ${hasLayover?'checked':''} onchange="document.getElementById('fl-layover-fields').style.display=this.checked?'grid':'none'" style="width:16px;height:16px;cursor:pointer">
+        ${isHe?'לטיסה זו יש עצירת ביניים':'This flight has a layover'}
+      </label>
+    </div>
+    <div class="grid2" id="fl-layover-fields" style="display:${hasLayover?'grid':'none'}">
+      <div class="field"><div class="field-label">${isHe?'שדה תעופה לעצירה':'Layover Airport'}</div><input class="inp" id="fl-layover-airport" value="${esc(f.layoverAirport||'')}" placeholder="${isHe?'דובאי או DXB':'Dubai or DXB'}" style="text-transform:uppercase" autocomplete="off"></div>
+      <div class="field"><div class="field-label">${isHe?'משך העצירה':'Layover Duration'}</div><input class="inp" id="fl-layover-duration" value="${esc(f.layoverDuration||'')}" placeholder="2h 30m"></div>
+    </div>
+    <div class="field"><div class="field-label">${t('notes')}</div><textarea class="inp" id="fl-notes" placeholder="...">${esc(f.notes||'')}</textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
-      <button class="btn btn-primary" onclick="saveFlight()">${t('save')}</button>
+      <button class="btn btn-primary" onclick="saveFlight()">${f.id?(isHe?'שמור שינויים':'Save changes'):t('save')}</button>
     </div>`;
+  }
 
   if(type==='hotel') return`
     ${modalTitleBar(`🏨 ${isHe?'הוסף מלון':'Add Hotel'}`)}
@@ -2367,16 +2424,28 @@ function saveFlight(){
   const dep=document.getElementById('fl-dep').value;
   const arr=document.getElementById('fl-arr').value;
   if(dep&&arr&&arr<dep)return toast('⚠️ '+(lang==='he'?'זמן הנחיתה לא יכול להיות לפני ההמראה':'Arrival can\u2019t be before departure'));
-  const f={id:uid(),from,to,
+  const hasLayover=document.getElementById('fl-has-layover')?.checked;
+  const fields={from,to,
     depTime:dep?new Date(dep).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'',
     arrTime:arr?new Date(arr).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'',
     depTimeISO:dep||'',arrTimeISO:arr||'',
     flightNum:document.getElementById('fl-num').value.trim(),
     airline:document.getElementById('fl-airline').value.trim(),
     conf:document.getElementById('fl-conf').value.trim(),
+    cost:document.getElementById('fl-cost').value,
+    layoverAirport:hasLayover?document.getElementById('fl-layover-airport').value.trim().toUpperCase():'',
+    layoverDuration:hasLayover?document.getElementById('fl-layover-duration').value.trim():'',
     notes:document.getElementById('fl-notes').value.trim()};
   if(!tripData.flights)tripData.flights=[];
-  tripData.flights.push(f);saveData();closeModal('modal-add');renderSec('flights');toast('✅ '+(lang==='he'?'הטיסה נוספה':'Flight added'));
+  if(editingFlightId){
+    const idx=tripData.flights.findIndex(fl=>fl.id===editingFlightId);
+    if(idx>-1) tripData.flights[idx]={...tripData.flights[idx],...fields};
+    editingFlightId=null;
+    saveData();closeModal('modal-add');renderSec('flights');toast('✅ '+(lang==='he'?'הטיסה עודכנה':'Flight updated'));
+  } else {
+    tripData.flights.push({id:uid(),...fields});
+    saveData();closeModal('modal-add');renderSec('flights');toast('✅ '+(lang==='he'?'הטיסה נוספה':'Flight added'));
+  }
 }
 
 function saveHotel(){
@@ -2570,6 +2639,154 @@ const AIRPORTS=[
 ['EZE','Buenos Aires','Ministro Pistarini International','Argentina'],['SCL','Santiago','Arturo Merino Ben\u00edtez International','Chile'],
 ['BOG','Bogot\u00e1','El Dorado International','Colombia'],['LIM','Lima','Jorge Ch\u00e1vez International','Peru'],
 ];
+// IANA timezone per airport code (for the "time difference" hint and duration/check-in helpers below)
+const AIRPORT_TZ={
+  TLV:'Asia/Jerusalem',ETH:'Asia/Jerusalem',
+  JFK:'America/New_York',EWR:'America/New_York',LGA:'America/New_York',MIA:'America/New_York',
+  BOS:'America/New_York',ATL:'America/New_York',IAD:'America/New_York',DCA:'America/New_York',
+  PHL:'America/New_York',MCO:'America/New_York',
+  LAX:'America/Los_Angeles',SFO:'America/Los_Angeles',SEA:'America/Los_Angeles',LAS:'America/Los_Angeles',
+  ORD:'America/Chicago',DFW:'America/Chicago',IAH:'America/Chicago',DEN:'America/Denver',
+  YYZ:'America/Toronto',YUL:'America/Montreal',YVR:'America/Vancouver',
+  MEX:'America/Mexico_City',CUN:'America/Cancun',
+  LHR:'Europe/London',LGW:'Europe/London',STN:'Europe/London',LTN:'Europe/London',
+  MAN:'Europe/London',EDI:'Europe/London',DUB:'Europe/Dublin',
+  CDG:'Europe/Paris',ORY:'Europe/Paris',NCE:'Europe/Paris',AMS:'Europe/Amsterdam',
+  FRA:'Europe/Berlin',MUC:'Europe/Berlin',BER:'Europe/Berlin',
+  MAD:'Europe/Madrid',BCN:'Europe/Madrid',PMI:'Europe/Madrid',
+  LIS:'Europe/Lisbon',OPO:'Europe/Lisbon',FCO:'Europe/Rome',MXP:'Europe/Rome',VCE:'Europe/Rome',NAP:'Europe/Rome',
+  ATH:'Europe/Athens',JTR:'Europe/Athens',JMK:'Europe/Athens',
+  ZRH:'Europe/Zurich',GVA:'Europe/Zurich',VIE:'Europe/Vienna',BRU:'Europe/Brussels',
+  CPH:'Europe/Copenhagen',ARN:'Europe/Stockholm',OSL:'Europe/Oslo',HEL:'Europe/Helsinki',
+  WAW:'Europe/Warsaw',PRG:'Europe/Prague',BUD:'Europe/Budapest',
+  IST:'Europe/Istanbul',SAW:'Europe/Istanbul',AYT:'Europe/Istanbul',
+  LCA:'Asia/Nicosia',SVO:'Europe/Moscow',
+  CAI:'Africa/Cairo',HRG:'Africa/Cairo',SSH:'Africa/Cairo',AMM:'Asia/Amman',
+  DXB:'Asia/Dubai',AUH:'Asia/Dubai',DOH:'Asia/Qatar',RUH:'Asia/Riyadh',JED:'Asia/Riyadh',
+  DEL:'Asia/Kolkata',BOM:'Asia/Kolkata',GOI:'Asia/Kolkata',
+  BKK:'Asia/Bangkok',DMK:'Asia/Bangkok',HKT:'Asia/Bangkok',USM:'Asia/Bangkok',
+  SIN:'Asia/Singapore',KUL:'Asia/Kuala_Lumpur',DPS:'Asia/Jakarta',CGK:'Asia/Jakarta',
+  MNL:'Asia/Manila',CEB:'Asia/Manila',HAN:'Asia/Ho_Chi_Minh',SGN:'Asia/Ho_Chi_Minh',
+  HKG:'Asia/Hong_Kong',PEK:'Asia/Shanghai',PVG:'Asia/Shanghai',CAN:'Asia/Shanghai',
+  TPE:'Asia/Taipei',ICN:'Asia/Seoul',NRT:'Asia/Tokyo',HND:'Asia/Tokyo',KIX:'Asia/Tokyo',
+  KTM:'Asia/Kathmandu',MLE:'Indian/Maldives',CMB:'Asia/Colombo',
+  SYD:'Australia/Sydney',MEL:'Australia/Melbourne',BNE:'Australia/Brisbane',PER:'Australia/Perth',
+  AKL:'Pacific/Auckland',
+  JNB:'Africa/Johannesburg',CPT:'Africa/Johannesburg',NBO:'Africa/Nairobi',ADD:'Africa/Addis_Ababa',
+  CMN:'Africa/Casablanca',RAK:'Africa/Casablanca',TUN:'Africa/Tunis',
+  GRU:'America/Sao_Paulo',GIG:'America/Sao_Paulo',EZE:'America/Argentina/Buenos_Aires',
+  SCL:'America/Santiago',BOG:'America/Bogota',LIM:'America/Lima',
+};
+// UTC offset in minutes for a timezone at a given date (handles DST correctly per-date)
+function tzOffsetMinutes(tz,date){
+  try{
+    const dtf=new Intl.DateTimeFormat('en-US',{timeZone:tz,timeZoneName:'shortOffset'});
+    const part=dtf.formatToParts(date).find(p=>p.type==='timeZoneName')?.value||'';
+    const m=part.match(/GMT([+-])(\d+)(?::(\d+))?/);
+    if(!m)return null;
+    return(m[1]==='-'?-1:1)*(parseInt(m[2],10)*60+(m[3]?parseInt(m[3],10):0));
+  }catch(e){return null;}
+}
+// Human-readable time-zone difference between two airports on a given date, e.g. "+4h" — null if unknown/same
+function tzDiffLabel(fromCode,toCode,dateStr){
+  const fromTz=AIRPORT_TZ[fromCode],toTz=AIRPORT_TZ[toCode];
+  if(!fromTz||!toTz)return null;
+  const d=dateStr?new Date(dateStr):new Date();
+  if(isNaN(d))return null;
+  const fromOff=tzOffsetMinutes(fromTz,d),toOff=tzOffsetMinutes(toTz,d);
+  if(fromOff===null||toOff===null||fromOff===toOff)return null;
+  const diff=toOff-fromOff;
+  const h=Math.floor(Math.abs(diff)/60),m=Math.abs(diff)%60;
+  const sign=diff>0?'+':'\u2212';
+  return sign+(m?`${h}h${m}m`:`${h}h`);
+}
+// Total journey duration (departure to arrival) as "Xh Ym" — null if either time is missing
+function flightDuration(f){
+  if(!f.depTimeISO||!f.arrTimeISO)return null;
+  const dep=new Date(f.depTimeISO),arr=new Date(f.arrTimeISO);
+  if(isNaN(dep)||isNaN(arr))return null;
+  let mins=Math.round((arr-dep)/60000);
+  if(mins<=0)return null;
+  const h=Math.floor(mins/60),m=mins%60;
+  return m?`${h}h ${m}m`:`${h}h`;
+}
+// "Check-in opens" hint — most airlines open online check-in 24h before departure
+function checkinOpensLabel(f,isHe){
+  if(!f.depTimeISO)return null;
+  const dep=new Date(f.depTimeISO);
+  if(isNaN(dep))return null;
+  const opens=new Date(dep.getTime()-24*3600000);
+  const now=new Date();
+  if(dep<now)return null; // flight already departed — not relevant anymore
+  const label=opens.toLocaleString(isHe?'he-IL':'en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  return opens<=now
+    ? (isHe?'\u2705 הצ\'ק-אין כנראה כבר פתוח (בד"כ 24 שעות לפני ההמראה)':'\u2705 Check-in is likely open now (usually opens 24h before departure)')
+    : (isHe?`\u{1F551} הצ'ק-אין נפתח בסביבות ${label} (24 שעות לפני)`:`\u{1F551} Check-in opens around ${label} (24h before departure)`);
+}
+// Build and download a minimal .ics calendar file for a flight
+function downloadFlightICS(id){
+  const f=(tripData.flights||[]).find(fl=>fl.id===id);
+  if(!f||!f.depTimeISO)return toast('⚠️ '+(lang==='he'?'אין זמן המראה לטיסה זו':'This flight has no departure time'));
+  // depTimeISO/arrTimeISO are entered as local wall-clock time at each airport (no timezone
+  // baked in). If we recognize the airport, tag the ICS event with its real IANA timezone so
+  // calendar apps show the correct local time instead of silently reinterpreting it as UTC.
+  const depTz=AIRPORT_TZ[f.from];
+  const arrTz=AIRPORT_TZ[f.to]||depTz;
+  const wallClock=iso=>iso.replace(/[-:]/g,'').split('.')[0]; // "YYYY-MM-DDTHH:mm" -> "YYYYMMDDTHHmm00"-ish, no Z
+  const depStamp=wallClock(f.depTimeISO)+(f.depTimeISO.length<=16?'00':'');
+  // Wall-clock arithmetic only (never touches the browser's own timezone) — used when
+  // no arrival time was entered, so we just assume a placeholder 2h flight.
+  const addHoursToWallClock=(iso,hours)=>{
+    const[datePart,timePart]=iso.split('T');
+    const[y,mo,d]=datePart.split('-').map(Number);
+    const[h,mi]=timePart.split(':').map(Number);
+    const dt=new Date(Date.UTC(y,mo-1,d,h,mi));
+    dt.setUTCHours(dt.getUTCHours()+hours);
+    const pad=n=>String(n).padStart(2,'0');
+    return`${dt.getUTCFullYear()}-${pad(dt.getUTCMonth()+1)}-${pad(dt.getUTCDate())}T${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}`;
+  };
+  const arrIso=f.arrTimeISO||addHoursToWallClock(f.depTimeISO,2);
+  const arrStamp=wallClock(arrIso)+(arrIso.length<=16?'00':'');
+  const dtStart=depTz?`DTSTART;TZID=${depTz}:${depStamp}`:`DTSTART:${depStamp}`;
+  const dtEnd=arrTz?`DTEND;TZID=${arrTz}:${arrStamp}`:`DTEND:${arrStamp}`;
+  const dtStamp=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const title=`${f.flightNum?f.flightNum+' ':''}${f.from||'?'} \u2192 ${f.to||'?'}`.trim();
+  const descLines=[
+    f.airline?`Airline: ${f.airline}`:'',
+    f.conf?`Confirmation: ${f.conf}`:'',
+    f.layoverAirport?`Layover: ${f.layoverAirport}${f.layoverDuration?' ('+f.layoverDuration+')':''}`:'',
+    f.notes?`Notes: ${f.notes}`:'',
+  ].filter(Boolean).join('\\n');
+  const ics=[
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//LetsFly//Flight//EN',
+    'BEGIN:VEVENT',
+    `UID:${f.id}@letsfly`,
+    `DTSTAMP:${dtStamp}`,
+    dtStart,
+    dtEnd,
+    `SUMMARY:\u2708\ufe0f ${title}`,
+    descLines?`DESCRIPTION:${descLines}`:'',
+    f.from?`LOCATION:${f.from} Airport`:'',
+    'END:VEVENT','END:VCALENDAR'
+  ].filter(Boolean).join('\r\n');
+  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`flight-${f.from||'trip'}-${f.to||''}.ics`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+// Open the Add Flight modal pre-filled with the return leg (airports swapped, dates left blank)
+function addReturnFlight(id){
+  const f=(tripData.flights||[]).find(fl=>fl.id===id);
+  if(!f)return;
+  editingFlightId=null;
+  const inner=document.getElementById('modal-add-inner');
+  const modal=document.getElementById('modal-add');
+  inner.innerHTML=getModalContent('flight',{from:f.to,to:f.from,airline:f.airline,flightNum:''});
+  modal.classList.add('show');
+  airportAutocomplete('fl-from');airportAutocomplete('fl-to');airportAutocomplete('fl-layover-airport');linkDateRange('fl-dep','fl-arr');
+}
 let airportAcActiveInput=null;
 function airportAutocomplete(inputId){
   const input=document.getElementById(inputId);
@@ -2588,6 +2805,10 @@ function airportAutocomplete(inputId){
       const row=document.createElement('div');
       row.className='ac-suggest-row';
       row.innerHTML=`<span class="ac-code">${a[0]}</span><span class="ac-info"><span class="ac-city">${esc(a[1])}</span><span class="ac-name">${esc(a[2])}</span></span>`;
+      // mousedown fires before the input's blur — preventing default here stops focus
+      // from leaving the input at all, so the dropdown never races-closes before the
+      // click lands, no matter where in the row (code badge or city/name text) it's clicked.
+      row.onmousedown=(e)=>{ e.preventDefault(); };
       row.onclick=()=>{ input.value=a[0]; box.classList.remove('show'); input.dispatchEvent(new Event('change')); };
       box.appendChild(row);
     });
