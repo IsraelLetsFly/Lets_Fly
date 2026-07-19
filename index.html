@@ -886,7 +886,7 @@ function buildTripPage(){
     : `<button class="btn btn-ghost btn-sm" onclick="goHome()" style="margin-bottom:8px">${t('back')}</button>`;
   p.innerHTML=`<div class="page-header">
     ${backBtn}
-    <div class="page-title">${currentTrip.emoji} ${currentTrip.name}</div>
+    <div class="page-title">${esc(currentTrip.emoji)} ${esc(currentTrip.name)}</div>
     <div class="page-sub">📅 ${fmtDate(currentTrip.start_date)} → ${fmtDate(currentTrip.end_date)} · ${calcNights(currentTrip.start_date,currentTrip.end_date)} ${t('nights')} · ${currentTrip.travelers||1} ${t('travelers2')}</div>
   </div>
   <div id="sec-content"></div>`;
@@ -952,7 +952,7 @@ function renderDashboard(){
   return`<div class="countdown-box">
     <div class="cd-days" id="cd-days">—</div>
     <div class="cd-lbl" id="cd-lbl">${t('daysLeft')}</div>
-    <div class="cd-date" id="cd-date">✈️ ${fmtDate(currentTrip.start_date)}${currentTrip.destination?' · '+currentTrip.destination:''}</div>
+    <div class="cd-date" id="cd-date">✈️ ${fmtDate(currentTrip.start_date)}${currentTrip.destination?' · '+esc(currentTrip.destination):''}</div>
     <div class="cd-hms">
       <div class="cd-unit"><div class="cd-num" id="cd-h">00</div><div class="cd-unit-lbl">hrs</div></div>
       <div class="cd-unit"><div class="cd-num" id="cd-m">00</div><div class="cd-unit-lbl">min</div></div>
@@ -972,10 +972,10 @@ function renderDashboard(){
   <div class="card">
     <div class="card-title"><div class="card-title-left">ℹ️ ${lang==='he'?'פרטי הטיול':'Trip Details'}</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
-      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('destinations')}</div>${currentTrip.destination||'—'}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('destinations')}</div>${esc(currentTrip.destination||'—')}</div>
       <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('travelers')}</div>${currentTrip.travelers||1}</div>
-      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('currency')}</div>${currentTrip.currency||'USD'}</div>
-      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('notes')}</div>${currentTrip.notes||'—'}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('currency')}</div>${esc(currentTrip.currency||'USD')}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('notes')}</div>${esc(currentTrip.notes||'—')}</div>
     </div>
   </div>`;
 }
@@ -1049,7 +1049,7 @@ function renderTasks(){
         <div class="task-group-name" contenteditable="true"
           onblur="renameGroup('${group.id}',this.textContent.trim())"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-          onclick="event.stopPropagation()">${group.name}</div>
+          onclick="event.stopPropagation()">${esc(group.name)}</div>
         <span class="task-group-count">${groupDone}/${items.length}</span>
         <button class="del-btn" onclick="delGroup('${group.id}')" title="${lang==='he'?'מחק':'Delete'}">×</button>
       </div>
@@ -1063,7 +1063,7 @@ function renderTasks(){
           ondragend="itemDragEnd(event)">
           <span class="todo-drag">⠿</span>
           <div class="todo-chk" onclick="toggleTodo('${item.id}')">${item.done?'✓':''}</div>
-          <div class="todo-txt" onclick="toggleTodo('${item.id}')">${item.text}</div>
+          <div class="todo-txt" onclick="toggleTodo('${item.id}')">${esc(item.text)}</div>
           <div class="todo-actions">
             <button class="todo-act-btn" onclick="editTodo('${item.id}')" title="${lang==='he'?'ערוך':'Edit'}">✏️</button>
             <button class="todo-act-btn" onclick="delTodo('${item.id}')" title="${lang==='he'?'מחק':'Delete'}">🗑️</button>
@@ -1279,12 +1279,8 @@ function renderToday(){
     </div>`;
   }
 
-  // Today's flights
-  const todayFlights=(tripData.flights||[]).filter(f=>{
-    if(!f.depTime)return false;
-    const d=f.depTime.split(',')[0]||f.depTime;
-    return f.depTime.includes(todayStr)||todayStr===tripStart;
-  });
+  // Today's flights — match on each flight's own date, not just "somewhere in the trip"
+  const todayFlights=(tripData.flights||[]).filter(f=>flightDateStr(f)===todayStr);
 
   // Today's hotel
   const todayHotel=(tripData.hotels||[]).find(h=>h.checkIn&&h.checkOut&&todayStr>=h.checkIn&&todayStr<h.checkOut);
@@ -1299,24 +1295,18 @@ function renderToday(){
   html+=`<div class="today-section">
     <div class="today-section-header"><span>✈️</span> ${isHe?'טיסות היום':'Flights Today'}</div>
     <div class="today-section-body">`;
-  if(tripStart===todayStr||(tripData.flights||[]).length){
-    const flights=tripData.flights||[];
-    const shown=flights.filter(f=>inTrip||tripStart===todayStr);
-    if(!shown.length){
-      html+=`<div class="today-empty">${isHe?'אין טיסות מתוכננות להיום':'No flights scheduled today'}</div>`;
-    } else {
-      shown.forEach(f=>{
-        html+=`<div class="today-flight-row">
-          <div class="today-time">${f.depTime?.split(',').pop()?.trim()||'—'}</div>
-          <div class="today-detail">
-            <div style="font-weight:700">${f.from||'?'} → ${f.to||'?'}</div>
-            <div class="today-sub">${f.airline||''} ${f.flightNum||''} ${f.conf?'· '+f.conf:''}</div>
-          </div>
-        </div>`;
-      });
-    }
-  } else {
+  if(!todayFlights.length){
     html+=`<div class="today-empty">${isHe?'אין טיסות מתוכננות להיום':'No flights scheduled today'}</div>`;
+  } else {
+    todayFlights.forEach(f=>{
+      html+=`<div class="today-flight-row">
+        <div class="today-time">${esc(f.depTime?.split(',').pop()?.trim()||'—')}</div>
+        <div class="today-detail">
+          <div style="font-weight:700">${esc(f.from||'?')} → ${esc(f.to||'?')}</div>
+          <div class="today-sub">${esc(f.airline||'')} ${esc(f.flightNum||'')} ${f.conf?'· '+esc(f.conf):''}</div>
+        </div>
+      </div>`;
+    });
   }
   html+=`</div></div>`;
 
@@ -1332,7 +1322,7 @@ function renderToday(){
         <div style="font-size:12px;color:var(--textm)">${todayHotel.dest||''} · ${isHe?'צ׳ק-אאוט':'Check-out'}: ${todayHotel.checkOut}</div>
         ${todayHotel.conf?`<div style="font-size:11px;color:var(--textd);margin-top:2px">${isHe?'אישור':'Conf'}: ${todayHotel.conf}</div>`:''}
       </div>
-      ${todayHotel.dest?`<button onclick="openMaps('${todayHotel.name}, ${todayHotel.dest}')" class="btn btn-outline btn-sm" style="margin-inline-start:auto;font-size:11px">📍 ${isHe?'מפה':'Map'}</button>`:''}
+      ${todayHotel.dest?`<button onclick="openMaps('${escJS(todayHotel.name)}, ${escJS(todayHotel.dest)}')" class="btn btn-outline btn-sm" style="margin-inline-start:auto;font-size:11px">📍 ${isHe?'מפה':'Map'}</button>`:''}
     </div>`;
   } else {
     html+=`<div class="today-empty">${isHe?'אין מלון מוזמן ללילה הזה':'No hotel booked for tonight'}</div>`;
@@ -1351,7 +1341,7 @@ function renderToday(){
           <div>${b.text}</div>
           ${b.dur?`<div class="today-sub">⏱ ${b.dur}</div>`:''}
         </div>
-        <button onclick="openMaps(document.getElementById('iday-${day.id}')?.querySelector('.itin-day-title')?.textContent||'${day.city||''}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:4px 10px;flex-shrink:0">📍 ${isHe?'מפה':'Map'}</button>
+        <button onclick="openMaps(document.getElementById('iday-${todayDay.id}')?.querySelector('.itin-day-title')?.textContent||'${escJS(todayDay.city||'')}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:4px 10px;flex-shrink:0">📍 ${isHe?'מפה':'Map'}</button>
       </div>`;
     });
     if(todayDay.note) html+=`<div style="margin-top:10px;font-size:13px;color:var(--textm);padding:10px;background:var(--bg3);border-radius:var(--rsm)">${todayDay.note}</div>`;
@@ -1368,7 +1358,7 @@ function renderToday(){
         ${urgentTasks.map(task=>`
         <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
           <div onclick="toggleTodo('${task.id}')" style="width:18px;height:18px;border-radius:5px;border:2px solid var(--border2);cursor:pointer;flex-shrink:0"></div>
-          <span style="font-size:13px">${task.text}</span>
+          <span style="font-size:13px">${esc(task.text)}</span>
         </div>`).join('')}
       </div>
     </div>`;
@@ -1393,7 +1383,7 @@ function renderTimelineBar(){
     const dStr=d.toISOString().split('T')[0];
     const isToday=d.getTime()===today.getTime();
     const hasDay=(tripData.days||[]).find(day=>day.date===dStr);
-    const hasFlight=(tripData.flights||[]).some(f=>f.depTime&&f.depTime.includes(dStr.slice(5)));
+    const hasFlight=(tripData.flights||[]).some(f=>flightDateStr(f)===dStr);
     const hasHotel=(tripData.hotels||[]).some(h=>h.checkIn===dStr);
     const icon=hasFlight?'✈️':hasHotel?'🏨':hasDay?'📍':'';
     days.push({d,dStr,isToday,icon,label:d.toLocaleDateString(lang==='he'?'he-IL':'en-US',{month:'short',day:'numeric'}),dayLabel:`${isHe?'יום':'Day'} ${i+1}`});
@@ -1524,16 +1514,16 @@ function renderFlights(){
     html+=`<div class="item-card" id="fc-${f.id}">
       <div class="item-header" onclick="document.getElementById('fc-${f.id}').classList.toggle('open')">
         <span style="font-size:20px">✈️</span>
-        <div class="item-title">${f.from||'?'} → ${f.to||'?'}</div>
-        <span class="tag tag-blue" style="font-size:11px">${f.airline||''}</span>
+        <div class="item-title">${esc(f.from||'?')} → ${esc(f.to||'?')}</div>
+        <span class="tag tag-blue" style="font-size:11px">${esc(f.airline||'')}</span>
         <button class="del-btn" onclick="event.stopPropagation();delFlight('${f.id}')">×</button>
       </div>
       <div class="item-body">
-        ${f.depTime?`<div class="item-row"><span class="item-lbl">${t('departure')}</span><span class="item-val">${f.depTime}</span></div>`:''}
-        ${f.arrTime?`<div class="item-row"><span class="item-lbl">${t('arrival')}</span><span class="item-val">${f.arrTime}</span></div>`:''}
-        ${f.flightNum?`<div class="item-row"><span class="item-lbl">${t('flightNum')}</span><span class="item-val">${f.flightNum}</span></div>`:''}
-        ${f.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val">${f.conf}</span></div>`:''}
-        ${f.notes?`<div class="item-row"><span class="item-lbl">${t('notes')}</span><span class="item-val" style="color:var(--textm)">${f.notes}</span></div>`:''}
+        ${f.depTime?`<div class="item-row"><span class="item-lbl">${t('departure')}</span><span class="item-val">${esc(f.depTime)}</span></div>`:''}
+        ${f.arrTime?`<div class="item-row"><span class="item-lbl">${t('arrival')}</span><span class="item-val">${esc(f.arrTime)}</span></div>`:''}
+        ${f.flightNum?`<div class="item-row"><span class="item-lbl">${t('flightNum')}</span><span class="item-val">${esc(f.flightNum)}</span></div>`:''}
+        ${f.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val">${esc(f.conf)}</span></div>`:''}
+        ${f.notes?`<div class="item-row"><span class="item-lbl">${t('notes')}</span><span class="item-val" style="color:var(--textm)">${esc(f.notes)}</span></div>`:''}
       </div>
     </div>`;
   });
@@ -1567,11 +1557,11 @@ function renderHotels(){
         <span style="font-size:22px">🏨</span>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-            <div class="item-title" style="margin:0">${h.name}</div>
+            <div class="item-title" style="margin:0">${esc(h.name)}</div>
             ${statusBadge}
           </div>
           <div style="font-size:11px;color:var(--textm);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
-            ${h.dest?`<span>📍 ${h.dest}</span>`:''}
+            ${h.dest?`<span>📍 ${esc(h.dest)}</span>`:''}
             ${h.checkIn?`<span>📅 ${fmtDate(h.checkIn)} → ${h.checkOut?fmtDate(h.checkOut):'?'}</span>`:''}
             ${nights?`<span>🌙 ${nights} ${isHe?'לילות':'nights'}</span>`:''}
             ${h.cost?`<span>💰 ${parseFloat(h.cost).toLocaleString()} ${cur}</span>`:''}
@@ -1586,10 +1576,10 @@ function renderHotels(){
           ${nights?`<div><div style="font-size:10px;font-weight:700;color:var(--textd);text-transform:uppercase;margin-bottom:3px">${isHe?'לילות':'Nights'}</div><div style="font-size:14px;font-weight:600">${nights}</div></div>`:''}
           ${h.cost?`<div><div style="font-size:10px;font-weight:700;color:var(--textd);text-transform:uppercase;margin-bottom:3px">${t('totalCost')}</div><div style="font-size:14px;font-weight:600">${parseFloat(h.cost).toLocaleString()} ${cur}</div></div>`:''}
         </div>
-        ${h.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val" style="font-family:monospace;letter-spacing:.5px">${h.conf}</span></div>`:''}
-        ${h.notes?`<div class="item-row"><span class="item-lbl">${t('specialReq')}</span><span class="item-val" style="color:var(--textm)">${h.notes}</span></div>`:''}
+        ${h.conf?`<div class="item-row"><span class="item-lbl">${t('confirmation')}</span><span class="item-val" style="font-family:monospace;letter-spacing:.5px">${esc(h.conf)}</span></div>`:''}
+        ${h.notes?`<div class="item-row"><span class="item-lbl">${t('specialReq')}</span><span class="item-val" style="color:var(--textm)">${esc(h.notes)}</span></div>`:''}
         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
-          <button onclick="openMaps('${h.name.replace(/'/g,"\'")}${h.dest?', '+h.dest:''}')" class="btn btn-outline btn-sm" style="font-size:12px">
+          <button onclick="openMaps('${escJS(h.name)}${h.dest?', '+escJS(h.dest):''}')" class="btn btn-outline btn-sm" style="font-size:12px">
             📍 ${isHe?'הצג על המפה':'View on map'}
           </button>
         </div>
@@ -1612,13 +1602,13 @@ function renderItinerary(){
     html+=`<div class="itin-day" id="iday-${day.id}">
       <div class="itin-header" onclick="document.getElementById('iday-${day.id}').classList.toggle('open')">
         <div class="itin-day-num">${lang==='he'?'יום':'Day'} ${day.num}</div>
-        <div class="itin-day-title">${day.title||''}</div>
-        <div class="itin-day-meta">${day.date||''} ${day.city?'· '+day.city:''}</div>
+        <div class="itin-day-title">${esc(day.title||'')}</div>
+        <div class="itin-day-meta">${esc(day.date||'')} ${day.city?'· '+esc(day.city):''}</div>
         <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
       </div>
       <div class="itin-body">
-        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${b.time||''}</div><div class="itin-text">${b.text}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${b.dur}</span>`:''}<button onclick="openMaps('${b.text}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;flex-shrink:0;opacity:.7">📍</button></div>`).join('')}
-        <textarea class="itin-note" placeholder="${lang==='he'?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${day.note||''}</textarea>
+        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${esc(b.time||'')}</div><div class="itin-text">${esc(b.text)}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${esc(b.dur)}</span>`:''}<button onclick="openMaps('${escJS(b.text)}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;flex-shrink:0;opacity:.7">📍</button></div>`).join('')}
+        <textarea class="itin-note" placeholder="${lang==='he'?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${esc(day.note||'')}</textarea>
       </div>
     </div>`;
   });
@@ -1738,7 +1728,7 @@ function renderBudget(){
       const barPct=base>0?Math.min(100,Math.round(gTotal/base*100)):0;
       return`<div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span style="font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block"></span>${g.name}</span>
+          <span style="font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block"></span>${esc(g.name)}</span>
           <span style="color:var(--textm)" id="bgp-${g.id}">(${pct}%) ${cur} ${gTotal.toLocaleString()}</span>
         </div>
         <div style="background:var(--bg4);border-radius:100px;height:6px;overflow:hidden">
@@ -1764,7 +1754,7 @@ function renderBudget(){
       <div class="bgroup-header" onclick="toggleBGroup('${g.id}')">
         <span class="bgroup-drag" onclick="event.stopPropagation()" title="${lang==='he'?'גרור':'Drag'}">⠿</span>
         <div class="bgroup-color" style="background:${g.color}"></div>
-        <div class="bgroup-name">${g.name}</div>
+        <div class="bgroup-name">${esc(g.name)}</div>
         <div class="bgroup-pct" id="bgp-${g.id}-h" style="color:${g.color}">${pct}%</div>
         <div class="bgroup-total" id="bgt-${g.id}">${cur} ${gTotal.toLocaleString()}</div>
         <button class="btn-icon btn-sm" onclick="event.stopPropagation();openAddItemModal('${g.id}')" style="padding:4px 10px;font-size:12px">+</button>
@@ -1783,7 +1773,7 @@ function renderBudget(){
           ondragstart="bitemDragStart(event,'${item.id}','${g.id}')"
           ondragend="bitemDragEnd(event)">
           <span class="bitem-drag">⠿</span>
-          <input class="budget-inp" value="${(item.desc||'').replace(/"/g,'&quot;')}" placeholder="${lang==='he'?'תיאור...':'Description...'}"
+          <input class="budget-inp" value="${esc(item.desc||'')}" placeholder="${lang==='he'?'תיאור...':'Description...'}"
             onchange="updBudgetField('${item.id}','desc',this.value)">
           <input class="budget-inp bitem-amt" type="number" value="${parseFloat(item.amount||0).toFixed(0)}"
             onchange="updBudgetField('${item.id}','amount',this.value)"
@@ -2049,11 +2039,11 @@ function renderTransport(){
   if(!items.length)return html+`<div style="text-align:center;padding:30px;color:var(--textm)">${t('noTransport')}</div></div>`;
   items.forEach(item=>{
     html+=`<div class="transport-item">
-      <div class="transport-icon">${item.type?.split(' ')[0]||'🚗'}</div>
+      <div class="transport-icon">${esc(item.type?.split(' ')[0]||'🚗')}</div>
       <div style="flex:1">
-        <div class="ti-title">${item.type||''}</div>
-        <div class="ti-desc">${item.desc||''}</div>
-        ${item.notes?`<div class="ti-desc" style="margin-top:3px;color:var(--textd)">${item.notes}</div>`:''}
+        <div class="ti-title">${esc(item.type||'')}</div>
+        <div class="ti-desc">${esc(item.desc||'')}</div>
+        ${item.notes?`<div class="ti-desc" style="margin-top:3px;color:var(--textd)">${esc(item.notes)}</div>`:''}
       </div>
       <button class="del-btn" onclick="delTransport('${item.id}')">×</button>
     </div>`;
@@ -2065,7 +2055,7 @@ function delTransport(id){tripData.transport=(tripData.transport||[]).filter(i=>
 // ── EMERGENCY ──
 function renderEmergency(){
   const em=tripData.emergency||{};
-  const field=(key,lbl,ph)=>`<div class="em-row"><div style="flex:1"><div class="em-lbl">${lbl}</div><input class="em-inp" value="${em[key]||''}" placeholder="${ph||''}" onchange="saveEm('${key}',this.value)"></div></div>`;
+  const field=(key,lbl,ph)=>`<div class="em-row"><div style="flex:1"><div class="em-lbl">${lbl}</div><input class="em-inp" value="${esc(em[key]||'')}" placeholder="${esc(ph||'')}" onchange="saveEm('${key}',this.value)"></div></div>`;
   return`<div class="page-title" style="font-size:20px;margin-bottom:16px">📞 ${t('secEmergency')}</div>
   <div class="em-card"><div class="em-title">${t('emMedical')}</div>
     ${field('insurance',lang==='he'?'פוליסת ביטוח':'Insurance Policy','Policy #')}
@@ -2132,7 +2122,7 @@ function getModalContent(type){
   const bar=aiFillBar(type);
 
   if(type==='flight') return`
-    ${bar.replace('modal-ai-bar-title"></div>','modal-ai-bar-title">✈️ ${isHe?\'הוסף טיסה\':\'Add Flight\'}</div>')}
+    ${bar.replace('modal-ai-bar-title"></div>',`modal-ai-bar-title">✈️ ${isHe?'הוסף טיסה':'Add Flight'}</div>`)}
     <div class="grid2">
       <div class="field"><div class="field-label">${t('from')}</div><input class="inp" id="fl-from" placeholder="TLV" style="text-transform:uppercase"></div>
       <div class="field"><div class="field-label">${t('to')}</div><input class="inp" id="fl-to" placeholder="BKK" style="text-transform:uppercase"></div>
@@ -2153,7 +2143,7 @@ function getModalContent(type){
     </div>`;
 
   if(type==='hotel') return`
-    ${bar.replace('modal-ai-bar-title"></div>','modal-ai-bar-title">🏨 ${isHe?\'הוסף מלון\':\'Add Hotel\'}</div>')}
+    ${bar.replace('modal-ai-bar-title"></div>',`modal-ai-bar-title">🏨 ${isHe?'הוסף מלון':'Add Hotel'}</div>`)}
     <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" placeholder="Marriott Bangkok"></div>
     <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" placeholder="Bangkok"></div>
     <div class="grid2">
@@ -2171,7 +2161,7 @@ function getModalContent(type){
     </div>`;
 
   if(type==='day') return`
-    ${bar.replace('modal-ai-bar-title"></div>','modal-ai-bar-title">📅 ${isHe?\'הוסף יום\':\'Add Day\'}</div>')}
+    ${bar.replace('modal-ai-bar-title"></div>',`modal-ai-bar-title">📅 ${isHe?'הוסף יום':'Add Day'}</div>`)}
     <div class="grid2">
       <div class="field"><div class="field-label">${t('dayNum')}</div><input class="inp" id="dy-num" type="number" placeholder="1" min="1"></div>
       <div class="field"><div class="field-label">${t('date')}</div><input class="inp" id="dy-date" type="date"></div>
@@ -2187,7 +2177,7 @@ function getModalContent(type){
         <div><div class="field-label" style="font-size:10px">${isHe?'משך':'Duration'}</div><div id="act-dur" style="font-size:13px;font-weight:700;color:var(--accent);padding:11px 0">1h 0m</div></div>
         <div style="padding-bottom:2px"><button class="btn btn-outline btn-sm" onclick="addActLine()" style="white-space:nowrap">+ ${isHe?'הוסף':'Add'}</button></div>
       </div>
-      <div class="field" style="margin-top:8px"><input class="inp" id="act-text" placeholder="${isHe?'תיאור הפעילות...':'Activity description...'}" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addActLine()}"></div>
+      <div class="field" style="margin-top:8px"><input class="inp" id="act-text" placeholder="${isHe?'תיאור הפעילות...':'Activity description...'}" onkeydown="if(event.key==='Enter'){event.preventDefault();addActLine()}"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
@@ -2197,7 +2187,7 @@ function getModalContent(type){
   if(type==='budget') return'';
 
   if(type==='transport') return`
-    ${bar.replace('modal-ai-bar-title"></div>','modal-ai-bar-title">🚗 ${isHe?\'הוסף תחבורה\':\'Add Transport\'}</div>')}
+    ${bar.replace('modal-ai-bar-title"></div>',`modal-ai-bar-title">🚗 ${isHe?'הוסף תחבורה':'Add Transport'}</div>`)}
     <div class="field"><div class="field-label">${t('type')}</div>
       <select class="inp" id="tr-type">
         <option>🚗 ${isHe?'מכונית / מונית':'Car / Taxi'}</option>
@@ -2259,9 +2249,9 @@ function renderActList(){
   if(!el)return;
   el.innerHTML=actLines.map((a,i)=>`
     <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:var(--rsm);margin-bottom:5px;font-size:13px">
-      <span style="color:var(--accent);font-weight:700;min-width:110px;font-size:12px">${a.start} – ${a.end}</span>
-      <span style="flex:1;color:var(--textm)">${a.text}</span>
-      ${a.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 7px;border-radius:100px">${a.dur}</span>`:''}
+      <span style="color:var(--accent);font-weight:700;min-width:110px;font-size:12px">${esc(a.start||'')}${a.end?' – '+esc(a.end):''}</span>
+      <span style="flex:1;color:var(--textm)">${esc(a.text)}</span>
+      ${a.dur?`<span style="font-size:11px;color:var(--green);background:rgba(16,185,129,.1);padding:2px 7px;border-radius:100px">${esc(a.dur)}</span>`:''}
       <button onclick="removeActLine(${i})" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:16px">×</button>
     </div>`).join('');
 }
@@ -2277,6 +2267,7 @@ function saveFlight(){
   const f={id:uid(),from,to,
     depTime:dep?new Date(dep).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'',
     arrTime:arr?new Date(arr).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'',
+    depTimeISO:dep||'',arrTimeISO:arr||'',
     flightNum:document.getElementById('fl-num').value.trim(),
     airline:document.getElementById('fl-airline').value.trim(),
     conf:document.getElementById('fl-conf').value.trim(),
@@ -2343,10 +2334,10 @@ async function loadTrips(){
         <button class="tc-btn" onclick="event.stopPropagation();askDelete('${trip.id}')">🗑️</button>
       </div>
       <div class="trip-card-body">
-        <div class="trip-card-name">${trip.name}</div>
+        <div class="trip-card-name">${esc(trip.name)}</div>
         <div class="trip-card-meta">📅 ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)}<br>${nights} ${t('nights')} · ${trip.travelers||1} ${t('travelers2')}</div>
         <div class="trip-card-tags">
-          ${trip.destination?`<span class="tag tag-blue">📍 ${trip.destination}</span>`:''}
+          ${trip.destination?`<span class="tag tag-blue">📍 ${esc(trip.destination)}</span>`:''}
           <span class="tag tag-green">${trip.currency||'USD'}</span>
         </div>
       </div>`;
@@ -2406,6 +2397,30 @@ function initEmojiPicker(){
 
 // ── HELPERS ──
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
+// Escape text for safe insertion into innerHTML (prevents broken rendering / injected markup
+// from user-typed fields — important since shared "edit access" links let other people write
+// into this trip's data).
+function esc(s){
+  if(s===null||s===undefined)return'';
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// Escape text for safe insertion into a single-quoted JS string literal inside an
+// onclick="...('...')" HTML attribute (attribute itself is double-quoted).
+function escJS(s){
+  if(s===null||s===undefined)return'';
+  return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\n/g,' ').replace(/\r/g,'');
+}
+// Best-effort "YYYY-MM-DD" for a flight, used for Today-view and timeline matching.
+// Prefers the raw ISO value saved alongside the pretty display string; falls back to
+// parsing depTime directly (works for AI-extracted flights, which use ISO-ish strings).
+function flightDateStr(f){
+  if(f.depTimeISO) return f.depTimeISO.slice(0,10);
+  if(f.depTime&&/^\d{4}-\d{2}-\d{2}/.test(f.depTime)){
+    const d=new Date(f.depTime);
+    if(!isNaN(d)) return d.toISOString().slice(0,10);
+  }
+  return null;
+}
 function openModal(id){document.getElementById(id).classList.add('show');}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
@@ -3059,12 +3074,12 @@ function showAIResults(data, providerName){
     hasData=true;
     data.flights.forEach((f,i)=>{
       html+=`<div class="ai-result-item">
-        <div class="ai-result-title">✈️ ${isHe?'טיסה':'Flight'} ${f.from||''}→${f.to||''}</div>
-        ${f.airline?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'חברה':'Airline'}</span><span class="ai-result-val">${f.airline}</span></div>`:''}
-        ${f.flightNum?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'מספר טיסה':'Flight #'}</span><span class="ai-result-val">${f.flightNum}</span></div>`:''}
-        ${f.depTime?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'יציאה':'Departure'}</span><span class="ai-result-val">${f.depTime}</span></div>`:''}
-        ${f.arrTime?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'הגעה':'Arrival'}</span><span class="ai-result-val">${f.arrTime}</span></div>`:''}
-        ${f.conf?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'אישור':'Confirmation'}</span><span class="ai-result-val">${f.conf}</span></div>`:''}
+        <div class="ai-result-title">✈️ ${isHe?'טיסה':'Flight'} ${esc(f.from||'')}→${esc(f.to||'')}</div>
+        ${f.airline?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'חברה':'Airline'}</span><span class="ai-result-val">${esc(f.airline)}</span></div>`:''}
+        ${f.flightNum?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'מספר טיסה':'Flight #'}</span><span class="ai-result-val">${esc(f.flightNum)}</span></div>`:''}
+        ${f.depTime?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'יציאה':'Departure'}</span><span class="ai-result-val">${esc(f.depTime)}</span></div>`:''}
+        ${f.arrTime?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'הגעה':'Arrival'}</span><span class="ai-result-val">${esc(f.arrTime)}</span></div>`:''}
+        ${f.conf?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'אישור':'Confirmation'}</span><span class="ai-result-val">${esc(f.conf)}</span></div>`:''}
         <button class="ai-apply-btn" onclick="applyAIFlight(${i},this)">${isHe?'✅ הוסף טיסה זו':'✅ Add this flight'}</button>
       </div>`;
     });
@@ -3074,12 +3089,12 @@ function showAIResults(data, providerName){
     hasData=true;
     data.hotels.forEach((h,i)=>{
       html+=`<div class="ai-result-item">
-        <div class="ai-result-title">🏨 ${h.name||isHe?'מלון':'Hotel'}</div>
-        ${h.dest?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'יעד':'Destination'}</span><span class="ai-result-val">${h.dest}</span></div>`:''}
-        ${h.checkIn?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ׳ק-אין':'Check-in'}</span><span class="ai-result-val">${h.checkIn}</span></div>`:''}
-        ${h.checkOut?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ׳ק-אאוט':'Check-out'}</span><span class="ai-result-val">${h.checkOut}</span></div>`:''}
-        ${h.conf?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'אישור':'Confirmation'}</span><span class="ai-result-val">${h.conf}</span></div>`:''}
-        ${h.cost?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'עלות':'Cost'}</span><span class="ai-result-val">${h.cost} ${currentTrip?.currency||''}</span></div>`:''}
+        <div class="ai-result-title">🏨 ${h.name?esc(h.name):(isHe?'מלון':'Hotel')}</div>
+        ${h.dest?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'יעד':'Destination'}</span><span class="ai-result-val">${esc(h.dest)}</span></div>`:''}
+        ${h.checkIn?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ׳ק-אין':'Check-in'}</span><span class="ai-result-val">${esc(h.checkIn)}</span></div>`:''}
+        ${h.checkOut?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'צ׳ק-אאוט':'Check-out'}</span><span class="ai-result-val">${esc(h.checkOut)}</span></div>`:''}
+        ${h.conf?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'אישור':'Confirmation'}</span><span class="ai-result-val">${esc(h.conf)}</span></div>`:''}
+        ${h.cost?`<div class="ai-result-field"><span class="ai-result-key">${isHe?'עלות':'Cost'}</span><span class="ai-result-val">${esc(h.cost)} ${esc(currentTrip?.currency||'')}</span></div>`:''}
         <button class="ai-apply-btn" onclick="applyAIHotel(${i},this)">${isHe?'✅ הוסף מלון זה':'✅ Add this hotel'}</button>
       </div>`;
     });
@@ -3089,7 +3104,7 @@ function showAIResults(data, providerName){
     hasData=true;
     html+=`<div class="ai-result-item">
       <div class="ai-result-title">💰 ${isHe?'פריטי תקציב':'Budget Items'} (${data.budget.length})</div>
-      ${data.budget.map(b=>`<div class="ai-result-field"><span class="ai-result-key">${b.desc}</span><span class="ai-result-val">${b.amount} ${currentTrip?.currency||''}</span></div>`).join('')}
+      ${data.budget.map(b=>`<div class="ai-result-field"><span class="ai-result-key">${esc(b.desc)}</span><span class="ai-result-val">${esc(b.amount)} ${esc(currentTrip?.currency||'')}</span></div>`).join('')}
       <button class="ai-apply-btn" onclick="applyAIBudget(this)">${isHe?'✅ הוסף את כל פריטי התקציב':'✅ Add all budget items'}</button>
     </div>`;
   }
@@ -3098,8 +3113,8 @@ function showAIResults(data, providerName){
     hasData=true;
     data.itinerary.forEach((day,i)=>{
       html+=`<div class="ai-result-item">
-        <div class="ai-result-title">📅 ${isHe?'יום':'Day'} — ${day.title||''} ${day.date||''}</div>
-        ${(day.blocks||[]).slice(0,4).map(b=>`<div class="ai-result-field"><span class="ai-result-key">${b.time||''}</span><span class="ai-result-val">${b.text}</span></div>`).join('')}
+        <div class="ai-result-title">📅 ${isHe?'יום':'Day'} — ${esc(day.title||'')} ${esc(day.date||'')}</div>
+        ${(day.blocks||[]).slice(0,4).map(b=>`<div class="ai-result-field"><span class="ai-result-key">${esc(b.time||'')}</span><span class="ai-result-val">${esc(b.text)}</span></div>`).join('')}
         <button class="ai-apply-btn" onclick="applyAIDay(${i},this)">${isHe?'✅ הוסף יום זה':'✅ Add this day'}</button>
       </div>`;
     });
@@ -3109,7 +3124,7 @@ function showAIResults(data, providerName){
     hasData=true;
     html+=`<div class="ai-result-item">
       <div class="ai-result-title">🚗 ${isHe?'תחבורה':'Transport'} (${data.transport.length})</div>
-      ${data.transport.map(tr=>`<div class="ai-result-field"><span class="ai-result-key">${tr.type||''}</span><span class="ai-result-val">${tr.desc||''}</span></div>`).join('')}
+      ${data.transport.map(tr=>`<div class="ai-result-field"><span class="ai-result-key">${esc(tr.type||'')}</span><span class="ai-result-val">${esc(tr.desc||'')}</span></div>`).join('')}
       <button class="ai-apply-btn" onclick="applyAITransport(this)">${isHe?'✅ הוסף את כל התחבורה':'✅ Add all transport'}</button>
     </div>`;
   }
