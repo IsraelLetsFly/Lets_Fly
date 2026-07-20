@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>✈️ LetsFly</title>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&family=Heebo:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -319,6 +321,9 @@ textarea.inp{resize:vertical;min-height:80px}
 .itin-block{display:flex;align-items:flex-start;gap:10px;margin-top:8px;font-size:13px;padding:8px;border-radius:var(--rsm);transition:background .15s}
 .itin-block:hover{background:var(--bg3)}
 .itin-block.conflict{background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.25)}
+.itin-block-linked{background:rgba(139,143,232,.06);border:1px dashed rgba(139,143,232,.3);cursor:pointer}
+.itin-block-linked:hover{background:rgba(139,143,232,.12)}
+.itin-cal-event.linked{border-style:dashed}
 .itin-block-handle{color:var(--textd);cursor:grab;flex-shrink:0;padding-top:2px}
 .itin-block-cat{flex-shrink:0;font-size:15px;padding-top:1px}
 .itin-block-body{flex:1;min-width:0}
@@ -393,6 +398,21 @@ textarea.inp{resize:vertical;min-height:80px}
 .wish-item-body{flex:1;min-width:0}
 .wish-item-text{font-size:13px;font-weight:600}
 .wish-item-meta{font-size:11px;color:var(--textm);margin-top:1px}
+
+/* TRIP MAP */
+.trip-map-container{width:100%;height:420px;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;background:var(--bg3)}
+.map-search-results{display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rsm);box-shadow:var(--shadow);z-index:400;max-height:280px;overflow-y:auto}
+.map-search-results.show{display:block}
+.map-search-result{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s}
+.map-search-result:last-child{border-bottom:none}
+.map-search-result:hover{background:var(--bg3)}
+.map-search-result-name{font-size:13px;font-weight:600;color:var(--text)}
+.map-search-result-sub{font-size:11px;color:var(--textm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.map-search-status{padding:10px 12px;font-size:12px;color:var(--textm)}
+.map-popup{font-family:'Rubik',sans-serif;min-width:200px}
+.map-popup-input{width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;margin-bottom:6px;font-family:inherit;box-sizing:border-box}
+.map-popup-select{width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:12px;margin-bottom:6px;font-family:inherit;box-sizing:border-box}
+.map-popup-save{width:100%;padding:7px;border:none;border-radius:6px;background:#37C6BA;color:#04211f;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
 
 /* BUDGET */
 .bsum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
@@ -781,7 +801,7 @@ const T={
     delete:'Delete',back:'← Back',nights:'nights',travelers2:'travelers',
     planNewTrip:'Plan a New Trip',greeting:'My Trips',
     secToday:'Today',secDashboard:'Dashboard',secTasks:'Tasks',secFlights:'Flights',secHotels:'Hotels',
-    secItinerary:'Itinerary',secBudget:'Budget',secCurrency:'Currency',
+    secItinerary:'Itinerary',secMap:'Map',secBudget:'Budget',secCurrency:'Currency',
     secTransport:'Transport',secEmergency:'Emergency',
     daysLeft:'days until departure',tripInProgress:'Trip in progress!',tripDone:'Trip completed!',
     tasksDone:'Done',tasksLeft:'Left',tripDays:'Days',budgetItems:'Budget Items',
@@ -817,7 +837,7 @@ const T={
     delete:'מחק',back:'→ חזור',nights:'לילות',travelers2:'נוסעים',
     planNewTrip:'תכנן טיול חדש',greeting:'הטיולים שלי',
     secToday:'היום',secDashboard:'דשבורד',secTasks:'משימות',secFlights:'טיסות',secHotels:'מלונות',
-    secItinerary:'לו"ז',secBudget:'תקציב',secCurrency:'המרה',
+    secItinerary:'לו"ז',secMap:'מפה',secBudget:'תקציב',secCurrency:'המרה',
     secTransport:'תחבורה',secEmergency:'חירום',
     daysLeft:'ימים עד היציאה',tripInProgress:'הטיול מתנהל!',tripDone:'הטיול הסתיים!',
     tasksDone:'הושלמו',tasksLeft:'נשאר',tripDays:'ימים',budgetItems:'פריטי תקציב',
@@ -1025,6 +1045,7 @@ const SECTIONS=[
   {id:'flights',icon:'✈️',key:'secFlights'},
   {id:'hotels',icon:'🏨',key:'secHotels'},
   {id:'itinerary',icon:'📅',key:'secItinerary'},
+  {id:'map',icon:'🗺️',key:'secMap'},
   {id:'budget',icon:'💰',key:'secBudget'},
   {id:'currency',icon:'💱',key:'secCurrency'},
   {id:'transport',icon:'🚗',key:'secTransport'},
@@ -1084,6 +1105,7 @@ function renderSec(sec){
     case 'flights':   el.innerHTML=renderFlights();break;
     case 'hotels':    el.innerHTML=renderHotels();break;
     case 'itinerary': el.innerHTML=renderItinerary();loadItineraryWeather();break;
+    case 'map':       el.innerHTML=renderMapPage();initTripMap();break;
     case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();break;
     case 'currency':  el.innerHTML=renderCurrency();fetchRates();break;
     case 'transport': el.innerHTML=renderTransport();break;
@@ -1903,6 +1925,7 @@ function renderHotels(){
             ${h.cost?`<span>💰 ${parseFloat(h.cost).toLocaleString()} ${cur}</span>`:''}
           </div>
         </div>
+        <button class="edit-btn" onclick="event.stopPropagation();openAddModal('hotel','${h.id}')" title="${isHe?'ערוך':'Edit'}">✏️</button>
         <button class="del-btn" onclick="event.stopPropagation();delHotel('${h.id}')">×</button>
       </div>
       <div class="item-body">
@@ -2008,7 +2031,8 @@ function renderItinerary(){
   }
 
   days.forEach(day=>{
-    const blocks=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)})).sort((a,b)=>{
+    const linkedEvents=getLinkedItinEvents(day.date);
+    const blocks=[...(day.blocks||[]),...linkedEvents].map(b=>({...b,...blockTimeRange(b)})).sort((a,b)=>{
       if(!a.start&&!b.start)return 0;
       if(!a.start)return 1;
       if(!b.start)return -1;
@@ -2030,7 +2054,7 @@ function renderItinerary(){
     let totalMins=0;
     blocks.forEach(b=>{ const s=toMin(b.start),e=toMin(b.end); if(s!==null&&e!==null&&e>s) totalMins+=(e-s); });
     const isPacked=totalMins>540||blocks.length>=6;
-    const dayCost=blocks.reduce((s,b)=>s+(parseFloat(b.cost)||0),0);
+    const dayCost=blocks.filter(b=>!b.linked).reduce((s,b)=>s+(parseFloat(b.cost)||0),0);
 
     html+=`<div class="itin-day${itinViewMode==='calendar'?' open':''}" id="iday-${day.id}">
       <div class="itin-header" onclick="document.getElementById('iday-${day.id}').classList.toggle('open')">
@@ -2056,6 +2080,19 @@ function renderItinerary(){
           const cat=actCategoryInfo(b.category);
           const prevText=i>0?blocks[i-1].text:'';
           const checklist=b.checklist||[];
+          if(b.linked){
+            const linkIcon=b.source==='flight'?'✈️':'🏨';
+            return`<div class="itin-block itin-block-linked${conflictIds.has(b.id)?' conflict':''}" onclick="openAddModal('${b.source}','${b.sourceId}')" title="${isHe?'לחץ לצפייה במקור':'Click to view source'}">
+              <span class="itin-block-cat">${linkIcon}</span>
+              <div class="itin-block-body">
+                <div class="itin-block-row">
+                  <span class="itin-time">${esc(b.start||'')}</span>
+                  <span class="itin-text" style="flex:1">${esc(b.text)}</span>
+                  <span class="itin-block-badge" style="background:rgba(139,143,232,.12);color:var(--purple)">🔗 ${isHe?(b.source==='flight'?'מטיסות':'ממלונות'):(b.source==='flight'?'from Flights':'from Hotels')}</span>
+                </div>
+              </div>
+            </div>`;
+          }
           return`<div class="itin-block${conflictIds.has(b.id)?' conflict':''}" draggable="true" id="iblock-${b.id}"
             ondragstart="blockDragStart(event,'${b.id}','${day.id}')" ondragend="blockDragEnd()"
             ondragover="blockDragOver(event)" ondrop="blockDrop(event,'${day.id}','${b.id}')">
@@ -2142,6 +2179,42 @@ function blockTimeRange(b){
 }
 // Splits a day's blocks into timed (with computed startMin/endMin) vs untimed, given a
 // minimum default range (widened automatically to fit anything outside it).
+// ── CROSS-FEATURE SYNC: flights/hotels automatically show up on their itinerary date ──
+// Returns pseudo-blocks (same shape as a normal activity block) for any flight departing/
+// arriving or hotel checking in/out on the given date. These aren't stored in day.blocks —
+// they're computed live from tripData.flights/hotels so they always stay in sync with the
+// actual source data, and clicking one opens the source flight/hotel rather than the day.
+function getLinkedItinEvents(dateStr){
+  if(!dateStr)return[];
+  const isHe=lang==='he';
+  const events=[];
+  (tripData.flights||[]).forEach(f=>{
+    const depIso=flightDepISO(f),arrIso=flightArrISO(f);
+    if(depIso&&depIso.slice(0,10)===dateStr){
+      events.push({id:'link-fdep-'+f.id,source:'flight',sourceId:f.id,linked:true,
+        start:depIso.slice(11,16),end:'',text:`${isHe?'טיסה ל':'Flight to'} ${flightTo(f)}`,
+        category:'transport',dur:''});
+    }
+    if(arrIso&&arrIso.slice(0,10)===dateStr&&arrIso.slice(0,10)!==(depIso?depIso.slice(0,10):'')){
+      events.push({id:'link-farr-'+f.id,source:'flight',sourceId:f.id,linked:true,
+        start:arrIso.slice(11,16),end:'',text:`${isHe?'נחיתה מ':'Arriving from'} ${flightFrom(f)}`,
+        category:'transport',dur:''});
+    }
+  });
+  (tripData.hotels||[]).forEach(h=>{
+    if(h.checkIn===dateStr){
+      events.push({id:'link-hin-'+h.id,source:'hotel',sourceId:h.id,linked:true,
+        start:'15:00',end:'',text:`${isHe?'צ\u2019ק-אין':'Check-in'}: ${h.name}`,
+        category:'hotel',dur:''});
+    }
+    if(h.checkOut===dateStr){
+      events.push({id:'link-hout-'+h.id,source:'hotel',sourceId:h.id,linked:true,
+        start:'11:00',end:'',text:`${isHe?'צ\u2019ק-אאוט':'Check-out'}: ${h.name}`,
+        category:'hotel',dur:''});
+    }
+  });
+  return events;
+}
 function calPrepareBlocks(blocks,defaultStartHour,defaultEndHour){
   const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
   const withRange=blocks.map(b=>({...b,...blockTimeRange(b)}));
@@ -2166,8 +2239,11 @@ function calRenderEvents(timed,gridStart,dayId,compact){
     const height=Math.max((b.endMin-b.startMin)*CAL_PX_PER_MIN,20);
     const widthPct=100/b.numCols;
     const leftPct=b.col*widthPct;
-    return`<div class="itin-cal-event${compact?' compact':''}" style="top:${top}px;height:${height}px;inset-inline-start:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 6px);background:${cat.color}22;border-inline-start-color:${cat.color}" onclick="event.stopPropagation();openAddModal('day','${dayId}')" title="${esc(b.text)}">
-      <div class="itin-cal-event-time">${cat.icon} ${esc(b.start)}${!compact&&b.end?'–'+esc(b.end):''}</div>
+    const icon=b.linked?(b.source==='flight'?'✈️':'🏨'):cat.icon;
+    const color=b.linked?'#8B8FE8':cat.color;
+    const clickAction=b.linked?`openAddModal('${b.source}','${b.sourceId}')`:`openAddModal('day','${dayId}')`;
+    return`<div class="itin-cal-event${compact?' compact':''}${b.linked?' linked':''}" style="top:${top}px;height:${height}px;inset-inline-start:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 6px);background:${color}22;border-inline-start-color:${color}" onclick="event.stopPropagation();${clickAction}" title="${esc(b.text)}">
+      <div class="itin-cal-event-time">${icon} ${esc(b.start)}${!compact&&b.end?'–'+esc(b.end):''}</div>
       ${compact?'':`<div class="itin-cal-event-title">${esc(b.text)}</div>`}
     </div>`;
   }).join('');
@@ -2244,7 +2320,10 @@ function renderWeekView(days,cur,isHe){
   return html;
 }
 function renderOneWeek(weekDates,byDate,dayAbbr,cur,isHe){
-  const allBlocksThisWeek=weekDates.flatMap(d=>(byDate[dateToStr(d)]||[]).flatMap(day=>day.blocks||[]));
+  const allBlocksThisWeek=weekDates.flatMap(d=>{
+    const dstr=dateToStr(d);
+    return[...(byDate[dstr]||[]).flatMap(day=>day.blocks||[]),...getLinkedItinEvents(dstr)];
+  });
   const{startHour,endHour}=calPrepareBlocks(allBlocksThisWeek,8,20);
   const gridStart=startHour*60;
   const gridHeight=(endHour-startHour)*60*CAL_PX_PER_MIN;
@@ -2258,10 +2337,10 @@ function renderOneWeek(weekDates,byDate,dayAbbr,cur,isHe){
   const cols=weekDates.map((d,i)=>{
     const dstr=dateToStr(d);
     const daysHere=byDate[dstr]||[];
-    const blocksHere=daysHere.flatMap(day=>day.blocks||[]);
+    const blocksHere=[...daysHere.flatMap(day=>day.blocks||[]),...getLinkedItinEvents(dstr)];
     const{timed}=calPrepareBlocks(blocksHere,startHour,endHour);
     const primaryDayId=daysHere[0]?.id||'';
-    const events=primaryDayId?calRenderEvents(timed,gridStart,primaryDayId,true):'';
+    const events=calRenderEvents(timed,gridStart,primaryDayId,true);
     const isToday=dstr===today;
     return`<div class="itin-week-col${isToday?' today':''}" style="height:${gridHeight}px" onclick="weekColClick(event,'${primaryDayId}','${dstr}',${gridStart})">
       ${events}
@@ -2332,9 +2411,11 @@ function renderMonthView(days,cur,isHe){
       const inTripRange=cellDate>=rangeStart&&cellDate<=rangeEnd;
       const dayHere=byDate[cellStr]?.[0];
       const blocksCount=(byDate[cellStr]||[]).reduce((s,d)=>s+(d.blocks?.length||0),0);
+      const linkedHere=getLinkedItinEvents(cellStr);
+      const linkIcons=[...new Set(linkedHere.map(e=>e.source==='flight'?'✈️':'🏨'))].join('');
       const isToday=cellStr===today;
       cells+=`<div class="itin-month-cell${inMonth?'':' outside'}${isToday?' today':''}${inTripRange?' in-range':''}" onclick="monthCellClick('${cellStr}','${dayHere?.id||''}')">
-        <div class="itin-month-daynum">${cellDate.getDate()}</div>
+        <div class="itin-month-daynum">${cellDate.getDate()} ${linkIcons?`<span style="font-size:9px">${linkIcons}</span>`:''}</div>
         ${dayHere?`<div class="itin-month-daytitle">${esc(dayHere.title||'')}</div>`:''}
         ${blocksCount?`<div class="itin-month-count">${blocksCount} ${isHe?'פעילויות':blocksCount===1?'activity':'activities'}</div>`:''}
       </div>`;
@@ -2633,6 +2714,58 @@ function getBGroups(){
   if(!tripData.budgetGroups||!tripData.budgetGroups.length){tripData.budgetGroups=DEFAULT_BGROUPS();saveData();}
   return tripData.budgetGroups;
 }
+// ── CROSS-FEATURE SYNC: costs already tracked on Flights/Hotels/Activities/Transport,
+// surfaced on the Budget page instead of requiring the user to re-enter them by hand.
+function getSyncableCosts(){
+  const items=[];
+  (tripData.flights||[]).forEach(f=>{
+    if(f.cost&&parseFloat(f.cost)>0){
+      items.push({source:'flight',sourceId:f.id,groupId:'bg1',desc:`✈️ ${flightFrom(f)} → ${flightTo(f)}`,amount:parseFloat(f.cost)});
+    }
+  });
+  (tripData.hotels||[]).forEach(h=>{
+    if(h.cost&&parseFloat(h.cost)>0){
+      items.push({source:'hotel',sourceId:h.id,groupId:'bg2',desc:`🏨 ${h.name}`,amount:parseFloat(h.cost)});
+    }
+  });
+  (tripData.transport||[]).forEach(tr=>{
+    if(tr.cost&&parseFloat(tr.cost)>0){
+      items.push({source:'transport',sourceId:tr.id,groupId:'bg3',desc:`🚗 ${tr.desc||tr.type||''}`,amount:parseFloat(tr.cost)});
+    }
+  });
+  (tripData.days||[]).forEach(day=>{
+    (day.blocks||[]).forEach(b=>{
+      if(b.cost&&parseFloat(b.cost)>0){
+        items.push({source:'activity',sourceId:b.id,groupId:'bg5',desc:`📍 ${b.text}`,amount:parseFloat(b.cost)});
+      }
+    });
+  });
+  return items;
+}
+function importCostToBudget(source,sourceId){
+  const item=getSyncableCosts().find(c=>c.source===source&&c.sourceId===sourceId);
+  if(!item)return;
+  const groups=getBGroups();
+  const groupId=groups.find(g=>g.id===item.groupId)?item.groupId:(groups[0]?.id||'bg6');
+  if(!tripData.budget)tripData.budget=[];
+  tripData.budget.push({id:uid(),groupId,desc:item.desc,amount:item.amount,status:'planned',source:item.source,sourceId:item.sourceId});
+  saveData();renderSec('budget');
+}
+function importAllCostsToBudget(){
+  const costs=getSyncableCosts();
+  const existing=new Set((tripData.budget||[]).filter(b=>b.source).map(b=>b.source+':'+b.sourceId));
+  const groups=getBGroups();
+  if(!tripData.budget)tripData.budget=[];
+  let count=0;
+  costs.forEach(item=>{
+    if(existing.has(item.source+':'+item.sourceId))return;
+    const groupId=groups.find(g=>g.id===item.groupId)?item.groupId:(groups[0]?.id||'bg6');
+    tripData.budget.push({id:uid(),groupId,desc:item.desc,amount:item.amount,status:'planned',source:item.source,sourceId:item.sourceId});
+    count++;
+  });
+  saveData();renderSec('budget');
+  toast(count?'✅ '+(lang==='he'?`${count} פריטים יובאו`:`${count} item${count>1?'s':''} imported`):'✅ '+(lang==='he'?'הכל כבר מיובא':'Everything already imported'));
+}
 
 // Fast in-place update — no full re-render
 function refreshBudgetNumbers(){
@@ -2720,6 +2853,35 @@ function renderBudget(){
       <div id="bs-bar-fill" style="width:${Math.min(100,Math.round(grandSpent/(target||1)*100))}%;height:10px;border-radius:100px;background:${grandSpent/target>0.9?'var(--coral)':grandSpent/target>0.7?'var(--gold)':'var(--accent)'};transition:width .5s ease"></div>
     </div>
   </div>`:''}
+
+  <!-- Cross-feature cost sync -->
+  ${(()=>{
+    const syncable=getSyncableCosts();
+    if(!syncable.length)return'';
+    const isHe=lang==='he';
+    const importedKeys=new Set((tripData.budget||[]).filter(b=>b.source).map(b=>b.source+':'+b.sourceId));
+    const notImportedCount=syncable.filter(c=>!importedKeys.has(c.source+':'+c.sourceId)).length;
+    const sourceIcon={flight:'✈️',hotel:'🏨',transport:'🚗',activity:'📍'};
+    const sourceLabel={flight:isHe?'טיסות':'Flights',hotel:isHe?'מלונות':'Hotels',transport:isHe?'תחבורה':'Transport',activity:isHe?'פעילויות':'Activities'};
+    return`<div class="card" style="margin-bottom:14px">
+      <div class="card-title">
+        <div class="card-title-left">🔗 ${isHe?'עלויות מהפלטפורמה':'Costs already tracked elsewhere'}</div>
+        ${notImportedCount>0?`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="importAllCostsToBudget()">${isHe?'ייבא הכל':'Import all'} (${notImportedCount})</button>`:''}
+      </div>
+      <div style="font-size:11.5px;color:var(--textd);margin-bottom:10px">${isHe?'עלויות שכבר הזנת בטיסות, מלונות, תחבורה ופעילויות — ייבא אותן לתקציב כדי לעקוב אחריהן כאן':'Costs you\u2019ve already entered on Flights, Hotels, Transport, and Itinerary activities — import them here to track alongside your manual budget items'}</div>
+      ${syncable.map(item=>{
+        const key=item.source+':'+item.sourceId;
+        const isImported=importedKeys.has(key);
+        return`<div class="item-row" style="align-items:center">
+          <span class="item-lbl" style="min-width:auto">${sourceIcon[item.source]}</span>
+          <span class="item-val" style="flex:1">${esc(item.desc)}</span>
+          <span class="item-val-mono" style="margin-inline-end:8px">${item.amount.toLocaleString()} ${esc(cur)}</span>
+          ${isImported?`<span style="font-size:11px;color:var(--green);font-weight:600">✓ ${isHe?'יובא':'Imported'}</span>`
+            :`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="importCostToBudget('${item.source}','${item.sourceId}')">+ ${isHe?'ייבא':'Import'}</button>`}
+        </div>`;
+      }).join('')}
+    </div>`;
+  })()}
 
   <!-- Breakdown bars -->
   <div class="card" style="margin-bottom:14px">
@@ -3034,6 +3196,7 @@ function swapCurr(){
 // ── TRANSPORT ──
 function renderTransport(){
   const items=tripData.transport||[];
+  const cur=currentTrip?.currency||'USD';
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div class="page-title" style="font-size:20px">🚗 ${t('secTransport')}</div>
     <button class="btn btn-outline btn-sm" onclick="openAddModal('transport')">${t('addTransport')}</button>
@@ -3045,8 +3208,10 @@ function renderTransport(){
       <div style="flex:1">
         <div class="ti-title">${esc(item.type||'')}</div>
         <div class="ti-desc">${esc(item.desc||'')}</div>
+        ${item.cost?`<div class="ti-desc" style="margin-top:2px;color:var(--gold);font-family:var(--mono)">${parseFloat(item.cost).toLocaleString()} ${esc(cur)}</div>`:''}
         ${item.notes?`<div class="ti-desc" style="margin-top:3px;color:var(--textd)">${esc(item.notes)}</div>`:''}
       </div>
+      <button class="edit-btn" onclick="openAddModal('transport','${item.id}')" title="${lang==='he'?'ערוך':'Edit'}">✏️</button>
       <button class="del-btn" onclick="delTransport('${item.id}')">×</button>
     </div>`;
   });
@@ -3055,6 +3220,196 @@ function renderTransport(){
 function delTransport(id){tripData.transport=(tripData.transport||[]).filter(i=>i.id!==id);saveData();renderSec('transport');}
 
 // ── EMERGENCY ──
+// ── TRIP MAP (Leaflet + OpenStreetMap — free, no API key; Nominatim for search/geocoding) ──
+let tripMapInstance=null;
+let tripMapMarkerLayer=null;
+let tempSearchMarker=null;
+let mapSearchResultsCache=[];
+let tempPlaceLat=null,tempPlaceLon=null,tempPlaceAddress='';
+
+function renderMapPage(){
+  const isHe=lang==='he';
+  const places=tripData.savedPlaces||[];
+  return`<div class="page-title" style="font-size:20px;margin-bottom:14px">🗺️ ${t('secMap')}</div>
+  <div class="card" style="padding:14px;margin-bottom:14px;position:relative">
+    <div style="position:relative">
+      <input class="inp" id="map-search-input" placeholder="${isHe?'חפש מקום, כתובת או אטרקציה...':'Search for a place, address, or attraction...'}" oninput="onMapSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();doMapSearch(this.value.trim())}">
+      <div id="map-search-results" class="map-search-results"></div>
+    </div>
+  </div>
+  <div id="trip-map" class="trip-map-container"></div>
+  <div style="font-size:10.5px;color:var(--textd);margin:6px 0 16px">${isHe?'חיפוש ומפה מבוססים על':'Search and map data from'} OpenStreetMap · ${isHe?'לחץ בכל מקום על המפה כדי להוסיף מיקום':'click anywhere on the map to drop a pin'}</div>
+  <div class="card">
+    <div class="card-title"><div class="card-title-left">📍 ${isHe?'מקומות שמורים':'Saved Places'}</div></div>
+    <div id="saved-places-list">${renderSavedPlacesListHTML(places,isHe)}</div>
+  </div>`;
+}
+
+function renderSavedPlacesListHTML(places,isHe){
+  if(!places.length)return`<div style="font-size:12px;color:var(--textd);text-align:center;padding:20px">${isHe?'חפש או לחץ על המפה כדי לשמור מקומות':'Search or click the map to save places here'}</div>`;
+  return places.map(p=>{
+    const cat=actCategoryInfo(p.category);
+    return`<div class="wish-item" style="align-items:flex-start">
+      <span style="padding-top:2px">${cat.icon}</span>
+      <div class="wish-item-body">
+        <div class="wish-item-text">${esc(p.name)}</div>
+        ${p.address?`<div class="wish-item-meta">${esc(p.address)}</div>`:''}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSavedPlace('${p.id}')" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>
+        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openMapsChoice('${escJS(p.name)}${p.address?', '+escJS(p.address):''}', this)" title="${isHe?'כיוונים':'Directions'}">📍</button>
+        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="addSavedPlaceToWishlist('${p.id}')" title="${isHe?'הוסף לרעיונות ליום':'Add to trip wishlist'}">💡</button>
+        <button class="del-btn" onclick="deleteSavedPlace('${p.id}')">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function initTripMap(){
+  const container=document.getElementById('trip-map');
+  if(!container||typeof L==='undefined')return;
+  let center=[20,10],zoom=2;
+  const destName=currentTrip?.destination;
+  if(destName){
+    try{
+      const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destName)}&count=1`);
+      const geo=await geoRes.json();
+      const loc=geo?.results?.[0];
+      if(loc){ center=[loc.latitude,loc.longitude]; zoom=12; }
+    }catch(e){/* fall back to world view */}
+  }
+  if(tripMapInstance){ tripMapInstance.remove(); tripMapInstance=null; }
+  tripMapInstance=L.map(container).setView(center,zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+    maxZoom:19
+  }).addTo(tripMapInstance);
+  tripMapMarkerLayer=L.layerGroup().addTo(tripMapInstance);
+  tripMapInstance.on('click',onTripMapClick);
+  renderSavedPlaceMarkers();
+  setTimeout(()=>tripMapInstance&&tripMapInstance.invalidateSize(),150);
+}
+
+function renderSavedPlaceMarkers(){
+  if(!tripMapMarkerLayer)return;
+  tripMapMarkerLayer.clearLayers();
+  (tripData.savedPlaces||[]).forEach(p=>{
+    if(typeof p.lat!=='number'||typeof p.lon!=='number')return;
+    const cat=actCategoryInfo(p.category);
+    const marker=L.marker([p.lat,p.lon]).addTo(tripMapMarkerLayer);
+    marker.bindPopup(`<div class="map-popup"><strong>${cat.icon} ${esc(p.name)}</strong>${p.address?`<div style="font-size:11px;color:#666;margin-top:3px">${esc(p.address)}</div>`:''}</div>`);
+  });
+}
+
+function flyToSavedPlace(id){
+  const p=(tripData.savedPlaces||[]).find(pl=>pl.id===id);
+  if(!p||!tripMapInstance)return;
+  tripMapInstance.setView([p.lat,p.lon],15);
+}
+
+// ── SEARCH (Nominatim) ──
+let mapSearchDebounce=null;
+function onMapSearchInput(){
+  clearTimeout(mapSearchDebounce);
+  const q=document.getElementById('map-search-input')?.value.trim();
+  const resultsEl=document.getElementById('map-search-results');
+  if(!q||q.length<3){ if(resultsEl)resultsEl.innerHTML=''; return; }
+  mapSearchDebounce=setTimeout(()=>doMapSearch(q),600);
+}
+async function doMapSearch(q){
+  const resultsEl=document.getElementById('map-search-results');
+  if(!q||!resultsEl)return;
+  const isHe=lang==='he';
+  resultsEl.classList.add('show');
+  resultsEl.innerHTML=`<div class="map-search-status">⏳ ${isHe?'מחפש...':'Searching...'}</div>`;
+  try{
+    const bias=currentTrip?.destination?`&viewbox=&bounded=0`:'';
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6`);
+    const data=await res.json();
+    if(!data||!data.length){ resultsEl.innerHTML=`<div class="map-search-status">${isHe?'לא נמצאו תוצאות':'No results found'}</div>`; return; }
+    mapSearchResultsCache=data;
+    resultsEl.innerHTML=data.map((r,i)=>`<div class="map-search-result" onclick="selectMapSearchResult(${i})">
+      <div class="map-search-result-name">${esc((r.display_name||'').split(',')[0])}</div>
+      <div class="map-search-result-sub">${esc(r.display_name||'')}</div>
+    </div>`).join('');
+  }catch(e){
+    resultsEl.innerHTML=`<div class="map-search-status">${isHe?'החיפוש נכשל, נסה שוב':'Search failed — try again'}</div>`;
+  }
+}
+function selectMapSearchResult(i){
+  const r=mapSearchResultsCache[i];
+  if(!r||!tripMapInstance)return;
+  const lat=parseFloat(r.lat),lon=parseFloat(r.lon);
+  tripMapInstance.setView([lat,lon],15);
+  showTempMarker(lat,lon,(r.display_name||'').split(',')[0],r.display_name||'');
+  const resultsEl=document.getElementById('map-search-results');
+  if(resultsEl){ resultsEl.innerHTML=''; resultsEl.classList.remove('show'); }
+  const inputEl=document.getElementById('map-search-input');
+  if(inputEl)inputEl.value='';
+}
+
+// ── CLICK TO DROP A PIN (reverse geocoded via Nominatim) ──
+async function onTripMapClick(e){
+  const{lat,lng}=e.latlng;
+  showTempMarker(lat,lng,lang==='he'?'מיקום חדש':'New place','');
+  try{
+    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+    const data=await res.json();
+    if(data?.display_name){
+      tempPlaceAddress=data.display_name;
+      const name=data.display_name.split(',')[0];
+      if(tempSearchMarker)tempSearchMarker.setPopupContent(buildTempMarkerPopupHTML(name,data.display_name));
+    }
+  }catch(err){/* keep the generic "New place" label if reverse geocoding fails */}
+}
+
+function showTempMarker(lat,lon,name,address){
+  if(!tripMapInstance)return;
+  if(tempSearchMarker){ tripMapInstance.removeLayer(tempSearchMarker); tempSearchMarker=null; }
+  tempPlaceLat=lat;tempPlaceLon=lon;tempPlaceAddress=address;
+  tempSearchMarker=L.marker([lat,lon]).addTo(tripMapInstance);
+  tempSearchMarker.bindPopup(buildTempMarkerPopupHTML(name,address),{minWidth:220}).openPopup();
+}
+function buildTempMarkerPopupHTML(name,address){
+  const isHe=lang==='he';
+  return`<div class="map-popup">
+    <input id="temp-place-name" class="map-popup-input" value="${esc(name)}" placeholder="${isHe?'שם המקום':'Place name'}">
+    <select id="temp-place-cat" class="map-popup-select">
+      ${ACTIVITY_CATEGORIES.map(c=>`<option value="${c.key}">${c.icon} ${isHe?c.labelHe:c.label}</option>`).join('')}
+    </select>
+    ${address?`<div style="font-size:10.5px;color:#666;margin:4px 0">${esc(address)}</div>`:''}
+    <button class="map-popup-save" onclick="saveTempMapPlace()">💾 ${isHe?'שמור מקום':'Save place'}</button>
+  </div>`;
+}
+function saveTempMapPlace(){
+  const name=document.getElementById('temp-place-name')?.value.trim();
+  if(!name||tempPlaceLat===null)return;
+  const category=document.getElementById('temp-place-cat')?.value||'';
+  if(!tripData.savedPlaces)tripData.savedPlaces=[];
+  tripData.savedPlaces.push({id:uid(),name,lat:tempPlaceLat,lon:tempPlaceLon,category,address:tempPlaceAddress||'',notes:''});
+  saveData();
+  if(tempSearchMarker){ tripMapInstance.removeLayer(tempSearchMarker); tempSearchMarker=null; }
+  tempPlaceLat=null;tempPlaceLon=null;tempPlaceAddress='';
+  renderSavedPlaceMarkers();
+  const listEl=document.getElementById('saved-places-list');
+  if(listEl)listEl.innerHTML=renderSavedPlacesListHTML(tripData.savedPlaces,lang==='he');
+  toast('✅ '+(lang==='he'?'המקום נשמר':'Place saved'));
+}
+function deleteSavedPlace(id){
+  tripData.savedPlaces=(tripData.savedPlaces||[]).filter(p=>p.id!==id);
+  saveData();renderSavedPlaceMarkers();
+  const listEl=document.getElementById('saved-places-list');
+  if(listEl)listEl.innerHTML=renderSavedPlacesListHTML(tripData.savedPlaces,lang==='he');
+}
+function addSavedPlaceToWishlist(id){
+  const p=(tripData.savedPlaces||[]).find(pl=>pl.id===id);
+  if(!p)return;
+  if(!tripData.wishlist)tripData.wishlist=[];
+  tripData.wishlist.push({id:uid(),text:p.name,category:p.category||'',city:currentTrip?.destination||''});
+  saveData();
+  toast('✅ '+(lang==='he'?'נוסף לרעיונות ליום':'Added to trip wishlist'));
+}
+
 function renderEmergency(){
   const em=tripData.emergency||{};
   const isHe=lang==='he';
@@ -3087,10 +3442,14 @@ function saveEm(key,val){if(!tripData.emergency)tripData.emergency={};tripData.e
 
 // ── ADD MODALS ──
 let editingFlightId=null;
+let editingHotelId=null;
+let editingTransportId=null;
 let editingDayId=null;
 function openAddModal(type,editId,prefillTime,prefillDate){
   editingFlightId=null;
   editingDayId=null;
+  editingHotelId=null;
+  editingTransportId=null;
   let editData=null;
   if(type==='day'){
     actLines=[];
@@ -3111,6 +3470,14 @@ function openAddModal(type,editId,prefillTime,prefillDate){
   if(type==='flight'&&editId){
     editingFlightId=editId;
     editData=(tripData.flights||[]).find(f=>f.id===editId)||null;
+  }
+  if(type==='hotel'&&editId){
+    editingHotelId=editId;
+    editData=(tripData.hotels||[]).find(h=>h.id===editId)||null;
+  }
+  if(type==='transport'&&editId){
+    editingTransportId=editId;
+    editData=(tripData.transport||[]).find(t=>t.id===editId)||null;
   }
   const inner=document.getElementById('modal-add-inner');
   const modal=document.getElementById('modal-add');
@@ -3194,23 +3561,26 @@ function getModalContent(type,editData){
     </div>`;
   }
 
-  if(type==='hotel') return`
-    ${modalTitleBar(`🏨 ${isHe?'הוסף מלון':'Add Hotel'}`)}
-    <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" placeholder="Marriott Bangkok"></div>
-    <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" placeholder="Bangkok"></div>
+  if(type==='hotel'){
+    const h=editData||{};
+    return`
+    ${modalTitleBar(h.id?`✏️ ${isHe?'ערוך מלון':'Edit Hotel'}`:`🏨 ${isHe?'הוסף מלון':'Add Hotel'}`)}
+    <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" value="${esc(h.name||'')}" placeholder="Marriott Bangkok"></div>
+    <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" value="${esc(h.dest||'')}" placeholder="Bangkok"></div>
     <div class="grid2">
-      <div class="field"><div class="field-label">${t('checkIn')}</div><input class="inp" id="ht-in" type="date"></div>
-      <div class="field"><div class="field-label">${t('checkOut')}</div><input class="inp" id="ht-out" type="date"></div>
+      <div class="field"><div class="field-label">${t('checkIn')}</div><input class="inp" id="ht-in" type="date" value="${esc(h.checkIn||'')}"></div>
+      <div class="field"><div class="field-label">${t('checkOut')}</div><input class="inp" id="ht-out" type="date" value="${esc(h.checkOut||'')}"></div>
     </div>
     <div class="grid2">
-      <div class="field"><div class="field-label">${t('confirmation')}</div><input class="inp" id="ht-conf" placeholder="BOOKING-XXX"></div>
-      <div class="field"><div class="field-label">${t('totalCost')}</div><input class="inp" id="ht-cost" type="number" placeholder="0"></div>
+      <div class="field"><div class="field-label">${t('confirmation')}</div><input class="inp" id="ht-conf" value="${esc(h.conf||'')}" placeholder="BOOKING-XXX"></div>
+      <div class="field"><div class="field-label">${t('totalCost')}</div><input class="inp" id="ht-cost" type="number" value="${esc(h.cost||'')}" placeholder="0"></div>
     </div>
-    <div class="field"><div class="field-label">${t('specialReq')}</div><textarea class="inp" id="ht-notes" placeholder="..."></textarea></div>
+    <div class="field"><div class="field-label">${t('specialReq')}</div><textarea class="inp" id="ht-notes" placeholder="...">${esc(h.notes||'')}</textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
-      <button class="btn btn-primary" onclick="saveHotel()">${t('save')}</button>
+      <button class="btn btn-primary" onclick="saveHotel()">${h.id?(isHe?'שמור שינויים':'Save changes'):t('save')}</button>
     </div>`;
+  }
 
   if(type==='day'){
     const d=editData||{};
@@ -3252,26 +3622,26 @@ function getModalContent(type,editData){
 
   if(type==='budget') return'';
 
-  if(type==='transport') return`
-    ${modalTitleBar(`🚗 ${isHe?'הוסף תחבורה':'Add Transport'}`)}
+  if(type==='transport'){
+    const tr=editData||{};
+    return`
+    ${modalTitleBar(tr.id?`✏️ ${isHe?'ערוך תחבורה':'Edit Transport'}`:`🚗 ${isHe?'הוסף תחבורה':'Add Transport'}`)}
     <div class="field"><div class="field-label">${t('type')}</div>
       <select class="inp" id="tr-type">
-        <option>🚗 ${isHe?'מכונית / מונית':'Car / Taxi'}</option>
-        <option>🚌 ${isHe?'אוטובוס':'Bus'}</option>
-        <option>🚂 ${isHe?'רכבת':'Train'}</option>
-        <option>🛥️ ${isHe?'מעבורת / סירה':'Ferry / Boat'}</option>
-        <option>📱 Grab / Uber</option>
-        <option>🚇 Metro / BTS</option>
-        <option>🛺 ${isHe?'טוק-טוק':'Tuk-Tuk'}</option>
-        <option>🚐 ${isHe?'שאטל / העברה':'Shuttle / Transfer'}</option>
+        ${['🚗 '+(isHe?'מכונית / מונית':'Car / Taxi'),'🚌 '+(isHe?'אוטובוס':'Bus'),'🚂 '+(isHe?'רכבת':'Train'),
+          '🛥️ '+(isHe?'מעבורת / סירה':'Ferry / Boat'),'📱 Grab / Uber','🚇 Metro / BTS',
+          '🛺 '+(isHe?'טוק-טוק':'Tuk-Tuk'),'🚐 '+(isHe?'שאטל / העברה':'Shuttle / Transfer')]
+          .map(opt=>`<option ${tr.type===opt?'selected':''}>${opt}</option>`).join('')}
       </select>
     </div>
-    <div class="field"><div class="field-label">${t('description')}</div><input class="inp" id="tr-desc" placeholder="${isHe?'העברה מהשדה':'Airport transfer'}"></div>
-    <div class="field"><div class="field-label">${t('tipNotes')}</div><textarea class="inp" id="tr-notes" placeholder="..."></textarea></div>
+    <div class="field"><div class="field-label">${t('description')}</div><input class="inp" id="tr-desc" value="${esc(tr.desc||'')}" placeholder="${isHe?'העברה מהשדה':'Airport transfer'}"></div>
+    <div class="field"><div class="field-label">${t('totalCost')} (${esc(currentTrip?.currency||'USD')})</div><input class="inp" id="tr-cost" type="number" value="${esc(tr.cost||'')}" placeholder="0"></div>
+    <div class="field"><div class="field-label">${t('tipNotes')}</div><textarea class="inp" id="tr-notes" placeholder="...">${esc(tr.notes||'')}</textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
-      <button class="btn btn-primary" onclick="saveTransport()">${t('save')}</button>
+      <button class="btn btn-primary" onclick="saveTransport()">${tr.id?(isHe?'שמור שינויים':'Save changes'):t('save')}</button>
     </div>`;
+  }
   return '';
 }
 
@@ -3422,14 +3792,23 @@ function saveFlight(){
 }
 
 function saveHotel(){
+  const isHe=lang==='he';
   const name=document.getElementById('ht-name').value.trim();
-  if(!name)return toast('⚠️ Enter hotel name');
-  const h={id:uid(),name,dest:document.getElementById('ht-dest').value.trim(),
+  if(!name)return toast('⚠️ '+(isHe?'הזן שם מלון':'Enter hotel name'));
+  const fields={name,dest:document.getElementById('ht-dest').value.trim(),
     checkIn:document.getElementById('ht-in').value,checkOut:document.getElementById('ht-out').value,
     conf:document.getElementById('ht-conf').value.trim(),cost:document.getElementById('ht-cost').value,
     notes:document.getElementById('ht-notes').value.trim()};
   if(!tripData.hotels)tripData.hotels=[];
-  tripData.hotels.push(h);saveData();closeModal('modal-add');renderSec('hotels');toast('✅ Hotel added');
+  if(editingHotelId){
+    const idx=tripData.hotels.findIndex(h=>h.id===editingHotelId);
+    if(idx>-1) tripData.hotels[idx]={...tripData.hotels[idx],...fields};
+    editingHotelId=null;
+    saveData();closeModal('modal-add');renderSec('hotels');toast('✅ '+(isHe?'המלון עודכן':'Hotel updated'));
+  } else {
+    tripData.hotels.push({id:uid(),...fields});
+    saveData();closeModal('modal-add');renderSec('hotels');toast('✅ '+(isHe?'המלון נוסף':'Hotel added'));
+  }
 }
 
 function saveDay(){
@@ -3464,10 +3843,21 @@ function saveDay(){
 // saveBudget replaced by addBudgetItem(groupId)
 
 function saveTransport(){
-  const tr={id:uid(),type:document.getElementById('tr-type').value,
-    desc:document.getElementById('tr-desc').value.trim(),notes:document.getElementById('tr-notes').value.trim()};
+  const isHe=lang==='he';
+  const fields={type:document.getElementById('tr-type').value,
+    desc:document.getElementById('tr-desc').value.trim(),
+    cost:document.getElementById('tr-cost').value,
+    notes:document.getElementById('tr-notes').value.trim()};
   if(!tripData.transport)tripData.transport=[];
-  tripData.transport.push(tr);saveData();closeModal('modal-add');renderSec('transport');toast('✅ Added');
+  if(editingTransportId){
+    const idx=tripData.transport.findIndex(t=>t.id===editingTransportId);
+    if(idx>-1) tripData.transport[idx]={...tripData.transport[idx],...fields};
+    editingTransportId=null;
+    saveData();closeModal('modal-add');renderSec('transport');toast('✅ '+(isHe?'עודכן':'Updated'));
+  } else {
+    tripData.transport.push({id:uid(),...fields});
+    saveData();closeModal('modal-add');renderSec('transport');toast('✅ '+(isHe?'נוסף':'Added'));
+  }
 }
 
 // ── TRIPS CRUD ──
