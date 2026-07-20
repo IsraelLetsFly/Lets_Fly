@@ -1020,8 +1020,26 @@ function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el=document.getElementById(id);if(el)el.classList.add('active');
 }
+// One-time migration: older trips stored "places to visit" as a separate tripData.wishlist
+// array (Itinerary) alongside tripData.savedPlaces (Map). Merge any leftover wishlist items
+// into savedPlaces (deduping by name) so nothing is lost, then the two features share one list.
+function migrateWishlistToSavedPlaces(){
+  const oldWishlist=tripData.wishlist;
+  if(!oldWishlist||!oldWishlist.length)return;
+  if(!tripData.savedPlaces)tripData.savedPlaces=[];
+  const existingNames=new Set(tripData.savedPlaces.map(p=>(p.name||'').trim().toLowerCase()));
+  oldWishlist.forEach(w=>{
+    const name=(w.text||w.name||'').trim();
+    if(!name||existingNames.has(name.toLowerCase()))return;
+    tripData.savedPlaces.push({id:w.id||uid(),name,category:w.category||'',city:w.city||'',lat:null,lon:null,address:'',notes:''});
+    existingNames.add(name.toLowerCase());
+  });
+  tripData.wishlist=[];
+  saveData(); // persist the merge so this migration doesn't need to re-run next time
+}
 function openTrip(trip,sec){
   currentTrip=trip;tripData=trip.data||{};
+  migrateWishlistToSavedPlaces();
   document.getElementById('nav-trip-name').textContent=trip.emoji+' '+trip.name;
   buildTripPage();
   buildNavSections();
@@ -1955,7 +1973,7 @@ function renderItinerary(){
   const isHe=lang==='he';
   const cur=currentTrip?.currency||'USD';
   const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
-  const wishlist=tripData.wishlist||[];
+  const savedPlacesList=tripData.savedPlaces||[];
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:8px;flex-wrap:wrap">
     <div class="page-title" style="font-size:20px">📅 ${t('secItinerary')}</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1993,20 +2011,7 @@ function renderItinerary(){
       </select>
       <button class="btn btn-outline btn-sm" onclick="addWishlistItem()">+ ${isHe?'הוסף':'Add'}</button>
     </div>
-    ${wishlist.length?wishlist.map(w=>{
-      const cat=actCategoryInfo(w.category);
-      return`<div class="wish-item">
-        <span>${cat.icon}</span>
-        <div class="wish-item-body">
-          <div class="wish-item-text">${esc(w.text)}</div>
-        </div>
-        ${days.length?`<select class="inp" id="wish-day-${w.id}" style="width:auto;font-size:12px;padding:6px 8px">
-          ${days.map(d=>`<option value="${d.id}">${isHe?'יום':'Day'} ${d.num}</option>`).join('')}
-        </select>
-        <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="scheduleWishlistItem('${w.id}',document.getElementById('wish-day-${w.id}').value)">${isHe?'תזמן':'Schedule'}</button>`:''}
-        <button class="del-btn" onclick="delWishlistItem('${w.id}')">×</button>
-      </div>`;
-    }).join(''):`<div style="font-size:12px;color:var(--textd)">${isHe?'הוסף רעיונות לביקור ותזמן אותם ליום מאוחר יותר':'Add ideas here and schedule them into a day later'}</div>`}
+    ${renderSavedPlacesListHTML(savedPlacesList,isHe,days)}
   </div>`;
 
   if(itinViewMode==='calendar'&&itinCalLayout==='week'){
@@ -2671,11 +2676,11 @@ let lastDiscoveredPlaces=[];
 function addSuggestedPlace(i){
   const p=lastDiscoveredPlaces[i];
   if(!p)return;
-  if(!tripData.wishlist)tripData.wishlist=[];
+  if(!tripData.savedPlaces)tripData.savedPlaces=[];
   const cat=OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing';
-  tripData.wishlist.push({id:uid(),text:p.name,category:cat,city:currentTrip?.destination||''});
-  saveData();renderSec('itinerary');
-  toast('✅ '+(lang==='he'?'נוסף לרעיונות':'Added to wishlist'));
+  tripData.savedPlaces.push({id:uid(),name:p.name,category:cat,city:currentTrip?.destination||'',lat:p.lat??null,lon:p.lon??null});
+  saveData();renderSec(currentSec);
+  toast('✅ '+(lang==='he'?'נוסף לרשימת המקומות':'Added to your places'));
 }
 // ── IMPORT ATTRACTIONS (paste a list, or upload a CSV/Excel file) ──
 function importAttractions(){
@@ -2724,11 +2729,11 @@ function importAttractionsFromFile(file){
 }
 function addImportedPlaces(names){
   const isHe=lang==='he';
-  if(!tripData.wishlist)tripData.wishlist=[];
+  if(!tripData.savedPlaces)tripData.savedPlaces=[];
   let count=0;
   names.forEach(name=>{
     if(!name)return;
-    tripData.wishlist.push({id:uid(),text:name,category:'',city:currentTrip?.destination||''});
+    tripData.savedPlaces.push({id:uid(),name,category:'',city:currentTrip?.destination||''});
     count++;
   });
   if(!count){
@@ -2743,26 +2748,23 @@ function addImportedPlaces(names){
 function addWishlistItem(){
   const input=document.getElementById('wish-text');
   const catSel=document.getElementById('wish-category');
-  const text=input?.value.trim();
-  if(!text)return;
-  if(!tripData.wishlist)tripData.wishlist=[];
-  tripData.wishlist.push({id:uid(),text,category:catSel?.value||'',city:currentTrip?.destination||''});
+  const name=input?.value.trim();
+  if(!name)return;
+  if(!tripData.savedPlaces)tripData.savedPlaces=[];
+  tripData.savedPlaces.push({id:uid(),name,category:catSel?.value||'',city:currentTrip?.destination||''});
   input.value='';
-  saveData();renderSec('itinerary');
+  saveData();renderSec(currentSec);
 }
-function delWishlistItem(id){
-  tripData.wishlist=(tripData.wishlist||[]).filter(w=>w.id!==id);
-  saveData();renderSec('itinerary');
-}
-function scheduleWishlistItem(id,dayId){
-  const item=(tripData.wishlist||[]).find(w=>w.id===id);
+function schedulePlaceToDay(placeId,dayId){
+  const isHe=lang==='he';
+  const place=(tripData.savedPlaces||[]).find(p=>p.id===placeId);
   const day=(tripData.days||[]).find(d=>d.id===dayId);
-  if(!item||!day)return;
+  if(!place||!day)return;
   if(!day.blocks)day.blocks=[];
-  day.blocks.push({id:uid(),start:'',end:'',time:'',text:item.text,dur:'',category:item.category||'',cost:'',confirmation:'',checklist:[]});
-  tripData.wishlist=(tripData.wishlist||[]).filter(w=>w.id!==id);
-  saveData();renderSec('itinerary');
-  toast('✅ '+(lang==='he'?'נוסף ליום '+day.num:'Added to Day '+day.num));
+  day.blocks.push({id:uid(),start:'',end:'',time:'',text:place.name,dur:'',category:place.category||'',cost:'',confirmation:'',checklist:[]});
+  saveData();
+  renderSec(currentSec);
+  toast('✅ '+(isHe?'נוסף ליום '+day.num:'Added to Day '+day.num));
 }
 
 // ── BUDGET ──
@@ -3368,20 +3370,25 @@ function renderMapPage(){
   </div>`;
 }
 
-function renderSavedPlacesListHTML(places,isHe){
-  if(!places.length)return`<div style="font-size:12px;color:var(--textd);text-align:center;padding:20px">${isHe?'חפש או לחץ על המפה כדי לשמור מקומות':'Search or click the map to save places here'}</div>`;
+function renderSavedPlacesListHTML(places,isHe,days){
+  if(!places.length)return`<div style="font-size:12px;color:var(--textd);text-align:center;padding:20px">${isHe?'חפש, לחץ על המפה, או הוסף מקומות כדי לשמור אותם כאן':'Search, click the map, or add places to save them here'}</div>`;
+  days=days||(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
   return places.map(p=>{
     const cat=actCategoryInfo(p.category);
-    return`<div class="wish-item" style="align-items:flex-start">
+    const hasCoords=typeof p.lat==='number'&&typeof p.lon==='number';
+    return`<div class="wish-item" style="align-items:flex-start;flex-wrap:wrap">
       <span style="padding-top:2px">${cat.icon}</span>
       <div class="wish-item-body">
         <div class="wish-item-text">${esc(p.name)}</div>
         ${p.address?`<div class="wish-item-meta">${esc(p.address)}</div>`:''}
       </div>
-      <div style="display:flex;gap:5px;flex-shrink:0">
-        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSavedPlace('${p.id}')" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>
+      <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap">
+        ${hasCoords?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSavedPlace('${p.id}')" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>`:''}
         <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openMapsChoice('${escJS(p.name)}${p.address?', '+escJS(p.address):''}', this)" title="${isHe?'כיוונים':'Directions'}">📍</button>
-        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="addSavedPlaceToWishlist('${p.id}')" title="${isHe?'הוסף לרעיונות ליום':'Add to trip wishlist'}">💡</button>
+        ${days.length?`<select class="inp" id="sp-day-${p.id}" style="width:auto;font-size:11px;padding:5px 7px">
+          ${days.map(d=>`<option value="${d.id}">${isHe?'יום':'Day'} ${d.num}</option>`).join('')}
+        </select>
+        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="schedulePlaceToDay('${p.id}',document.getElementById('sp-day-${p.id}').value)" title="${isHe?'תזמן ליום':'Schedule to a day'}">📅</button>`:''}
         <button class="del-btn" onclick="deleteSavedPlace('${p.id}')">×</button>
       </div>
     </div>`;
@@ -3466,8 +3473,7 @@ async function loadSuggestedAttractions(manualQuery){
         return`<div class="wish-item">
           <span>${cat.icon}</span>
           <div class="wish-item-body"><div class="wish-item-text">${esc(p.name)}</div></div>
-          <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="addSuggestedAttractionToWishlist(${i})" title="${isHe?'הוסף לרעיונות ליום':'Add to trip wishlist'}">💡</button>
-          <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור למפה':'Save to map'}">📌</button>
+          <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור':'Save'}">💾</button>
         </div>`;
       }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap · <span style="cursor:pointer;text-decoration:underline" onclick="toggleSuggestedManualSearch()">${isHe?'חפש אזור אחר':'search a different area'}</span></div><div id="suggested-manual-search" style="display:none;margin-top:8px">${suggestedAttractionsManualSearchHTML(isHe)}</div>`;
     plotSuggestedAttractionsOnMap();
@@ -3496,24 +3502,16 @@ function plotSuggestedAttractionsOnMap(){
     marker.bindPopup(`<div class="map-popup"><strong>${cat.icon} ${esc(p.name)}</strong></div>`);
   });
 }
-function addSuggestedAttractionToWishlist(i){
-  const p=lastSuggestedAttractions[i];
-  if(!p)return;
-  if(!tripData.wishlist)tripData.wishlist=[];
-  tripData.wishlist.push({id:uid(),text:p.name,category:OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing',city:currentTrip?.destination||''});
-  saveData();
-  toast('✅ '+(lang==='he'?'נוסף לרעיונות ליום':'Added to trip wishlist'));
-}
 function saveSuggestedAttraction(i){
   const p=lastSuggestedAttractions[i];
-  if(!p||p.lat==null||p.lon==null)return;
+  if(!p)return;
   if(!tripData.savedPlaces)tripData.savedPlaces=[];
-  tripData.savedPlaces.push({id:uid(),name:p.name,lat:p.lat,lon:p.lon,category:OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing',address:'',notes:''});
+  tripData.savedPlaces.push({id:uid(),name:p.name,lat:p.lat??null,lon:p.lon??null,category:OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing',address:'',notes:''});
   saveData();
   renderSavedPlaceMarkers();
   const listEl=document.getElementById('saved-places-list');
   if(listEl)listEl.innerHTML=renderSavedPlacesListHTML(tripData.savedPlaces,lang==='he');
-  toast('✅ '+(lang==='he'?'נשמר במקומות שמורים':'Saved to your places'));
+  toast('✅ '+(lang==='he'?'נשמר לרשימת המקומות':'Saved to your places'));
 }
 
 // ── SEARCH (Nominatim) ──
@@ -3611,17 +3609,9 @@ function saveTempMapPlace(){
 }
 function deleteSavedPlace(id){
   tripData.savedPlaces=(tripData.savedPlaces||[]).filter(p=>p.id!==id);
-  saveData();renderSavedPlaceMarkers();
-  const listEl=document.getElementById('saved-places-list');
-  if(listEl)listEl.innerHTML=renderSavedPlacesListHTML(tripData.savedPlaces,lang==='he');
-}
-function addSavedPlaceToWishlist(id){
-  const p=(tripData.savedPlaces||[]).find(pl=>pl.id===id);
-  if(!p)return;
-  if(!tripData.wishlist)tripData.wishlist=[];
-  tripData.wishlist.push({id:uid(),text:p.name,category:p.category||'',city:currentTrip?.destination||''});
   saveData();
-  toast('✅ '+(lang==='he'?'נוסף לרעיונות ליום':'Added to trip wishlist'));
+  renderSavedPlaceMarkers(); // no-op safely if the map isn't initialized on this page
+  renderSec(currentSec);
 }
 
 function renderEmergency(){
