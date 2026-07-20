@@ -1967,7 +1967,7 @@ function renderItinerary(){
     const isPacked=totalMins>540||blocks.length>=6;
     const dayCost=blocks.reduce((s,b)=>s+(parseFloat(b.cost)||0),0);
 
-    html+=`<div class="itin-day" id="iday-${day.id}">
+    html+=`<div class="itin-day${itinViewMode==='calendar'?' open':''}" id="iday-${day.id}">
       <div class="itin-header" onclick="document.getElementById('iday-${day.id}').classList.toggle('open')">
         <div class="itin-day-num">${isHe?'יום':'Day'} ${day.num}</div>
         <div class="itin-day-title">${esc(day.title||'')}</div>
