@@ -341,7 +341,7 @@ textarea.inp{resize:vertical;min-height:80px}
 .itin-view-toggle button{border:none;background:none;font-family:inherit;font-size:12px;font-weight:600;padding:6px 14px;border-radius:100px;cursor:pointer;color:var(--textm);transition:all .15s}
 .itin-view-toggle button.active{background:var(--accent);color:#04211f}
 .itin-cal{position:relative;margin-top:8px;overflow-x:auto}
-.itin-cal-grid{position:relative;margin-inline-start:50px;border-inline-start:1px solid var(--border);height:100%}
+.itin-cal-grid{position:relative;margin-inline-start:50px;border-inline-start:1px solid var(--border);cursor:pointer}
 .itin-cal-hourline{position:absolute;left:0;right:0;border-top:1px solid var(--border);height:0}
 .itin-cal-hour-label{position:absolute;inset-inline-start:-50px;width:42px;text-align:end;font-size:10px;color:var(--textd);transform:translateY(-6px)}
 .itin-cal-event{position:absolute;border-radius:6px;padding:3px 7px;font-size:11px;overflow:hidden;cursor:pointer;border-inline-start:3px solid;transition:filter .15s;z-index:1}
@@ -2073,14 +2073,15 @@ function renderDayCalendarGrid(day,blocks,cur,isHe){
   const withRange=blocks.map(b=>({...b,...blockTimeRange(b)}));
   const timed=withRange.filter(b=>toMin(b.start)!==null).map(b=>({...b,startMin:toMin(b.start),endMin:toMin(b.end)!==null&&toMin(b.end)>toMin(b.start)?toMin(b.end):toMin(b.start)+45}));
   const untimed=withRange.filter(b=>toMin(b.start)===null);
-  if(!timed.length){
-    return`<div style="font-size:12px;color:var(--textd);padding:10px 0">${isHe?'אין פעילויות עם שעה מוגדרת להצגה בלוח השנה':'No timed activities yet to show on the calendar'}</div>`
-      +renderUnscheduledList(untimed,day,cur,isHe);
+  // Always show a grid — default to a typical 08:00-22:00 day when there's nothing timed yet,
+  // widening automatically to fit activities that fall outside that window.
+  let startHour=8,endHour=22;
+  if(timed.length){
+    const earliest=Math.min(...timed.map(b=>b.startMin));
+    const latest=Math.max(...timed.map(b=>b.endMin));
+    startHour=Math.min(startHour,Math.max(0,Math.floor(earliest/60)-1));
+    endHour=Math.max(endHour,Math.min(24,Math.ceil(latest/60)+1));
   }
-  const earliest=Math.min(...timed.map(b=>b.startMin));
-  const latest=Math.max(...timed.map(b=>b.endMin));
-  const startHour=Math.max(0,Math.floor(earliest/60)-1);
-  const endHour=Math.min(24,Math.ceil(latest/60)+1);
   const gridStart=startHour*60;
   const gridHeight=(endHour-startHour)*60*CAL_PX_PER_MIN;
   const positioned=layoutCalendarBlocks(timed);
@@ -2095,14 +2096,28 @@ function renderDayCalendarGrid(day,blocks,cur,isHe){
     const height=Math.max((b.endMin-b.startMin)*CAL_PX_PER_MIN,22);
     const widthPct=100/b.numCols;
     const leftPct=b.col*widthPct;
-    return`<div class="itin-cal-event" style="top:${top}px;height:${height}px;inset-inline-start:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 6px);background:${cat.color}22;border-inline-start-color:${cat.color}" onclick="openAddModal('day','${day.id}')" title="${esc(b.text)}">
+    return`<div class="itin-cal-event" style="top:${top}px;height:${height}px;inset-inline-start:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 6px);background:${cat.color}22;border-inline-start-color:${cat.color}" onclick="event.stopPropagation();openAddModal('day','${day.id}')" title="${esc(b.text)}">
       <div class="itin-cal-event-time">${cat.icon} ${esc(b.start)}${b.end?'–'+esc(b.end):''}</div>
       <div class="itin-cal-event-title">${esc(b.text)}</div>
     </div>`;
   }).join('');
-  return`<div class="itin-cal" style="height:${gridHeight}px">
-      <div class="itin-cal-grid">${hourLines}${events}</div>
+  const hint=!timed.length?`<div style="font-size:11.5px;color:var(--textd);margin-bottom:6px">${isHe?'💡 לחץ בכל מקום על הלוח כדי להוסיף פעילות':'💡 Click anywhere on the calendar to add an activity'}</div>`:'';
+  return`${hint}<div class="itin-cal" style="height:${gridHeight}px">
+      <div class="itin-cal-grid" style="height:${gridHeight}px" onclick="calGridClick(event,'${day.id}',${gridStart})">${hourLines}${events}</div>
     </div>${renderUnscheduledList(untimed,day,cur,isHe)}`;
+}
+// Click on empty calendar space -> open the day editor with the activity form pre-filled
+// to the time that was clicked (snapped to the nearest 15 minutes), Google-Calendar-style.
+function calGridClick(e,dayId,gridStartMin){
+  if(e.target.closest('.itin-cal-event'))return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const y=e.clientY-rect.top;
+  let totalMin=gridStartMin+(y/CAL_PX_PER_MIN);
+  totalMin=Math.round(totalMin/15)*15;
+  totalMin=Math.max(0,Math.min(24*60-15,totalMin));
+  const h=Math.floor(totalMin/60),m=totalMin%60;
+  const startTime=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  openAddModal('day',dayId,startTime);
 }
 function renderUnscheduledList(untimed,day,cur,isHe){
   if(!untimed.length)return'';
@@ -2835,7 +2850,7 @@ function saveEm(key,val){if(!tripData.emergency)tripData.emergency={};tripData.e
 // ── ADD MODALS ──
 let editingFlightId=null;
 let editingDayId=null;
-function openAddModal(type,editId){
+function openAddModal(type,editId,prefillTime){
   editingFlightId=null;
   editingDayId=null;
   let editData=null;
@@ -2863,7 +2878,21 @@ function openAddModal(type,editId){
   const modal=document.getElementById('modal-add');
   inner.innerHTML=getModalContent(type,editData);
   modal.classList.add('show');
-  if(type==='day'){ updateActDuration(); renderActList(); }
+  if(type==='day'){
+    updateActDuration(); renderActList();
+    if(prefillTime){
+      const startEl=document.getElementById('act-start');
+      const endEl=document.getElementById('act-end');
+      if(startEl&&endEl){
+        startEl.value=prefillTime;
+        const[h,m]=prefillTime.split(':').map(Number);
+        const endDate=new Date(0,0,0,h,m+60);
+        endEl.value=`${String(endDate.getHours()).padStart(2,'0')}:${String(endDate.getMinutes()).padStart(2,'0')}`;
+        updateActDuration();
+      }
+      document.getElementById('act-text')?.focus();
+    }
+  }
   if(type==='flight'){
     document.querySelectorAll('#fl-legs-container .fl-leg-block').forEach(initLegAutocomplete);
   }
