@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -1973,7 +1974,10 @@ function renderItinerary(){
 
   // ── Wishlist (places to visit, not yet scheduled) ──
   html+=`<div class="wish-card">
-    <div class="card-title" style="border:none;padding:0;margin-bottom:10px"><div class="card-title-left">💡 ${isHe?'רעיונות לביקור':'Places to Visit'}</div></div>
+    <div class="card-title" style="border:none;padding:0;margin-bottom:10px">
+      <div class="card-title-left">💡 ${isHe?'רעיונות לביקור':'Places to Visit'}</div>
+      <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAddModal('import')">📥 ${isHe?'ייבוא':'Import'}</button>
+    </div>
     <div style="background:var(--bg3);border-radius:var(--rsm);padding:12px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--textm);margin-bottom:8px">✨ ${isHe?'גלה מקומות מומלצים':'Discover places to visit'}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2672,6 +2676,69 @@ function addSuggestedPlace(i){
   tripData.wishlist.push({id:uid(),text:p.name,category:cat,city:currentTrip?.destination||''});
   saveData();renderSec('itinerary');
   toast('✅ '+(lang==='he'?'נוסף לרעיונות':'Added to wishlist'));
+}
+// ── IMPORT ATTRACTIONS (paste a list, or upload a CSV/Excel file) ──
+function importAttractions(){
+  const isHe=lang==='he';
+  const pasted=(document.getElementById('import-paste-text')?.value||'').trim();
+  const fileInput=document.getElementById('import-file-input');
+  const file=fileInput?.files?.[0];
+  if(pasted){
+    const names=pasted.split('\n').map(l=>l.trim()).filter(Boolean);
+    addImportedPlaces(names);
+    return;
+  }
+  if(file){
+    importAttractionsFromFile(file);
+    return;
+  }
+  toast('⚠️ '+(isHe?'הדבק רשימה או בחר קובץ':'Paste a list or choose a file'));
+}
+function importAttractionsFromFile(file){
+  const isHe=lang==='he';
+  if(typeof XLSX==='undefined'){
+    toast('⚠️ '+(isHe?'לא ניתן לטעון את כלי קריאת הקבצים כרגע':'Couldn\u2019t load the file reader right now'));
+    return;
+  }
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const workbook=XLSX.read(data,{type:'array'});
+      const sheet=workbook.Sheets[workbook.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(sheet,{header:1,blankrows:false});
+      let names=rows.map(r=>String(r[0]??'').trim()).filter(Boolean);
+      // Skip an obvious header row like "Name" / "Place" / "Attraction"
+      if(names.length&&/^(name|place|attraction|location)s?$/i.test(names[0]))names=names.slice(1);
+      if(!names.length){
+        toast('⚠️ '+(isHe?'לא נמצאו שמות מקומות בקובץ':'No place names found in that file'));
+        return;
+      }
+      addImportedPlaces(names);
+    }catch(err){
+      toast('⚠️ '+(isHe?'לא ניתן לקרוא את הקובץ':'Couldn\u2019t read that file'));
+    }
+  };
+  reader.onerror=()=>toast('⚠️ '+(isHe?'לא ניתן לקרוא את הקובץ':'Couldn\u2019t read that file'));
+  reader.readAsArrayBuffer(file);
+}
+function addImportedPlaces(names){
+  const isHe=lang==='he';
+  if(!tripData.wishlist)tripData.wishlist=[];
+  let count=0;
+  names.forEach(name=>{
+    if(!name)return;
+    tripData.wishlist.push({id:uid(),text:name,category:'',city:currentTrip?.destination||''});
+    count++;
+  });
+  if(!count){
+    toast('⚠️ '+(isHe?'לא נמצאו מקומות לייבוא':'No places found to import'));
+    return;
+  }
+  saveData();
+  closeModal('modal-add');
+  renderSec(currentSec);
+  toast('✅ '+(isHe?`${count} מקומות יובאו`:`${count} place${count>1?'s':''} imported`));
 }
 function addWishlistItem(){
   const input=document.getElementById('wish-text');
@@ -3663,6 +3730,7 @@ function openAddModal(type,editId,prefillTime,prefillDate){
   }
   if(type==='hotel'){
     linkDateRange('ht-in','ht-out');
+    hotelNameAutocomplete('ht-name');
   }
 }
 
@@ -3712,7 +3780,7 @@ function getModalContent(type,editData){
     const h=editData||{};
     return`
     ${modalTitleBar(h.id?`✏️ ${isHe?'ערוך מלון':'Edit Hotel'}`:`🏨 ${isHe?'הוסף מלון':'Add Hotel'}`)}
-    <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" value="${esc(h.name||'')}" placeholder="Marriott Bangkok"></div>
+    <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" value="${esc(h.name||'')}" placeholder="Marriott Bangkok" autocomplete="off"></div>
     <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" value="${esc(h.dest||'')}" placeholder="Bangkok"></div>
     <div class="grid2">
       <div class="field"><div class="field-label">${t('checkIn')}</div><input class="inp" id="ht-in" type="date" value="${esc(h.checkIn||'')}"></div>
@@ -3768,6 +3836,27 @@ function getModalContent(type,editData){
   }
 
   if(type==='budget') return'';
+
+  if(type==='import'){
+    return`
+    ${modalTitleBar(`📥 ${isHe?'ייבוא אטרקציות':'Import Attractions'}`)}
+    <div class="field">
+      <div class="field-label">${isHe?'הדבק רשימה (מקום אחד בכל שורה) — למשל מודבק מ-Google Docs':'Paste a list (one place per line) — e.g. copied from Google Docs'}</div>
+      <textarea class="inp" id="import-paste-text" style="min-height:140px" placeholder="${isHe?'שער הזהב\nהמוזיאון הלאומי\n...':'Golden Gate Bridge\nNational Museum\nCentral Market\n...'}"></textarea>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--textd);margin:12px 0;display:flex;align-items:center;gap:10px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>${isHe?'או':'or'}<div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <div class="field">
+      <div class="field-label">${isHe?'העלה קובץ Excel או CSV':'Upload an Excel or CSV file'}</div>
+      <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" class="inp" style="padding:8px">
+      <div style="font-size:10.5px;color:var(--textd);margin-top:4px">${isHe?'העמודה הראשונה = שם המקום (אם יש כותרת בשורה הראשונה, היא תדולג אוטומטית)':'First column = place name (a header row, if present, is skipped automatically)'}</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="importAttractions()">📥 ${isHe?'ייבא':'Import'}</button>
+    </div>`;
+  }
 
   if(type==='transport'){
     const tr=editData||{};
@@ -4384,6 +4473,75 @@ function addReturnFlight(id){
   modal.classList.add('show');
   document.querySelectorAll('#fl-legs-container .fl-leg-block').forEach(initLegAutocomplete);
 }
+// ── HOTEL NAME AUTOCOMPLETE (OpenStreetMap Overpass — free, anchored to the trip's location) ──
+let hotelAcDebounce=null;
+let hotelAcResultsCache=[];
+function hotelNameAutocomplete(inputId){
+  const input=document.getElementById(inputId);
+  if(!input)return;
+  const box=document.createElement('div');
+  box.className='ac-suggest';box.id=inputId+'-ac';
+  input.parentElement.style.position='relative';
+  input.parentElement.appendChild(box);
+  input.addEventListener('input',()=>{
+    clearTimeout(hotelAcDebounce);
+    const q=input.value.trim();
+    if(q.length<3){ box.classList.remove('show'); box.innerHTML=''; return; }
+    hotelAcDebounce=setTimeout(()=>searchHotelsByName(q,box,inputId),500);
+  });
+  input.addEventListener('blur',()=>{ setTimeout(()=>box.classList.remove('show'),150); });
+  input.addEventListener('focus',()=>{ if(input.value.trim().length>=3) input.dispatchEvent(new Event('input')); });
+}
+async function searchHotelsByName(query,box,inputId){
+  const isHe=lang==='he';
+  box.classList.add('show');
+  box.innerHTML=`<div class="map-search-status">⏳ ${isHe?'מחפש מלונות...':'Searching hotels...'}</div>`;
+  try{
+    const anchor=await resolveTripAnchor();
+    if(!anchor){
+      box.innerHTML=`<div class="map-search-status">${isHe?'הוסף יעד לטיול כדי לחפש מלונות':'Add a trip destination to search hotels'}</div>`;
+      return;
+    }
+    const radiusM=anchor.precise?15000:30000; // wide enough to cover a whole city's worth of hotels
+    const safeQ=query.replace(/["\\]/g,'\\$&');
+    const q=`[out:json][timeout:15];(node["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon});way["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon}););out center 10;`;
+    const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+    const data=await res.json();
+    const seen=new Set();
+    const results=[];
+    (data.elements||[]).forEach(el=>{
+      const name=el.tags?.name;
+      if(!name||seen.has(name))return;
+      seen.add(name);
+      const addrParts=[el.tags['addr:street'],el.tags['addr:housenumber']].filter(Boolean).join(' ');
+      const city=el.tags['addr:city']||'';
+      results.push({name,address:[addrParts,city].filter(Boolean).join(', ')});
+    });
+    if(!results.length){
+      box.innerHTML=`<div class="map-search-status">${isHe?'לא נמצאו מלונות תואמים':'No matching hotels found'}</div>`;
+      return;
+    }
+    hotelAcResultsCache=results;
+    box.innerHTML='';
+    results.slice(0,8).forEach((r,i)=>{
+      const row=document.createElement('div');
+      row.className='ac-suggest-row';
+      row.innerHTML=`<span class="ac-code">🏨</span><span class="ac-info"><span class="ac-city">${esc(r.name)}</span><span class="ac-name">${esc(r.address||anchor.label)}</span></span>`;
+      row.onmousedown=(e)=>{ e.preventDefault(); };
+      row.onclick=()=>{
+        document.getElementById(inputId).value=r.name;
+        const destEl=document.getElementById('ht-dest');
+        if(destEl&&!destEl.value.trim())destEl.value=anchor.label;
+        box.classList.remove('show');
+        document.getElementById(inputId).dispatchEvent(new Event('change'));
+      };
+      box.appendChild(row);
+    });
+  }catch(e){
+    box.innerHTML=`<div class="map-search-status">${isHe?'החיפוש נכשל':'Search failed'}</div>`;
+  }
+}
+
 let airportAcActiveInput=null;
 function airportAutocomplete(inputId){
   const input=document.getElementById(inputId);
