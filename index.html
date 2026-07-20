@@ -315,6 +315,33 @@ textarea.inp{resize:vertical;min-height:80px}
 .itin-text{color:var(--textm);flex:1;line-height:1.6}
 .itin-note{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rsm);padding:9px 12px;font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:10px;resize:vertical;min-height:56px;transition:border-color .2s}
 .itin-note:focus{border-color:var(--accent)}
+.itin-day-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.itin-block{display:flex;align-items:flex-start;gap:10px;margin-top:8px;font-size:13px;padding:8px;border-radius:var(--rsm);transition:background .15s}
+.itin-block:hover{background:var(--bg3)}
+.itin-block.conflict{background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.25)}
+.itin-block-handle{color:var(--textd);cursor:grab;flex-shrink:0;padding-top:2px}
+.itin-block-cat{flex-shrink:0;font-size:15px;padding-top:1px}
+.itin-block-body{flex:1;min-width:0}
+.itin-block-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.itin-block-actions{display:flex;gap:5px;align-items:center;flex-shrink:0}
+.itin-block-badge{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:100px;white-space:nowrap}
+.itin-checklist{margin-top:5px;display:flex;flex-direction:column;gap:3px}
+.itin-check-row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--textm)}
+.itin-check-row input{width:13px;height:13px;cursor:pointer}
+.itin-check-row.done{text-decoration:line-through;color:var(--textd)}
+.itin-warning{font-size:12px;padding:8px 11px;border-radius:var(--rsm);margin-bottom:10px;display:flex;align-items:flex-start;gap:7px}
+.itin-warning-conflict{background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.22);color:var(--coral)}
+.itin-warning-pacing{background:rgba(242,179,61,.08);border:1px solid rgba(242,179,61,.22);color:var(--gold)}
+.itin-daytotal{font-size:12px;color:var(--textm);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.itin-weather{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--textm);background:var(--bg3);border-radius:var(--rsm);padding:7px 11px;margin-bottom:10px}
+.itin-dayactions-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+
+/* WISHLIST */
+.wish-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
+.wish-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--rsm);margin-bottom:6px}
+.wish-item-body{flex:1;min-width:0}
+.wish-item-text{font-size:13px;font-weight:600}
+.wish-item-meta{font-size:11px;color:var(--textm);margin-top:1px}
 
 /* BUDGET */
 .bsum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
@@ -1005,7 +1032,7 @@ function renderSec(sec){
     case 'tasks':     el.innerHTML=renderTasks();break;
     case 'flights':   el.innerHTML=renderFlights();break;
     case 'hotels':    el.innerHTML=renderHotels();break;
-    case 'itinerary': el.innerHTML=renderItinerary();break;
+    case 'itinerary': el.innerHTML=renderItinerary();loadItineraryWeather();break;
     case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();break;
     case 'currency':  el.innerHTML=renderCurrency();fetchRates();break;
     case 'transport': el.innerHTML=renderTransport();break;
@@ -1469,10 +1496,10 @@ function renderToday(){
   if(todayDay&&todayDay.blocks?.length){
     todayDay.blocks.forEach(b=>{
       html+=`<div class="today-flight-row">
-        <div class="today-time" style="font-size:13px">${b.time||'—'}</div>
+        <div class="today-time" style="font-size:13px">${esc(b.time||'—')}</div>
         <div class="today-detail">
-          <div>${b.text}</div>
-          ${b.dur?`<div class="today-sub">⏱ ${b.dur}</div>`:''}
+          <div>${esc(b.text)}</div>
+          ${b.dur?`<div class="today-sub">⏱ ${esc(b.dur)}</div>`:''}
         </div>
         <button onclick="openMapsChoice(document.getElementById('iday-${todayDay.id}')?.querySelector('.itin-day-title')?.textContent||'${escJS(todayDay.city||'')}', this)" class="btn btn-outline btn-sm" style="font-size:10px;padding:4px 10px;flex-shrink:0">📍 ${isHe?'מפה':'Map'}</button>
       </div>`;
@@ -1849,32 +1876,320 @@ function delHotel(id){tripData.hotels=(tripData.hotels||[]).filter(h=>h.id!==id)
 
 // ── ITINERARY ──
 function renderItinerary(){
+  const isHe=lang==='he';
+  const cur=currentTrip?.currency||'USD';
   const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
+  const wishlist=tripData.wishlist||[];
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div class="page-title" style="font-size:20px">📅 ${t('secItinerary')}</div>
     <button class="btn btn-outline btn-sm" onclick="openAddModal('day')">${t('addDay')}</button>
   </div>`;
+
+  // ── Wishlist (places to visit, not yet scheduled) ──
+  html+=`<div class="wish-card">
+    <div class="card-title" style="border:none;padding:0;margin-bottom:10px"><div class="card-title-left">💡 ${isHe?'רעיונות לביקור':'Places to Visit'}</div></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <input class="inp" id="wish-text" placeholder="${isHe?'לדוגמה: שוק הפרחים':'e.g. Flower market'}" style="flex:1;min-width:160px" onkeydown="if(event.key==='Enter'){event.preventDefault();addWishlistItem()}">
+      <select class="inp" id="wish-category" style="width:auto">
+        ${ACTIVITY_CATEGORIES.map(c=>`<option value="${c.key}">${c.icon} ${isHe?c.labelHe:c.label}</option>`).join('')}
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="addWishlistItem()">+ ${isHe?'הוסף':'Add'}</button>
+    </div>
+    ${wishlist.length?wishlist.map(w=>{
+      const cat=actCategoryInfo(w.category);
+      return`<div class="wish-item">
+        <span>${cat.icon}</span>
+        <div class="wish-item-body">
+          <div class="wish-item-text">${esc(w.text)}</div>
+        </div>
+        ${days.length?`<select class="inp" id="wish-day-${w.id}" style="width:auto;font-size:12px;padding:6px 8px">
+          ${days.map(d=>`<option value="${d.id}">${isHe?'יום':'Day'} ${d.num}</option>`).join('')}
+        </select>
+        <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="scheduleWishlistItem('${w.id}',document.getElementById('wish-day-${w.id}').value)">${isHe?'תזמן':'Schedule'}</button>`:''}
+        <button class="del-btn" onclick="delWishlistItem('${w.id}')">×</button>
+      </div>`;
+    }).join(''):`<div style="font-size:12px;color:var(--textd)">${isHe?'הוסף רעיונות לביקור ותזמן אותם ליום מאוחר יותר':'Add ideas here and schedule them into a day later'}</div>`}
+  </div>`;
+
   if(!days.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noItinerary')}</div>`;
+
   days.forEach(day=>{
+    const blocks=(day.blocks||[]).slice().sort((a,b)=>{
+      if(!a.start&&!b.start)return 0;
+      if(!a.start)return 1;
+      if(!b.start)return -1;
+      return a.start<b.start?-1:a.start>b.start?1:0;
+    });
+    // Conflict detection: any two timed blocks whose ranges overlap
+    const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+    const conflictIds=new Set();
+    for(let i=0;i<blocks.length;i++){
+      const a=blocks[i]; const as=toMin(a.start),ae=toMin(a.end);
+      if(as===null||ae===null)continue;
+      for(let j=i+1;j<blocks.length;j++){
+        const b=blocks[j]; const bs=toMin(b.start),be=toMin(b.end);
+        if(bs===null||be===null)continue;
+        if(as<be&&bs<ae){ conflictIds.add(a.id); conflictIds.add(b.id); }
+      }
+    }
+    // Pacing heuristic: total scheduled time or activity count on the high side
+    let totalMins=0;
+    blocks.forEach(b=>{ const s=toMin(b.start),e=toMin(b.end); if(s!==null&&e!==null&&e>s) totalMins+=(e-s); });
+    const isPacked=totalMins>540||blocks.length>=6;
+    const dayCost=blocks.reduce((s,b)=>s+(parseFloat(b.cost)||0),0);
+
     html+=`<div class="itin-day" id="iday-${day.id}">
       <div class="itin-header" onclick="document.getElementById('iday-${day.id}').classList.toggle('open')">
-        <div class="itin-day-num">${lang==='he'?'יום':'Day'} ${day.num}</div>
+        <div class="itin-day-num">${isHe?'יום':'Day'} ${day.num}</div>
         <div class="itin-day-title">${esc(day.title||'')}</div>
-        <div class="itin-day-meta">${esc(day.date||'')} ${day.city?'· '+esc(day.city):''}</div>
-        <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
+        <div class="itin-day-meta">${esc(day.date?fmtDate(day.date):'')} ${day.city?'· '+esc(day.city):''}</div>
+        <div class="itin-day-actions">
+          <button class="edit-btn" onclick="event.stopPropagation();openAddModal('day','${day.id}')" title="${isHe?'ערוך':'Edit'}">✏️</button>
+          <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
+        </div>
       </div>
       <div class="itin-body">
-        ${(day.blocks||[]).map(b=>`<div class="itin-block"><div class="itin-time">${esc(b.time||'')}</div><div class="itin-text">${esc(b.text)}</div>${b.dur?`<span style="font-size:11px;color:var(--green);background:rgba(61,214,140,.1);padding:2px 8px;border-radius:100px;flex-shrink:0">${esc(b.dur)}</span>`:''}<button onclick="openMapsChoice('${escJS(b.text)}', this)" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;flex-shrink:0;opacity:.7">📍</button></div>`).join('')}
-        <textarea class="itin-note" placeholder="${lang==='he'?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${esc(day.note||'')}</textarea>
+        ${conflictIds.size?`<div class="itin-warning itin-warning-conflict">⚠️ <span>${isHe?'שים לב: יש פעילויות עם זמנים חופפים ביום זה':'Heads up: some activities overlap in time on this day'}</span></div>`:''}
+        ${isPacked?`<div class="itin-warning itin-warning-pacing">💡 <span>${isHe?'היום הזה נראה עמוס — כדאי לשקול זמן חופשי בין פעילויות':'This day looks packed — consider leaving buffer time between activities'}</span></div>`:''}
+        ${day.city&&day.date?`<div class="itin-weather" id="wx-${day.id}">⏳ ${isHe?'טוען תחזית...':'Loading forecast...'}</div>`:''}
+        ${dayCost>0?`<div class="itin-daytotal"><span>${isHe?'סה"כ עלות היום':'Day total'}</span><span style="font-family:var(--mono);font-weight:700;color:var(--gold)">${dayCost.toLocaleString()} ${esc(cur)}</span></div>`:''}
+        ${blocks.length?`<div class="itin-dayactions-row">
+          <button class="btn btn-outline btn-sm" onclick="copyDay('${day.id}')" style="font-size:12px">⧉ ${isHe?'שכפל יום':'Copy Day'}</button>
+          <button class="btn btn-outline btn-sm" onclick="viewDayOnMap('${day.id}')" style="font-size:12px">🗺️ ${isHe?'הצג את היום על המפה':'View day on map'}</button>
+        </div>`:''}
+        <div id="blocks-${day.id}">
+        ${blocks.map((b,i)=>{
+          const cat=actCategoryInfo(b.category);
+          const prevText=i>0?blocks[i-1].text:'';
+          const checklist=b.checklist||[];
+          return`<div class="itin-block${conflictIds.has(b.id)?' conflict':''}" draggable="true" id="iblock-${b.id}"
+            ondragstart="blockDragStart(event,'${b.id}','${day.id}')" ondragend="blockDragEnd()"
+            ondragover="blockDragOver(event)" ondrop="blockDrop(event,'${day.id}','${b.id}')">
+            <span class="itin-block-handle">⠿</span>
+            <span class="itin-block-cat" title="${isHe?cat.labelHe:cat.label}">${cat.icon}</span>
+            <div class="itin-block-body">
+              <div class="itin-block-row">
+                <span class="itin-time">${esc(b.time||'')}</span>
+                <span class="itin-text" style="flex:1">${esc(b.text)}</span>
+              </div>
+              <div class="itin-block-row" style="margin-top:3px">
+                ${b.dur?`<span class="itin-block-badge" style="background:rgba(61,214,140,.1);color:var(--green)">${esc(b.dur)}</span>`:''}
+                ${b.cost?`<span class="itin-block-badge" style="background:rgba(242,179,61,.1);color:var(--gold)">${parseFloat(b.cost).toLocaleString()} ${esc(cur)}</span>`:''}
+                ${b.confirmation?`<span class="itin-block-badge" style="background:rgba(55,198,186,.1);color:var(--accent)">#${esc(b.confirmation)}</span>`:''}
+              </div>
+              ${checklist.length?`<div class="itin-checklist">${checklist.map((c,ci)=>`<label class="itin-check-row${c.done?' done':''}"><input type="checkbox" ${c.done?'checked':''} onchange="toggleBlockCheck('${day.id}','${b.id}',${ci})">${esc(c.text)}</label>`).join('')}</div>`:''}
+            </div>
+            <div class="itin-block-actions">
+              <button onclick="openRouteChoice('${escJS(prevText)}','${escJS(b.text)}', this)" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;opacity:.8" title="${isHe?'כיוונים':'Directions'}">📍</button>
+              <button class="del-btn" style="font-size:15px" onclick="delItinBlock('${day.id}','${b.id}')">×</button>
+            </div>
+          </div>`;
+        }).join('')}
+        </div>
+        <textarea class="itin-note" placeholder="${isHe?'הערות ליום הזה...':'Notes for this day...'}" onchange="saveDayNote('${day.id}',this.value)">${esc(day.note||'')}</textarea>
       </div>
     </div>`;
   });
   return html;
 }
+function delItinBlock(dayId,blockId){
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  day.blocks=(day.blocks||[]).filter(b=>b.id!==blockId);
+  saveData();renderSec('itinerary');
+}
+// Kick off weather fetches for visible days after the itinerary section renders
+function loadItineraryWeather(){
+  (tripData.days||[]).forEach(day=>{
+    if(day.city&&day.date) fetchDayWeather(day.id,day.city,day.date);
+  });
+}
 function delDay(id){tripData.days=(tripData.days||[]).filter(d=>d.id!==id);saveData();renderSec('itinerary');}
 function saveDayNote(id,val){const d=(tripData.days||[]).find(d=>d.id===id);if(d){d.note=val;saveData();}}
 
+// ── ITINERARY BLOCK DRAG & DROP (reorder directly in the rendered view) ──
+let dragBlockId=null,dragBlockDay=null;
+function blockDragStart(e,blockId,dayId){
+  dragBlockId=blockId;dragBlockDay=dayId;
+  e.dataTransfer.effectAllowed='move';
+  e.stopPropagation();
+  setTimeout(()=>document.getElementById('iblock-'+blockId)?.classList.add('dragging'),0);
+}
+function blockDragEnd(){
+  document.querySelectorAll('.itin-block').forEach(el=>el.classList.remove('dragging'));
+  dragBlockId=null;dragBlockDay=null;
+}
+function blockDragOver(e){ e.preventDefault(); e.stopPropagation(); }
+function blockDrop(e,dayId,targetBlockId){
+  e.preventDefault();e.stopPropagation();
+  if(!dragBlockId||dragBlockDay!==dayId||dragBlockId===targetBlockId)return;
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const blocks=day.blocks||[];
+  const fromIdx=blocks.findIndex(b=>b.id===dragBlockId);
+  const toIdx=blocks.findIndex(b=>b.id===targetBlockId);
+  if(fromIdx<0||toIdx<0)return;
+  const[moved]=blocks.splice(fromIdx,1);
+  blocks.splice(toIdx,0,moved);
+  saveData();renderSec('itinerary');
+}
+function toggleBlockCheck(dayId,blockId,checkIdx){
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  const block=day?.blocks?.find(b=>b.id===blockId);
+  const item=block?.checklist?.[checkIdx];
+  if(!item)return;
+  item.done=!item.done;
+  saveData();renderSec('itinerary');
+}
+function copyDay(dayId){
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const isHe=lang==='he';
+  const maxNum=Math.max(0,...(tripData.days||[]).map(d=>d.num||0));
+  const copy={...day,id:uid(),num:maxNum+1,date:'',
+    title:day.title+(isHe?' (עותק)':' (copy)'),
+    blocks:(day.blocks||[]).map(b=>({...b,id:uid(),checklist:(b.checklist||[]).map(c=>({...c,done:false}))}))};
+  tripData.days.push(copy);
+  saveData();renderSec('itinerary');
+  toast('✅ '+(isHe?'היום שוכפל':'Day duplicated'));
+}
+// Multi-stop day route: opens Google Maps with every activity as a waypoint in order
+// (Waze's public URL scheme only supports a single destination, so it's not offered here)
+function viewDayOnMap(dayId){
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const stops=(day.blocks||[]).map(b=>b.text).filter(Boolean).slice(0,10);
+  if(!stops.length)return toast('⚠️ '+(lang==='he'?'אין פעילויות עם מיקום':'No activities to map'));
+  if(stops.length===1){
+    window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(stops[0]+(day.city?' '+day.city:'')),'_blank');
+    return;
+  }
+  const origin=stops[0],destination=stops[stops.length-1],waypoints=stops.slice(1,-1);
+  let url=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin+(day.city?' '+day.city:''))}&destination=${encodeURIComponent(destination+(day.city?' '+day.city:''))}`;
+  if(waypoints.length)url+=`&waypoints=${waypoints.map(w=>encodeURIComponent(w+(day.city?' '+day.city:''))).join('|')}`;
+  window.open(url,'_blank');
+}
+// Directions from the previous activity to this one (falls back to a plain search if there's no previous stop)
+function openRouteChoice(originText,destText,btn){
+  if(!destText||!destText.trim())return;
+  if(!originText||!originText.trim())return openMapsChoice(destText,btn);
+  document.querySelectorAll('.maps-choice-popup').forEach(el=>el.remove());
+  const isHe=lang==='he';
+  const popup=document.createElement('div');
+  popup.className='maps-choice-popup';
+  const gmapsBtn=document.createElement('button');
+  gmapsBtn.innerHTML=`🗺️ ${isHe?'פתח ב-Google Maps':'Open in Google Maps'}`;
+  gmapsBtn.onclick=(e)=>{
+    e.stopPropagation();
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originText)}&destination=${encodeURIComponent(destText)}`,'_blank');
+    popup.remove();
+  };
+  const wazeBtn=document.createElement('button');
+  wazeBtn.innerHTML=`🚗 ${isHe?'פתח ב-Waze':'Open in Waze'}`;
+  wazeBtn.onclick=(e)=>{
+    e.stopPropagation();
+    window.open('https://waze.com/ul?q='+encodeURIComponent(destText)+'&navigate=yes','_blank');
+    popup.remove();
+  };
+  popup.appendChild(gmapsBtn);popup.appendChild(wazeBtn);
+  document.body.appendChild(popup);
+  const rect=btn.getBoundingClientRect();
+  const popupWidth=popup.offsetWidth||190,popupHeight=popup.offsetHeight||90;
+  let left=rect.left;
+  if(left+popupWidth>window.innerWidth-8) left=Math.max(8,window.innerWidth-popupWidth-8);
+  let top=rect.bottom+6;
+  if(top+popupHeight>window.innerHeight-8) top=Math.max(8,rect.top-popupHeight-6);
+  popup.style.left=left+'px';popup.style.top=top+'px';
+  setTimeout(()=>{
+    document.addEventListener('click',function closeOnce(e){
+      if(!popup.contains(e.target)){ popup.remove(); document.removeEventListener('click',closeOnce); }
+    });
+  },0);
+}
+
+// ── WEATHER (Open-Meteo — free, no key; forecast only available ~16 days out) ──
+const weatherCache={};
+async function fetchDayWeather(dayId,city,dateStr){
+  if(!city||!dateStr)return;
+  const cacheKey=city+'|'+dateStr;
+  const elId='wx-'+dayId;
+  const el=document.getElementById(elId);
+  if(!el)return;
+  if(weatherCache[cacheKey]){ renderWeatherInto(el,weatherCache[cacheKey]); return; }
+  const daysOut=Math.floor((new Date(dateStr)-new Date(new Date().toISOString().split('T')[0]))/86400000);
+  if(daysOut<0||daysOut>16){
+    el.innerHTML=`<span>🌤️</span><span>${lang==='he'?'תחזית תהיה זמינה קרוב יותר לתאריך הטיול':'Forecast available closer to your trip date'}</span>`;
+    return;
+  }
+  try{
+    const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+    const geo=await geoRes.json();
+    const loc=geo?.results?.[0];
+    if(!loc){ el.innerHTML=`<span>🌤️</span><span>${lang==='he'?'לא נמצאה תחזית':'Forecast unavailable'}</span>`; return; }
+    const wxRes=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`);
+    const wx=await wxRes.json();
+    if(!wx?.daily?.time?.length){ el.innerHTML=`<span>🌤️</span><span>${lang==='he'?'לא נמצאה תחזית':'Forecast unavailable'}</span>`; return; }
+    const data={code:wx.daily.weathercode[0],max:Math.round(wx.daily.temperature_2m_max[0]),min:Math.round(wx.daily.temperature_2m_min[0])};
+    weatherCache[cacheKey]=data;
+    renderWeatherInto(el,data);
+  }catch(e){
+    el.innerHTML=`<span>🌤️</span><span>${lang==='he'?'לא ניתן לטעון תחזית':'Couldn\u2019t load forecast'}</span>`;
+  }
+}
+function weatherIcon(code){
+  if(code===0)return'☀️';
+  if(code<=3)return'⛅';
+  if(code<=48)return'🌫️';
+  if(code<=57)return'🌦️';
+  if(code<=67)return'🌧️';
+  if(code<=77)return'🌨️';
+  if(code<=82)return'🌧️';
+  if(code<=86)return'🌨️';
+  if(code<=99)return'⛈️';
+  return'🌤️';
+}
+function renderWeatherInto(el,data){
+  el.innerHTML=`<span>${weatherIcon(data.code)}</span><span>${data.min}\u00b0–${data.max}\u00b0</span>`;
+}
+
+// ── WISHLIST (places to visit, not yet scheduled to a specific day) ──
+function addWishlistItem(){
+  const input=document.getElementById('wish-text');
+  const catSel=document.getElementById('wish-category');
+  const text=input?.value.trim();
+  if(!text)return;
+  if(!tripData.wishlist)tripData.wishlist=[];
+  tripData.wishlist.push({id:uid(),text,category:catSel?.value||'',city:currentTrip?.destination||''});
+  input.value='';
+  saveData();renderSec('itinerary');
+}
+function delWishlistItem(id){
+  tripData.wishlist=(tripData.wishlist||[]).filter(w=>w.id!==id);
+  saveData();renderSec('itinerary');
+}
+function scheduleWishlistItem(id,dayId){
+  const item=(tripData.wishlist||[]).find(w=>w.id===id);
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!item||!day)return;
+  if(!day.blocks)day.blocks=[];
+  day.blocks.push({id:uid(),start:'',end:'',time:'',text:item.text,dur:'',category:item.category||'',cost:'',confirmation:'',checklist:[]});
+  tripData.wishlist=(tripData.wishlist||[]).filter(w=>w.id!==id);
+  saveData();renderSec('itinerary');
+  toast('✅ '+(lang==='he'?'נוסף ליום '+day.num:'Added to Day '+day.num));
+}
+
 // ── BUDGET ──
+const ACTIVITY_CATEGORIES=[
+  {key:'',icon:'📍',label:'Other',labelHe:'אחר',color:'#93B0AC'},
+  {key:'food',icon:'🍽️',label:'Food',labelHe:'אוכל',color:'#F2B33D'},
+  {key:'sightseeing',icon:'🏛️',label:'Sightseeing',labelHe:'סיור',color:'#37C6BA'},
+  {key:'transport',icon:'🚕',label:'Transport',labelHe:'תחבורה',color:'#8B8FE8'},
+  {key:'shopping',icon:'🛍️',label:'Shopping',labelHe:'קניות',color:'#D67AA8'},
+  {key:'nightlife',icon:'🌙',label:'Nightlife',labelHe:'חיי לילה',color:'#5B4A8A'},
+  {key:'outdoor',icon:'⛱️',label:'Outdoor',labelHe:'טבע / חוף',color:'#3DD68C'},
+  {key:'hotel',icon:'🏨',label:'Hotel',labelHe:'מלון',color:'#FF7A52'},
+];
+function actCategoryInfo(key){return ACTIVITY_CATEGORIES.find(c=>c.key===key)||ACTIVITY_CATEGORIES[0];}
 const BUDGET_COLORS=['#37C6BA','#3DD68C','#F2B33D','#8B8FE8','#FF7A52','#2FA8C4','#E0954F','#D67AA8'];
 const DEFAULT_BGROUPS=()=>[
   {id:'bg1',name:lang==='he'?'טיסות':'Flights',color:'#37C6BA'},
@@ -2342,10 +2657,27 @@ function saveEm(key,val){if(!tripData.emergency)tripData.emergency={};tripData.e
 
 // ── ADD MODALS ──
 let editingFlightId=null;
+let editingDayId=null;
 function openAddModal(type,editId){
-  if(type==='day') actLines=[];
   editingFlightId=null;
+  editingDayId=null;
   let editData=null;
+  if(type==='day'){
+    actLines=[];
+    if(editId){
+      editingDayId=editId;
+      const day=(tripData.days||[]).find(d=>d.id===editId);
+      if(day){
+        editData=day;
+        actLines=(day.blocks||[]).map(b=>({
+          id:b.id||uid(),start:b.start||(b.time?b.time.split(/[–-]/)[0].trim():''),
+          end:b.end||(b.time&&b.time.includes('–')?b.time.split('–')[1].trim():''),
+          text:b.text,dur:b.dur,category:b.category||'',cost:b.cost||'',
+          confirmation:b.confirmation||'',checklist:b.checklist||[]
+        }));
+      }
+    }
+  }
   if(type==='flight'&&editId){
     editingFlightId=editId;
     editData=(tripData.flights||[]).find(f=>f.id===editId)||null;
@@ -2354,7 +2686,7 @@ function openAddModal(type,editId){
   const modal=document.getElementById('modal-add');
   inner.innerHTML=getModalContent(type,editData);
   modal.classList.add('show');
-  if(type==='day') updateActDuration();
+  if(type==='day'){ updateActDuration(); renderActList(); }
   if(type==='flight'){
     document.querySelectorAll('#fl-legs-container .fl-leg-block').forEach(initLegAutocomplete);
   }
@@ -2423,29 +2755,43 @@ function getModalContent(type,editData){
       <button class="btn btn-primary" onclick="saveHotel()">${t('save')}</button>
     </div>`;
 
-  if(type==='day') return`
-    ${modalTitleBar(`📅 ${isHe?'הוסף יום':'Add Day'}`)}
+  if(type==='day'){
+    const d=editData||{};
+    return`
+    ${modalTitleBar(d.id?`✏️ ${isHe?'ערוך יום':'Edit Day'}`:`📅 ${isHe?'הוסף יום':'Add Day'}`)}
     <div class="grid2">
-      <div class="field"><div class="field-label">${t('dayNum')}</div><input class="inp" id="dy-num" type="number" placeholder="1" min="1"></div>
-      <div class="field"><div class="field-label">${t('date')}</div><input class="inp" id="dy-date" type="date"></div>
+      <div class="field"><div class="field-label">${t('dayNum')}</div><input class="inp" id="dy-num" type="number" placeholder="1" min="1" value="${esc(d.num||'')}"></div>
+      <div class="field"><div class="field-label">${t('date')}</div><input class="inp" id="dy-date" type="date" value="${esc(d.date||'')}"></div>
     </div>
-    <div class="field"><div class="field-label">${t('title')}</div><input class="inp" id="dy-title" placeholder="${isHe?'יום הגעה':'Arrival Day'} 🌴"></div>
-    <div class="field"><div class="field-label">${t('city')}</div><input class="inp" id="dy-city" placeholder="Bangkok"></div>
+    <div class="field"><div class="field-label">${t('title')}</div><input class="inp" id="dy-title" placeholder="${isHe?'יום הגעה':'Arrival Day'} 🌴" value="${esc(d.title||'')}"></div>
+    <div class="field"><div class="field-label">${t('city')}</div><input class="inp" id="dy-city" placeholder="Bangkok" value="${esc(d.city||'')}"></div>
     <div class="field">
-      <div class="field-label">${isHe?'הוסף פעילויות':'Add Activities'}</div>
+      <div class="field-label">${isHe?'פעילויות':'Activities'}</div>
       <div id="act-list" style="margin-bottom:8px"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
         <div><div class="field-label" style="font-size:10px">${isHe?'התחלה':'Start'}</div><input class="inp" id="act-start" type="time" value="09:00"></div>
         <div><div class="field-label" style="font-size:10px">${isHe?'סיום':'End'}</div><input class="inp" id="act-end" type="time" value="10:00" oninput="updateActDuration()"></div>
         <div><div class="field-label" style="font-size:10px">${isHe?'משך':'Duration'}</div><div id="act-dur" style="font-size:13px;font-weight:700;color:var(--accent);padding:11px 0">1h 0m</div></div>
-        <div style="padding-bottom:2px"><button class="btn btn-outline btn-sm" onclick="addActLine()" style="white-space:nowrap">+ ${isHe?'הוסף':'Add'}</button></div>
       </div>
       <div class="field" style="margin-top:8px"><input class="inp" id="act-text" placeholder="${isHe?'תיאור הפעילות...':'Activity description...'}" onkeydown="if(event.key==='Enter'){event.preventDefault();addActLine()}"></div>
+      <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;margin-top:8px;align-items:end">
+        <div>
+          <div class="field-label" style="font-size:10px">${isHe?'קטגוריה':'Category'}</div>
+          <select class="inp" id="act-category" style="padding:11px 10px">
+            ${ACTIVITY_CATEGORIES.map(c=>`<option value="${c.key}">${c.icon} ${isHe?c.labelHe:c.label}</option>`).join('')}
+          </select>
+        </div>
+        <div><div class="field-label" style="font-size:10px">${isHe?'עלות':'Cost'} (${esc(currentTrip?.currency||'USD')})</div><input class="inp" id="act-cost" type="number" placeholder="0"></div>
+        <div><div class="field-label" style="font-size:10px">${t('confirmation')}</div><input class="inp" id="act-conf" placeholder="ABC123"></div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="addActLine()" style="width:100%;margin-top:8px">+ ${isHe?'הוסף פעילות':'Add Activity'}</button>
     </div>
+    <div class="field"><div class="field-label">${t('notes')}</div><textarea class="inp" id="dy-note" placeholder="...">${esc(d.note||'')}</textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
-      <button class="btn btn-primary" onclick="saveDay()">${t('save')}</button>
+      <button class="btn btn-primary" onclick="saveDay()">${d.id?(isHe?'שמור שינויים':'Save changes'):t('save')}</button>
     </div>`;
+  }
 
   if(type==='budget') return'';
 
@@ -2475,6 +2821,7 @@ function getModalContent(type,editData){
 
 // Activity lines for itinerary day modal
 let actLines = [];
+let dragActLineId=null;
 function updateActDuration(){
   const s=document.getElementById('act-start')?.value;
   const e=document.getElementById('act-end')?.value;
@@ -2498,27 +2845,74 @@ function addActLine(){
   if(mins<0)mins+=1440;
   const h=Math.floor(mins/60),m=mins%60;
   const dur=h>0?(m>0?`${h}h ${m}m`:`${h}h`):(m>0?`${m}m`:'');
-  actLines.push({start,end,text,dur});
+  const category=document.getElementById('act-category')?.value||'';
+  const cost=document.getElementById('act-cost')?.value||'';
+  const confirmation=document.getElementById('act-conf')?.value.trim()||'';
+  actLines.push({id:uid(),start,end,text,dur,category,cost,confirmation,checklist:[]});
   renderActList();
   document.getElementById('act-text').value='';
+  document.getElementById('act-cost').value='';
+  document.getElementById('act-conf').value='';
+  document.getElementById('act-category').value='';
   // Advance start time to end time
   document.getElementById('act-start').value=end;
   const newEnd=new Date(0,0,0,eh,em+60);
   document.getElementById('act-end').value=`${String(newEnd.getHours()).padStart(2,'0')}:${String(newEnd.getMinutes()).padStart(2,'0')}`;
   updateActDuration();
 }
+function editActLine(id){
+  const a=actLines.find(l=>l.id===id);
+  if(!a)return;
+  document.getElementById('act-start').value=a.start||'';
+  document.getElementById('act-end').value=a.end||'';
+  document.getElementById('act-text').value=a.text||'';
+  document.getElementById('act-category').value=a.category||'';
+  document.getElementById('act-cost').value=a.cost||'';
+  document.getElementById('act-conf').value=a.confirmation||'';
+  updateActDuration();
+  actLines=actLines.filter(l=>l.id!==id);
+  renderActList();
+  document.getElementById('act-text').focus();
+}
 function renderActList(){
   const el=document.getElementById('act-list');
   if(!el)return;
-  el.innerHTML=actLines.map((a,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:var(--rsm);margin-bottom:5px;font-size:13px">
-      <span style="color:var(--accent);font-weight:700;min-width:110px;font-size:12px">${esc(a.start||'')}${a.end?' – '+esc(a.end):''}</span>
-      <span style="flex:1;color:var(--textm)">${esc(a.text)}</span>
-      ${a.dur?`<span style="font-size:11px;color:var(--green);background:rgba(61,214,140,.1);padding:2px 7px;border-radius:100px">${esc(a.dur)}</span>`:''}
-      <button onclick="removeActLine(${i})" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:16px">×</button>
-    </div>`).join('');
+  const isHe=lang==='he';
+  el.innerHTML=actLines.map((a)=>{
+    const cat=actCategoryInfo(a.category);
+    return`<div class="act-line" draggable="true" id="al-${a.id}"
+      ondragstart="actLineDragStart(event,'${a.id}')" ondragend="actLineDragEnd(event)"
+      ondragover="actLineDragOver(event)" ondrop="actLineDrop(event)"
+      style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:var(--rsm);margin-bottom:5px;font-size:13px;cursor:grab">
+      <span style="color:var(--textd);font-size:13px;flex-shrink:0">⠿</span>
+      <span style="flex-shrink:0">${cat.icon}</span>
+      <span style="color:var(--accent);font-weight:700;min-width:100px;font-size:12px;flex-shrink:0">${esc(a.start||'')}${a.end?' – '+esc(a.end):''}</span>
+      <span style="flex:1;color:var(--textm);cursor:pointer" onclick="editActLine('${a.id}')">${esc(a.text)}</span>
+      ${a.cost?`<span style="font-size:11px;color:var(--gold)">${esc(a.cost)} ${esc(currentTrip?.currency||'')}</span>`:''}
+      ${a.dur?`<span style="font-size:11px;color:var(--green);background:rgba(61,214,140,.1);padding:2px 7px;border-radius:100px;flex-shrink:0">${esc(a.dur)}</span>`:''}
+      <button onclick="editActLine('${a.id}')" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:13px;flex-shrink:0" title="${isHe?'ערוך':'Edit'}">✏️</button>
+      <button onclick="removeActLine('${a.id}')" style="background:none;border:none;color:var(--textd);cursor:pointer;font-size:16px;flex-shrink:0">×</button>
+    </div>`;
+  }).join('');
 }
-function removeActLine(i){actLines.splice(i,1);renderActList();}
+function removeActLine(id){actLines=actLines.filter(l=>l.id!==id);renderActList();}
+function actLineDragStart(e,id){dragActLineId=id;e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>document.getElementById('al-'+id)?.classList.add('dragging'),0);}
+function actLineDragEnd(){document.querySelectorAll('.act-line').forEach(el=>el.classList.remove('dragging'));dragActLineId=null;}
+function actLineDragOver(e){e.preventDefault();e.stopPropagation();}
+function actLineDrop(e){
+  e.preventDefault();e.stopPropagation();
+  if(!dragActLineId)return;
+  const targetEl=e.currentTarget;
+  const targetId=targetEl.id.replace('al-','');
+  if(targetId===dragActLineId)return;
+  const fromIdx=actLines.findIndex(l=>l.id===dragActLineId);
+  const toIdx=actLines.findIndex(l=>l.id===targetId);
+  if(fromIdx<0||toIdx<0)return;
+  const[moved]=actLines.splice(fromIdx,1);
+  actLines.splice(toIdx,0,moved);
+  renderActList();
+}
+
 
 
 function saveFlight(){
@@ -2582,19 +2976,32 @@ function saveHotel(){
 }
 
 function saveDay(){
+  const isHe=lang==='he';
   const num=parseInt(document.getElementById('dy-num').value);
   const title=document.getElementById('dy-title').value.trim();
-  if(!num||!title)return toast('⚠️ Enter day number and title');
+  if(!num||!title)return toast('⚠️ '+(isHe?'הזן מספר יום וכותרת':'Enter day number and title'));
   // Check if there's a pending activity not yet added
   const pendingText=document.getElementById('act-text')?.value.trim();
   if(pendingText)addActLine();
-  const blocks=actLines.map(a=>({time:`${a.start}–${a.end}`,text:a.text,dur:a.dur}));
-  const day={id:uid(),num,title,date:document.getElementById('dy-date').value,
-    city:document.getElementById('dy-city').value.trim(),blocks};
+  const blocks=actLines.map(a=>({
+    id:a.id||uid(),start:a.start,end:a.end,time:`${a.start}–${a.end}`,text:a.text,dur:a.dur,
+    category:a.category||'',cost:a.cost||'',confirmation:a.confirmation||'',checklist:a.checklist||[]
+  }));
+  const fields={num,title,date:document.getElementById('dy-date').value,
+    city:document.getElementById('dy-city').value.trim(),
+    note:document.getElementById('dy-note')?.value.trim()||'',blocks};
   if(!tripData.days)tripData.days=[];
-  tripData.days.push(day);
-  actLines=[];
-  saveData();closeModal('modal-add');renderSec('itinerary');toast('✅ Day added');
+  if(editingDayId){
+    const idx=tripData.days.findIndex(d=>d.id===editingDayId);
+    if(idx>-1) tripData.days[idx]={...tripData.days[idx],...fields};
+    editingDayId=null;
+    actLines=[];
+    saveData();closeModal('modal-add');renderSec('itinerary');toast('✅ '+(isHe?'היום עודכן':'Day updated'));
+  } else {
+    tripData.days.push({id:uid(),...fields});
+    actLines=[];
+    saveData();closeModal('modal-add');renderSec('itinerary');toast('✅ '+(isHe?'היום נוסף':'Day added'));
+  }
 }
 
 // saveBudget replaced by addBudgetItem(groupId)
