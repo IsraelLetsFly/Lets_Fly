@@ -349,6 +349,43 @@ textarea.inp{resize:vertical;min-height:80px}
 .itin-cal-event-time{font-weight:700;font-size:10px;color:var(--text);white-space:nowrap}
 .itin-cal-event-title{font-weight:600;color:var(--textm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .itin-cal-unscheduled{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
+.itin-cal-event.compact{padding:2px 4px;font-size:9.5px}
+.itin-cal-event.compact .itin-cal-event-time{font-size:9px;white-space:normal;line-height:1.15}
+
+/* CALENDAR LAYOUT SUB-TOGGLE */
+.itin-cal-layout-toggle{display:flex;gap:2px;background:var(--bg3);border-radius:100px;padding:3px}
+.itin-cal-layout-toggle button{border:none;background:none;font-family:inherit;font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:100px;cursor:pointer;color:var(--textm);transition:all .15s}
+.itin-cal-layout-toggle button.active{background:var(--bg4);color:var(--text)}
+
+/* WEEK VIEW */
+.itin-week{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.itin-week-label{font-size:13px;font-weight:700;margin-bottom:10px}
+.itin-week-headers{display:flex}
+.itin-week-hourgutter{width:44px;flex-shrink:0}
+.itin-week-col-header{flex:1;text-align:center;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.itin-week-col-header.today .itin-week-daynum{background:var(--accent);color:#04211f;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px}
+.itin-week-dow{font-size:10px;color:var(--textd);text-transform:uppercase}
+.itin-week-daynum{font-size:13px;font-weight:700;margin-top:2px}
+.itin-week-dot{width:4px;height:4px;border-radius:50%;background:var(--accent);margin:3px auto 0}
+.itin-week-body{display:flex;overflow-x:auto}
+.itin-week-hourcol{width:44px;flex-shrink:0;position:relative}
+.itin-week-cols{flex:1;display:flex;position:relative;min-width:420px}
+.itin-week-col{flex:1;position:relative;border-inline-start:1px solid var(--border);cursor:pointer}
+.itin-week-col.today{background:rgba(55,198,186,.04)}
+
+/* MONTH VIEW */
+.itin-month{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.itin-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border)}
+.itin-month-dow{background:var(--bg2);text-align:center;font-size:10px;color:var(--textd);text-transform:uppercase;padding:6px 0}
+.itin-month-cell{background:var(--bg2);min-height:64px;padding:5px 6px;cursor:pointer;transition:background .15s}
+.itin-month-cell:hover{background:var(--bg3)}
+.itin-month-cell.outside{opacity:.35}
+.itin-month-cell.in-range{background:rgba(55,198,186,.05)}
+.itin-month-cell.in-range:hover{background:rgba(55,198,186,.1)}
+.itin-month-cell.today .itin-month-daynum{background:var(--accent);color:#04211f;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px}
+.itin-month-daynum{font-size:12px;font-weight:700}
+.itin-month-daytitle{font-size:10px;color:var(--accent);font-weight:600;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itin-month-count{font-size:9.5px;color:var(--textm);margin-top:2px}
 
 /* WISHLIST */
 .wish-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
@@ -1902,6 +1939,11 @@ function renderItinerary(){
         <button class="${itinViewMode==='list'?'active':''}" onclick="setItinViewMode('list')">📋 ${isHe?'רשימה':'List'}</button>
         <button class="${itinViewMode==='calendar'?'active':''}" onclick="setItinViewMode('calendar')">📅 ${isHe?'לוח שנה':'Calendar'}</button>
       </div>
+      ${itinViewMode==='calendar'?`<div class="itin-cal-layout-toggle">
+        <button class="${itinCalLayout==='day'?'active':''}" onclick="setItinCalLayout('day')">${isHe?'יום':'Day'}</button>
+        <button class="${itinCalLayout==='week'?'active':''}" onclick="setItinCalLayout('week')">${isHe?'שבוע':'Week'}</button>
+        <button class="${itinCalLayout==='month'?'active':''}" onclick="setItinCalLayout('month')">${isHe?'חודש':'Month'}</button>
+      </div>`:''}
       <button class="btn btn-outline btn-sm" onclick="openAddModal('day')">${t('addDay')}</button>
     </div>
   </div>`;
@@ -1939,6 +1981,13 @@ function renderItinerary(){
       </div>`;
     }).join(''):`<div style="font-size:12px;color:var(--textd)">${isHe?'הוסף רעיונות לביקור ותזמן אותם ליום מאוחר יותר':'Add ideas here and schedule them into a day later'}</div>`}
   </div>`;
+
+  if(itinViewMode==='calendar'&&itinCalLayout==='week'){
+    return html+renderWeekView(days,cur,isHe);
+  }
+  if(itinViewMode==='calendar'&&itinCalLayout==='month'){
+    return html+renderMonthView(days,cur,isHe);
+  }
 
   if(!days.length){
     if(itinViewMode==='calendar'){
@@ -2045,6 +2094,13 @@ function setItinViewMode(mode){
   renderSec('itinerary');
   loadItineraryWeather();
 }
+let itinCalLayout = localStorage.getItem('lf-itin-cal-layout') || 'day';
+function setItinCalLayout(layout){
+  itinCalLayout = layout;
+  localStorage.setItem('lf-itin-cal-layout', layout);
+  renderSec('itinerary');
+  loadItineraryWeather();
+}
 // Assigns each timed block a column/numCols so overlapping activities sit side-by-side
 // (same layout approach as Google Calendar's day view).
 function layoutCalendarBlocks(blocks){
@@ -2084,39 +2140,48 @@ function blockTimeRange(b){
   }
   return{start:'',end:''};
 }
-function renderDayCalendarGrid(day,blocks,cur,isHe){
+// Splits a day's blocks into timed (with computed startMin/endMin) vs untimed, given a
+// minimum default range (widened automatically to fit anything outside it).
+function calPrepareBlocks(blocks,defaultStartHour,defaultEndHour){
   const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
   const withRange=blocks.map(b=>({...b,...blockTimeRange(b)}));
   const timed=withRange.filter(b=>toMin(b.start)!==null).map(b=>({...b,startMin:toMin(b.start),endMin:toMin(b.end)!==null&&toMin(b.end)>toMin(b.start)?toMin(b.end):toMin(b.start)+45}));
   const untimed=withRange.filter(b=>toMin(b.start)===null);
-  // Always show a grid — default to a typical 08:00-22:00 day when there's nothing timed yet,
-  // widening automatically to fit activities that fall outside that window.
-  let startHour=8,endHour=22;
+  let startHour=defaultStartHour,endHour=defaultEndHour;
   if(timed.length){
     const earliest=Math.min(...timed.map(b=>b.startMin));
     const latest=Math.max(...timed.map(b=>b.endMin));
     startHour=Math.min(startHour,Math.max(0,Math.floor(earliest/60)-1));
     endHour=Math.max(endHour,Math.min(24,Math.ceil(latest/60)+1));
   }
+  return{timed,untimed,startHour,endHour};
+}
+// Renders just the <event> blocks (absolutely positioned) for one day's timed activities —
+// shared by both the single-day grid and each column of the week grid.
+function calRenderEvents(timed,gridStart,dayId,compact){
+  const positioned=layoutCalendarBlocks(timed);
+  return positioned.map(b=>{
+    const cat=actCategoryInfo(b.category);
+    const top=(b.startMin-gridStart)*CAL_PX_PER_MIN;
+    const height=Math.max((b.endMin-b.startMin)*CAL_PX_PER_MIN,20);
+    const widthPct=100/b.numCols;
+    const leftPct=b.col*widthPct;
+    return`<div class="itin-cal-event${compact?' compact':''}" style="top:${top}px;height:${height}px;inset-inline-start:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 6px);background:${cat.color}22;border-inline-start-color:${cat.color}" onclick="event.stopPropagation();openAddModal('day','${dayId}')" title="${esc(b.text)}">
+      <div class="itin-cal-event-time">${cat.icon} ${esc(b.start)}${!compact&&b.end?'–'+esc(b.end):''}</div>
+      ${compact?'':`<div class="itin-cal-event-title">${esc(b.text)}</div>`}
+    </div>`;
+  }).join('');
+}
+function renderDayCalendarGrid(day,blocks,cur,isHe){
+  const{timed,untimed,startHour,endHour}=calPrepareBlocks(blocks,8,22);
   const gridStart=startHour*60;
   const gridHeight=(endHour-startHour)*60*CAL_PX_PER_MIN;
-  const positioned=layoutCalendarBlocks(timed);
   let hourLines='';
   for(let h=startHour;h<=endHour;h++){
     const top=(h*60-gridStart)*CAL_PX_PER_MIN;
     hourLines+=`<div class="itin-cal-hourline" style="top:${top}px"></div><div class="itin-cal-hour-label" style="top:${top}px">${String(h).padStart(2,'0')}:00</div>`;
   }
-  const events=positioned.map(b=>{
-    const cat=actCategoryInfo(b.category);
-    const top=(b.startMin-gridStart)*CAL_PX_PER_MIN;
-    const height=Math.max((b.endMin-b.startMin)*CAL_PX_PER_MIN,22);
-    const widthPct=100/b.numCols;
-    const leftPct=b.col*widthPct;
-    return`<div class="itin-cal-event" style="top:${top}px;height:${height}px;inset-inline-start:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 6px);background:${cat.color}22;border-inline-start-color:${cat.color}" onclick="event.stopPropagation();openAddModal('day','${day.id}')" title="${esc(b.text)}">
-      <div class="itin-cal-event-time">${cat.icon} ${esc(b.start)}${b.end?'–'+esc(b.end):''}</div>
-      <div class="itin-cal-event-title">${esc(b.text)}</div>
-    </div>`;
-  }).join('');
+  const events=calRenderEvents(timed,gridStart,day.id,false);
   const hint=!timed.length?`<div style="font-size:11.5px;color:var(--textd);margin-bottom:6px">${isHe?'💡 לחץ בכל מקום על הלוח כדי להוסיף פעילות':'💡 Click anywhere on the calendar to add an activity'}</div>`:'';
   return`${hint}<div class="itin-cal" style="height:${gridHeight}px">
       <div class="itin-cal-grid" style="height:${gridHeight}px" onclick="calGridClick(event,'${day.id}',${gridStart})">${hourLines}${events}</div>
@@ -2148,6 +2213,150 @@ function calGridClickNoDay(e,gridStartMin){
   const startTime=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   openAddModal('day',null,startTime);
 }
+// ── WEEK VIEW ──
+function dateToStr(d){ return d.toISOString().split('T')[0]; }
+function renderWeekView(days,cur,isHe){
+  const byDate={};
+  days.forEach(d=>{ if(d.date){ if(!byDate[d.date])byDate[d.date]=[]; byDate[d.date].push(d); } });
+  let rangeStart=currentTrip?.start_date?new Date(currentTrip.start_date+'T00:00:00'):null;
+  let rangeEnd=currentTrip?.end_date?new Date(currentTrip.end_date+'T00:00:00'):null;
+  const datedKeys=Object.keys(byDate).sort();
+  if(datedKeys.length){
+    const first=new Date(datedKeys[0]+'T00:00:00'),last=new Date(datedKeys[datedKeys.length-1]+'T00:00:00');
+    if(!rangeStart||first<rangeStart)rangeStart=first;
+    if(!rangeEnd||last>rangeEnd)rangeEnd=last;
+  }
+  if(!rangeStart||!rangeEnd){
+    return`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${isHe?'הוסף תאריכים לימים כדי לראות תצוגת שבוע':'Add dates to your days to see the week view'}</div>`;
+  }
+  const weekStart=new Date(rangeStart); weekStart.setDate(weekStart.getDate()-weekStart.getDay());
+  const weekEnd=new Date(rangeEnd); weekEnd.setDate(weekEnd.getDate()+(6-weekEnd.getDay()));
+  const dayAbbr=isHe?['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\'']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html='';
+  let cursor=new Date(weekStart);
+  let weekCount=0;
+  while(cursor<=weekEnd&&weekCount<10){
+    const weekDates=[];
+    for(let i=0;i<7;i++){ weekDates.push(new Date(cursor)); cursor.setDate(cursor.getDate()+1); }
+    html+=renderOneWeek(weekDates,byDate,dayAbbr,cur,isHe);
+    weekCount++;
+  }
+  return html;
+}
+function renderOneWeek(weekDates,byDate,dayAbbr,cur,isHe){
+  const allBlocksThisWeek=weekDates.flatMap(d=>(byDate[dateToStr(d)]||[]).flatMap(day=>day.blocks||[]));
+  const{startHour,endHour}=calPrepareBlocks(allBlocksThisWeek,8,20);
+  const gridStart=startHour*60;
+  const gridHeight=(endHour-startHour)*60*CAL_PX_PER_MIN;
+  let hourLines='';
+  for(let h=startHour;h<=endHour;h++){
+    const top=(h*60-gridStart)*CAL_PX_PER_MIN;
+    hourLines+=`<div class="itin-cal-hourline" style="top:${top}px"></div><div class="itin-cal-hour-label" style="top:${top}px">${String(h).padStart(2,'0')}:00</div>`;
+  }
+  const weekLabel=`${weekDates[0].toLocaleDateString(isHe?'he-IL':'en-US',{month:'short',day:'numeric'})} \u2013 ${weekDates[6].toLocaleDateString(isHe?'he-IL':'en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+  const today=dateToStr(new Date());
+  const cols=weekDates.map((d,i)=>{
+    const dstr=dateToStr(d);
+    const daysHere=byDate[dstr]||[];
+    const blocksHere=daysHere.flatMap(day=>day.blocks||[]);
+    const{timed}=calPrepareBlocks(blocksHere,startHour,endHour);
+    const primaryDayId=daysHere[0]?.id||'';
+    const events=primaryDayId?calRenderEvents(timed,gridStart,primaryDayId,true):'';
+    const isToday=dstr===today;
+    return`<div class="itin-week-col${isToday?' today':''}" style="height:${gridHeight}px" onclick="weekColClick(event,'${primaryDayId}','${dstr}',${gridStart})">
+      ${events}
+    </div>`;
+  }).join('');
+  const headers=weekDates.map((d,i)=>{
+    const dstr=dateToStr(d);
+    const isToday=dstr===today;
+    const hasDay=!!byDate[dstr];
+    return`<div class="itin-week-col-header${isToday?' today':''}">
+      <div class="itin-week-dow">${dayAbbr[i]}</div>
+      <div class="itin-week-daynum">${d.getDate()}</div>
+      ${hasDay?`<div class="itin-week-dot"></div>`:''}
+    </div>`;
+  }).join('');
+  return`<div class="itin-week">
+    <div class="itin-week-label">📅 ${weekLabel}</div>
+    <div class="itin-week-headers"><div class="itin-week-hourgutter"></div>${headers}</div>
+    <div class="itin-week-body">
+      <div class="itin-week-hourcol" style="height:${gridHeight}px">${hourLines}</div>
+      <div class="itin-week-cols">${cols}</div>
+    </div>
+  </div>`;
+}
+function weekColClick(e,dayId,dateStr,gridStartMin){
+  if(e.target.closest('.itin-cal-event'))return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const y=e.clientY-rect.top;
+  let totalMin=gridStartMin+(y/CAL_PX_PER_MIN);
+  totalMin=Math.round(totalMin/15)*15;
+  totalMin=Math.max(0,Math.min(24*60-15,totalMin));
+  const h=Math.floor(totalMin/60),m=totalMin%60;
+  const startTime=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  openAddModal('day',dayId||null,startTime,dayId?null:dateStr);
+}
+
+// ── MONTH VIEW ──
+function renderMonthView(days,cur,isHe){
+  const byDate={};
+  days.forEach(d=>{ if(d.date){ if(!byDate[d.date])byDate[d.date]=[]; byDate[d.date].push(d); } });
+  let rangeStart=currentTrip?.start_date?new Date(currentTrip.start_date+'T00:00:00'):null;
+  let rangeEnd=currentTrip?.end_date?new Date(currentTrip.end_date+'T00:00:00'):null;
+  const datedKeys=Object.keys(byDate).sort();
+  if(datedKeys.length){
+    const first=new Date(datedKeys[0]+'T00:00:00'),last=new Date(datedKeys[datedKeys.length-1]+'T00:00:00');
+    if(!rangeStart||first<rangeStart)rangeStart=first;
+    if(!rangeEnd||last>rangeEnd)rangeEnd=last;
+  }
+  if(!rangeStart||!rangeEnd){
+    return`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${isHe?'הוסף תאריכים לימים כדי לראות תצוגת חודש':'Add dates to your days to see the month view'}</div>`;
+  }
+  const dayAbbr=isHe?['א','ב','ג','ד','ה','ו','ש']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const today=dateToStr(new Date());
+  let html='';
+  let monthCursor=new Date(rangeStart.getFullYear(),rangeStart.getMonth(),1);
+  const lastMonth=new Date(rangeEnd.getFullYear(),rangeEnd.getMonth(),1);
+  let monthCount=0;
+  while(monthCursor<=lastMonth&&monthCount<4){
+    const y=monthCursor.getFullYear(),m=monthCursor.getMonth();
+    const monthLabel=monthCursor.toLocaleDateString(isHe?'he-IL':'en-US',{month:'long',year:'numeric'});
+    const firstOfMonth=new Date(y,m,1);
+    const gridStartDate=new Date(firstOfMonth); gridStartDate.setDate(gridStartDate.getDate()-firstOfMonth.getDay());
+    let cells='';
+    for(let i=0;i<42;i++){
+      const cellDate=new Date(gridStartDate); cellDate.setDate(cellDate.getDate()+i);
+      const cellStr=dateToStr(cellDate);
+      const inMonth=cellDate.getMonth()===m;
+      const inTripRange=cellDate>=rangeStart&&cellDate<=rangeEnd;
+      const dayHere=byDate[cellStr]?.[0];
+      const blocksCount=(byDate[cellStr]||[]).reduce((s,d)=>s+(d.blocks?.length||0),0);
+      const isToday=cellStr===today;
+      cells+=`<div class="itin-month-cell${inMonth?'':' outside'}${isToday?' today':''}${inTripRange?' in-range':''}" onclick="monthCellClick('${cellStr}','${dayHere?.id||''}')">
+        <div class="itin-month-daynum">${cellDate.getDate()}</div>
+        ${dayHere?`<div class="itin-month-daytitle">${esc(dayHere.title||'')}</div>`:''}
+        ${blocksCount?`<div class="itin-month-count">${blocksCount} ${isHe?'פעילויות':blocksCount===1?'activity':'activities'}</div>`:''}
+      </div>`;
+      if(i%42===41)break;
+    }
+    html+=`<div class="itin-month">
+      <div class="itin-week-label">🗓️ ${monthLabel}</div>
+      <div class="itin-month-grid">
+        ${dayAbbr.map(d=>`<div class="itin-month-dow">${d}</div>`).join('')}
+        ${cells}
+      </div>
+    </div>`;
+    monthCursor=new Date(y,m+1,1);
+    monthCount++;
+  }
+  return html;
+}
+function monthCellClick(dateStr,dayId){
+  if(dayId){ openAddModal('day',dayId); }
+  else { openAddModal('day',null,null,dateStr); }
+}
+
 function renderUnscheduledList(untimed,day,cur,isHe){
   if(!untimed.length)return'';
   return`<div class="itin-cal-unscheduled">
@@ -2879,7 +3088,7 @@ function saveEm(key,val){if(!tripData.emergency)tripData.emergency={};tripData.e
 // ── ADD MODALS ──
 let editingFlightId=null;
 let editingDayId=null;
-function openAddModal(type,editId,prefillTime){
+function openAddModal(type,editId,prefillTime,prefillDate){
   editingFlightId=null;
   editingDayId=null;
   let editData=null;
@@ -2909,6 +3118,17 @@ function openAddModal(type,editId,prefillTime){
   modal.classList.add('show');
   if(type==='day'){
     updateActDuration(); renderActList();
+    if(prefillDate){
+      const dateEl=document.getElementById('dy-date');
+      if(dateEl&&!dateEl.value)dateEl.value=prefillDate;
+      if(!editId){
+        const numEl=document.getElementById('dy-num');
+        if(numEl&&!numEl.value){
+          const maxNum=Math.max(0,...(tripData.days||[]).map(d=>d.num||0));
+          numEl.value=maxNum+1;
+        }
+      }
+    }
     if(prefillTime){
       const startEl=document.getElementById('act-start');
       const endEl=document.getElementById('act-end');
@@ -2920,6 +3140,8 @@ function openAddModal(type,editId,prefillTime){
         updateActDuration();
       }
       document.getElementById('act-text')?.focus();
+    } else if(prefillDate){
+      document.getElementById('dy-title')?.focus();
     }
   }
   if(type==='flight'){
