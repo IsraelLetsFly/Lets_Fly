@@ -1754,6 +1754,7 @@ function renderFlights(){
       const connectorAbove=i>0?`<div class="fl-connection">🔄 <strong>${isHe?'חיבור ב-':'Connection at '}${esc(leg.from||'?')}</strong>${legs[i-1]?.arrTimeISO&&leg.depTimeISO?` · ${esc(legs[i-1].arrTimeISO.split('T')[1]||'')} → ${esc(leg.depTimeISO.split('T')[1]||'')}`:''}</div>`:'';
       const rows=[
         leg.flightNum||leg.airline?`<div class="item-row"><span class="item-lbl">${isHe?'טיסה':'Flight'}</span><span class="item-val-mono">${esc(leg.flightNum||'')} ${leg.airline?'· '+esc(leg.airline):''}</span></div>`:'',
+        leg.flightNum?`<div class="item-row"><span class="item-lbl"></span><a href="${flightTrackerUrl(leg.flightNum)}" target="_blank" rel="noopener" style="font-size:11.5px;color:var(--accent);text-decoration:none" onclick="event.stopPropagation()">🔴 ${isHe?'בדוק סטטוס חי / עיכובים':'Check live status / delays'}</a></div>`:'',
         leg.aircraft?`<div class="item-row"><span class="item-lbl">${isHe?'מטוס':'Aircraft'}</span><span class="item-val">${esc(leg.aircraft)}</span></div>`:'',
         (leg.depTerminal||leg.arrTerminal)?`<div class="item-row"><span class="item-lbl">${isHe?'טרמינלים':'Terminals'}</span><span class="item-val">${leg.depTerminal?esc(leg.depTerminal):'—'} → ${leg.arrTerminal?esc(leg.arrTerminal):'—'}</span></div>`:'',
         leg.seats?`<div class="item-row"><span class="item-lbl">${isHe?'מושבים':'Seats'}</span><span class="item-val">${esc(leg.seats)}</span></div>`:'',
@@ -1908,6 +1909,14 @@ function renderItinerary(){
   // ── Wishlist (places to visit, not yet scheduled) ──
   html+=`<div class="wish-card">
     <div class="card-title" style="border:none;padding:0;margin-bottom:10px"><div class="card-title-left">💡 ${isHe?'רעיונות לביקור':'Places to Visit'}</div></div>
+    <div style="background:var(--bg3);border-radius:var(--rsm);padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--textm);margin-bottom:8px">✨ ${isHe?'גלה מקומות מומלצים':'Discover places to visit'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input class="inp" id="discover-city" placeholder="${isHe?'עיר':'City'}" value="${esc(currentTrip?.destination||'')}" style="flex:1;min-width:140px" onkeydown="if(event.key==='Enter'){event.preventDefault();discoverPlaces()}">
+        <button class="btn btn-outline btn-sm" onclick="discoverPlaces()">🔍 ${isHe?'חפש':'Find Places'}</button>
+      </div>
+      <div id="discover-results" style="margin-top:10px"></div>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <input class="inp" id="wish-text" placeholder="${isHe?'לדוגמה: שוק הפרחים':'e.g. Flower market'}" style="flex:1;min-width:160px" onkeydown="if(event.key==='Enter'){event.preventDefault();addWishlistItem()}">
       <select class="inp" id="wish-category" style="width:auto">
@@ -1934,7 +1943,7 @@ function renderItinerary(){
   if(!days.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noItinerary')}</div>`;
 
   days.forEach(day=>{
-    const blocks=(day.blocks||[]).slice().sort((a,b)=>{
+    const blocks=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)})).sort((a,b)=>{
       if(!a.start&&!b.start)return 0;
       if(!a.start)return 1;
       if(!b.start)return -1;
@@ -2047,10 +2056,23 @@ function layoutCalendarBlocks(blocks){
   return positioned;
 }
 const CAL_PX_PER_MIN=1.15;
+// Backward-compat: older saved activities only have a combined "10:00–12:00" time string,
+// not separate start/end fields. Derive start/end from whichever is available.
+function blockTimeRange(b){
+  if(b.start)return{start:b.start,end:b.end||''};
+  if(b.time){
+    const parts=b.time.split(/[\u2013\u2012-]/).map(s=>s.trim());
+    if(parts.length>=1&&/^\d{1,2}:\d{2}$/.test(parts[0])){
+      return{start:parts[0],end:(parts[1]&&/^\d{1,2}:\d{2}$/.test(parts[1]))?parts[1]:''};
+    }
+  }
+  return{start:'',end:''};
+}
 function renderDayCalendarGrid(day,blocks,cur,isHe){
   const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
-  const timed=blocks.filter(b=>toMin(b.start)!==null).map(b=>({...b,startMin:toMin(b.start),endMin:toMin(b.end)!==null&&toMin(b.end)>toMin(b.start)?toMin(b.end):toMin(b.start)+45}));
-  const untimed=blocks.filter(b=>toMin(b.start)===null);
+  const withRange=blocks.map(b=>({...b,...blockTimeRange(b)}));
+  const timed=withRange.filter(b=>toMin(b.start)!==null).map(b=>({...b,startMin:toMin(b.start),endMin:toMin(b.end)!==null&&toMin(b.end)>toMin(b.start)?toMin(b.end):toMin(b.start)+45}));
+  const untimed=withRange.filter(b=>toMin(b.start)===null);
   if(!timed.length){
     return`<div style="font-size:12px;color:var(--textd);padding:10px 0">${isHe?'אין פעילויות עם שעה מוגדרת להצגה בלוח השנה':'No timed activities yet to show on the calendar'}</div>`
       +renderUnscheduledList(untimed,day,cur,isHe);
@@ -2257,6 +2279,57 @@ function renderWeatherInto(el,data){
 }
 
 // ── WISHLIST (places to visit, not yet scheduled to a specific day) ──
+// ── PLACE SUGGESTIONS (OpenStreetMap Overpass API — free, no key required) ──
+const OSM_TOURISM_TO_CATEGORY={attraction:'sightseeing',museum:'sightseeing',gallery:'sightseeing',
+  viewpoint:'outdoor',zoo:'outdoor',theme_park:'outdoor',artwork:'sightseeing',historic:'sightseeing'};
+async function discoverPlaces(){
+  const cityInput=document.getElementById('discover-city');
+  const city=cityInput?.value.trim();
+  const resultsEl=document.getElementById('discover-results');
+  if(!city||!resultsEl)return;
+  const isHe=lang==='he';
+  resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textm)">⏳ ${isHe?'מחפש מקומות מעניינים...':'Searching for places...'}</div>`;
+  try{
+    const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+    const geo=await geoRes.json();
+    const loc=geo?.results?.[0];
+    if(!loc){ resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצא מיקום עבור':'Couldn\u2019t find a location for'} "${esc(city)}"</div>`; return; }
+    const q=`[out:json][timeout:20];(node["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:6000,${loc.latitude},${loc.longitude});way["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:6000,${loc.latitude},${loc.longitude});node["historic"](around:6000,${loc.latitude},${loc.longitude}););out center 60;`;
+    const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+    const data=await res.json();
+    const seen=new Set();
+    const places=[];
+    (data.elements||[]).forEach(el=>{
+      const name=el.tags?.name;
+      if(!name||seen.has(name))return;
+      seen.add(name);
+      const osmType=el.tags?.tourism||(el.tags?.historic?'historic':'attraction');
+      places.push({name,osmType});
+    });
+    if(!places.length){ resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצאו מקומות מומלצים בקרבת מקום':'No suggested places found nearby'}</div>`; return; }
+    lastDiscoveredPlaces=places.slice(0,15);
+    resultsEl.innerHTML=lastDiscoveredPlaces.map((p,i)=>{
+      const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
+      return`<div class="wish-item">
+        <span>${cat.icon}</span>
+        <div class="wish-item-body"><div class="wish-item-text">${esc(p.name)}</div></div>
+        <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="addSuggestedPlace(${i})">+ ${isHe?'הוסף לרשימה':'Add'}</button>
+      </div>`;
+    }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:6px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap</div>`;
+  }catch(e){
+    resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא ניתן לטעון הצעות כרגע':'Couldn\u2019t load suggestions right now'}</div>`;
+  }
+}
+let lastDiscoveredPlaces=[];
+function addSuggestedPlace(i){
+  const p=lastDiscoveredPlaces[i];
+  if(!p)return;
+  if(!tripData.wishlist)tripData.wishlist=[];
+  const cat=OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing';
+  tripData.wishlist.push({id:uid(),text:p.name,category:cat,city:currentTrip?.destination||''});
+  saveData();renderSec('itinerary');
+  toast('✅ '+(lang==='he'?'נוסף לרעיונות':'Added to wishlist'));
+}
 function addWishlistItem(){
   const input=document.getElementById('wish-text');
   const catSel=document.getElementById('wish-category');
@@ -3310,6 +3383,42 @@ const AIRPORT_TZ={
   GRU:'America/Sao_Paulo',GIG:'America/Sao_Paulo',EZE:'America/Argentina/Buenos_Aires',
   SCL:'America/Santiago',BOG:'America/Bogota',LIM:'America/Lima',
 };
+// IATA 2-letter airline code -> airline name (covers major/common carriers; used to
+// auto-fill the Airline field from a flight number like "LY083" -> "El Al")
+const AIRLINE_CODES={
+  LY:'El Al',IZ:'Arkia','6H':'Israir',
+  AA:'American Airlines',DL:'Delta Air Lines',UA:'United Airlines',WN:'Southwest Airlines',
+  AS:'Alaska Airlines',B6:'JetBlue',NK:'Spirit Airlines',F9:'Frontier Airlines',
+  AC:'Air Canada',WS:'WestJet',AM:'Aerom\u00e9xico',
+  BA:'British Airways',VS:'Virgin Atlantic',EI:'Aer Lingus',FR:'Ryanair',U2:'easyJet',
+  W6:'Wizz Air',VY:'Vueling',
+  AF:'Air France',KL:'KLM',LH:'Lufthansa',LX:'SWISS',OS:'Austrian Airlines',SN:'Brussels Airlines',
+  IB:'Iberia',TP:'TAP Air Portugal',AZ:'ITA Airways',A3:'Aegean Airlines',
+  SK:'SAS',AY:'Finnair',DY:'Norwegian',LO:'LOT Polish Airlines',OK:'Czech Airlines',
+  TK:'Turkish Airlines',PC:'Pegasus Airlines',SU:'Aeroflot',
+  MS:'EgyptAir',RJ:'Royal Jordanian',ME:'Middle East Airlines',
+  EK:'Emirates',EY:'Etihad Airways',QR:'Qatar Airways',SV:'Saudia',GF:'Gulf Air',
+  FZ:'flydubai',G9:'Air Arabia',WY:'Oman Air',
+  AI:'Air India',UK:'Vistara',SG:'SpiceJet',IX:'Air India Express',
+  TG:'Thai Airways',SQ:'Singapore Airlines',MH:'Malaysia Airlines',GA:'Garuda Indonesia',
+  QZ:'AirAsia',VN:'Vietnam Airlines',PR:'Philippine Airlines',CX:'Cathay Pacific',
+  CI:'China Airlines',BR:'EVA Air',KE:'Korean Air',OZ:'Asiana Airlines',
+  NH:'ANA',JL:'Japan Airlines',MU:'China Eastern',CA:'Air China',CZ:'China Southern',
+  QF:'Qantas',JQ:'Jetstar',NZ:'Air New Zealand',VA:'Virgin Australia',
+  ET:'Ethiopian Airlines',KQ:'Kenya Airways',SA:'South African Airways',MN:'Kulula',
+  LA:'LATAM Airlines',AV:'Avianca',CM:'Copa Airlines',AR:'Aerolíneas Argentinas',
+};
+// Best-effort airline name from a flight number's leading IATA code (e.g. "LY 083" -> "El Al")
+function airlineFromFlightNum(flightNum){
+  if(!flightNum)return'';
+  const m=flightNum.trim().toUpperCase().match(/^([A-Z0-9]{2})\s?\d/);
+  return m?AIRLINE_CODES[m[1]]||'':'';
+}
+// FlightRadar24's public flight-number search page — no API key needed, shows live status/delays
+function flightTrackerUrl(flightNum){
+  const code=(flightNum||'').replace(/\s+/g,'').toUpperCase();
+  return code?`https://www.flightradar24.com/data/flights/${encodeURIComponent(code)}`:'';
+}
 // UTC offset in minutes for a timezone at a given date (handles DST correctly per-date)
 // City name for a known airport code (falls back to the code itself if unrecognized)
 function airportCity(code){
@@ -3521,7 +3630,7 @@ function flightLegBlockHTML(leg,idx,isHe){
       <div class="field"><div class="field-label">${t('arrival')}</div><input class="inp fl-leg-arr" type="datetime-local" value="${esc(leg.arrTimeISO||'')}"></div>
     </div>
     <div class="grid2">
-      <div class="field"><div class="field-label">${t('flightNum')}</div><input class="inp fl-leg-num" value="${esc(leg.flightNum||'')}" placeholder="EK 371"></div>
+      <div class="field"><div class="field-label">${t('flightNum')}</div><input class="inp fl-leg-num" value="${esc(leg.flightNum||'')}" placeholder="EK 371" oninput="const al=this.closest('.fl-leg-block').querySelector('.fl-leg-airline'); if(!al.value.trim()){ const g=airlineFromFlightNum(this.value); if(g) al.value=g; }"></div>
       <div class="field"><div class="field-label">${t('airline')}</div><input class="inp fl-leg-airline" value="${esc(leg.airline||'')}" placeholder="Emirates"></div>
     </div>
     <div class="fl-leg-more-toggle" onclick="this.nextElementSibling.classList.toggle('show');this.textContent=this.nextElementSibling.classList.contains('show')?'▲ ${isHe?'פחות פרטים':'Fewer details'}':'▼ ${isHe?'עוד פרטים (טרמינל, מטוס, מושבים...)':'More details (terminal, aircraft, seats...)'}'">${hasMore?`▲ ${isHe?'פחות פרטים':'Fewer details'}`:`▼ ${isHe?'עוד פרטים (טרמינל, מטוס, מושבים...)':'More details (terminal, aircraft, seats...)'}`}</div>
