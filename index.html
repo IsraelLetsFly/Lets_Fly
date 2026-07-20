@@ -3235,6 +3235,49 @@ let tripMapMarkerLayer=null;
 let tempSearchMarker=null;
 let mapSearchResultsCache=[];
 let tempPlaceLat=null,tempPlaceLon=null,tempPlaceAddress='';
+let tripMapAnchor=null; // {lat, lon, label, precise} — cached so map center / suggestions / search bias all agree
+let tripMapAnchorPromise=null;
+
+// Geocode a free-text query via Nominatim. Returns {lat,lon,label} or null (never throws).
+async function geocodeQuery(q){
+  if(!q||!q.trim())return null;
+  try{
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+    const data=await res.json();
+    if(data?.[0])return{lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon),label:q};
+  }catch(e){/* network/CORS failure — treat as "not found" */}
+  return null;
+}
+// Resolves where this trip is "anchored" for map centering and nearby-attraction search,
+// trying several fallbacks in order of precision so one bad/unmatched query doesn't sink the
+// whole feature. Result is cached (tripMapAnchor) so map init / suggestions / search bias reuse
+// the same lookup instead of racing separate geocoding calls against each other.
+async function resolveTripAnchor(force){
+  if(tripMapAnchor&&!force)return tripMapAnchor;
+  if(tripMapAnchorPromise&&!force)return tripMapAnchorPromise;
+  tripMapAnchorPromise=(async()=>{
+    const hotel=(tripData.hotels||[])[0];
+    const candidates=[];
+    if(hotel?.name){
+      candidates.push({q:`${hotel.name}${hotel.dest?', '+hotel.dest:''}`,label:hotel.name,precise:true});
+      if(hotel.dest)candidates.push({q:hotel.name,label:hotel.name,precise:true}); // hotel name alone, in case the ", city" suffix confused matching
+      if(hotel.dest)candidates.push({q:hotel.dest,label:hotel.dest,precise:false}); // fall back to the hotel's own city if the exact hotel can't be found
+    }
+    const nextFlight=nextUpcomingFlight();
+    const flightCity=nextFlight?airportCity(flightTo(nextFlight)):'';
+    if(flightCity)candidates.push({q:flightCity,label:flightCity,precise:false});
+    if(currentTrip?.destination)candidates.push({q:currentTrip.destination,label:currentTrip.destination,precise:false});
+    for(const c of candidates){
+      const loc=await geocodeQuery(c.q);
+      if(loc){ tripMapAnchor={lat:loc.lat,lon:loc.lon,label:c.label,precise:c.precise}; return tripMapAnchor; }
+    }
+    tripMapAnchor=null;
+    return null;
+  })();
+  const result=await tripMapAnchorPromise;
+  tripMapAnchorPromise=null;
+  return result;
+}
 
 function renderMapPage(){
   const isHe=lang==='he';
@@ -3282,15 +3325,8 @@ async function initTripMap(){
   const container=document.getElementById('trip-map');
   if(!container||typeof L==='undefined')return;
   let center=[20,10],zoom=2;
-  const destName=currentTrip?.destination;
-  if(destName){
-    try{
-      const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destName)}&count=1`);
-      const geo=await geoRes.json();
-      const loc=geo?.results?.[0];
-      if(loc){ center=[loc.latitude,loc.longitude]; zoom=12; }
-    }catch(e){/* fall back to world view */}
-  }
+  const anchor=await resolveTripAnchor();
+  if(anchor){ center=[anchor.lat,anchor.lon]; zoom=anchor.precise?14:12; }
   if(tripMapInstance){ tripMapInstance.remove(); tripMapInstance=null; }
   tripMapInstance=L.map(container).setView(center,zoom);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -3325,47 +3361,39 @@ function flyToSavedPlace(id){
 let suggestedAttractionsLayer=null;
 let lastSuggestedAttractions=[];
 let suggestedAttractionsRequestId=0;
-async function loadSuggestedAttractions(){
+async function loadSuggestedAttractions(manualQuery){
   const myRequestId=++suggestedAttractionsRequestId;
   const container=document.getElementById('suggested-attractions');
   if(!container)return;
   const isHe=lang==='he';
   container.innerHTML=`<div class="map-search-status">⏳ ${isHe?'מחפש אטרקציות מומלצות...':'Finding suggested attractions...'}</div>`;
-  let anchorLat=null,anchorLon=null,anchorLabel='',anchoredToHotel=false;
   try{
-    // Prefer the hotel's exact location — most precise, and most relevant to what's walkable/nearby
-    const hotel=(tripData.hotels||[])[0];
-    if(hotel?.name){
-      const q=`${hotel.name}${hotel.dest?', '+hotel.dest:''}`;
-      const geoRes=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
-      const geo=await geoRes.json();
-      if(geo?.[0]){ anchorLat=parseFloat(geo[0].lat); anchorLon=parseFloat(geo[0].lon); anchorLabel=hotel.name; anchoredToHotel=true; }
-    }
-    // Fall back to the destination city of the next upcoming flight, then the trip's destination field
-    if(anchorLat===null){
-      const nextFlight=nextUpcomingFlight();
-      const cityName=nextFlight?airportCity(flightTo(nextFlight)):(currentTrip?.destination||'');
-      if(cityName){
-        const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1`);
-        const geo=await geoRes.json();
-        const loc=geo?.results?.[0];
-        if(loc){ anchorLat=loc.latitude; anchorLon=loc.longitude; anchorLabel=cityName; }
-      }
+    let anchor;
+    if(manualQuery){
+      const loc=await geocodeQuery(manualQuery);
+      anchor=loc?{lat:loc.lat,lon:loc.lon,label:manualQuery,precise:true}:null;
+    }else{
+      anchor=await resolveTripAnchor();
     }
     if(myRequestId!==suggestedAttractionsRequestId)return; // a newer call has since started — discard this stale result
-    if(anchorLat===null){
-      container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'הוסף מלון או טיסה כדי לקבל הצעות מותאמות':'Add a hotel or flight to get tailored suggestions'}</div>`;
+    if(!anchor){
+      const hasHotelOrFlight=(tripData.hotels||[]).length||(tripData.flights||[]).length||currentTrip?.destination;
+      container.innerHTML=`<div style="font-size:12px;color:var(--textd);margin-bottom:8px">${
+        hasHotelOrFlight
+          ?(isHe?'לא הצלחנו לאתר את המלון/היעד שלך במפות. נסה לחפש מיקום ידנית:':'We couldn\u2019t locate your hotel/destination on the map. Try searching for a location manually:')
+          :(isHe?'הוסף מלון או טיסה לקבלת הצעות, או חפש מיקום ידנית:':'Add a hotel or flight for tailored suggestions, or search a location manually:')
+      }</div>${suggestedAttractionsManualSearchHTML(isHe)}`;
       return;
     }
-    const radiusM=anchoredToHotel?2500:6000; // tighter radius when anchored to a hotel
-    const places=await fetchNearbyAttractions(anchorLat,anchorLon,radiusM);
+    const radiusM=anchor.precise?2500:6000; // tighter radius when anchored to an exact place, wider for a whole city
+    const places=await fetchNearbyAttractions(anchor.lat,anchor.lon,radiusM);
     if(myRequestId!==suggestedAttractionsRequestId)return; // stale — a newer call superseded this one
     if(!places.length){
-      container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצאו אטרקציות בקרבת':'No attractions found near'} ${esc(anchorLabel)}</div>`;
+      container.innerHTML=`<div style="font-size:12px;color:var(--textd);margin-bottom:8px">${isHe?'לא נמצאו אטרקציות בקרבת':'No attractions found near'} ${esc(anchor.label)}</div>${suggestedAttractionsManualSearchHTML(isHe)}`;
       return;
     }
     lastSuggestedAttractions=places.slice(0,20);
-    container.innerHTML=`<div style="font-size:11px;color:var(--textm);margin-bottom:8px">📍 ${isHe?'בקרבת':'Near'} ${esc(anchorLabel)}</div>`+
+    container.innerHTML=`<div style="font-size:11px;color:var(--textm);margin-bottom:8px">📍 ${isHe?'בקרבת':'Near'} ${esc(anchor.label)}</div>`+
       lastSuggestedAttractions.map((p,i)=>{
         const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
         return`<div class="wish-item">
@@ -3374,12 +3402,22 @@ async function loadSuggestedAttractions(){
           <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="addSuggestedAttractionToWishlist(${i})" title="${isHe?'הוסף לרעיונות ליום':'Add to trip wishlist'}">💡</button>
           <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור למפה':'Save to map'}">📌</button>
         </div>`;
-      }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:6px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap</div>`;
+      }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap · <span style="cursor:pointer;text-decoration:underline" onclick="toggleSuggestedManualSearch()">${isHe?'חפש אזור אחר':'search a different area'}</span></div><div id="suggested-manual-search" style="display:none;margin-top:8px">${suggestedAttractionsManualSearchHTML(isHe)}</div>`;
     plotSuggestedAttractionsOnMap();
   }catch(e){
     if(myRequestId!==suggestedAttractionsRequestId)return; // stale — don't clobber a newer, successful result
-    container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא ניתן לטעון הצעות כרגע':'Couldn\u2019t load suggestions right now'}</div>`;
+    container.innerHTML=`<div style="font-size:12px;color:var(--textd);margin-bottom:8px">${isHe?'לא ניתן לטעון הצעות כרגע':'Couldn\u2019t load suggestions right now'}</div>${suggestedAttractionsManualSearchHTML(isHe)}`;
   }
+}
+function suggestedAttractionsManualSearchHTML(isHe){
+  return`<div style="display:flex;gap:8px;flex-wrap:wrap">
+    <input class="inp" id="suggested-manual-input" placeholder="${isHe?'לדוגמה: שם המלון, או שם העיר':'e.g. hotel name, or city name'}" style="flex:1;min-width:140px" onkeydown="if(event.key==='Enter'){event.preventDefault();loadSuggestedAttractions(this.value.trim())}">
+    <button class="btn btn-outline btn-sm" onclick="loadSuggestedAttractions(document.getElementById('suggested-manual-input').value.trim())">🔍 ${isHe?'חפש':'Search'}</button>
+  </div>`;
+}
+function toggleSuggestedManualSearch(){
+  const el=document.getElementById('suggested-manual-search');
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
 }
 function plotSuggestedAttractionsOnMap(){
   if(!tripMapInstance||!suggestedAttractionsLayer)return;
@@ -3427,8 +3465,13 @@ async function doMapSearch(q){
   resultsEl.classList.add('show');
   resultsEl.innerHTML=`<div class="map-search-status">⏳ ${isHe?'מחפש...':'Searching...'}</div>`;
   try{
-    const bias=currentTrip?.destination?`&viewbox=&bounded=0`:'';
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6`);
+    const anchor=await resolveTripAnchor();
+    let biasParams='';
+    if(anchor){
+      const d=0.6; // roughly a 60-70km soft-bias box around the trip's hotel/destination
+      biasParams=`&viewbox=${anchor.lon-d},${anchor.lat+d},${anchor.lon+d},${anchor.lat-d}&bounded=0`;
+    }
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=8${biasParams}`);
     const data=await res.json();
     if(!data||!data.length){ resultsEl.innerHTML=`<div class="map-search-status">${isHe?'לא נמצאו תוצאות':'No results found'}</div>`; return; }
     mapSearchResultsCache=data;
