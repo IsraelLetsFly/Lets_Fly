@@ -1940,7 +1940,23 @@ function renderItinerary(){
     }).join(''):`<div style="font-size:12px;color:var(--textd)">${isHe?'הוסף רעיונות לביקור ותזמן אותם ליום מאוחר יותר':'Add ideas here and schedule them into a day later'}</div>`}
   </div>`;
 
-  if(!days.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noItinerary')}</div>`;
+  if(!days.length){
+    if(itinViewMode==='calendar'){
+      let hourLines='';
+      for(let h=8;h<=22;h++){
+        const top=(h-8)*60*CAL_PX_PER_MIN;
+        hourLines+=`<div class="itin-cal-hourline" style="top:${top}px"></div><div class="itin-cal-hour-label" style="top:${top}px">${String(h).padStart(2,'0')}:00</div>`;
+      }
+      const gridHeight=(22-8)*60*CAL_PX_PER_MIN;
+      return html+`<div class="card">
+        <div style="font-size:12px;color:var(--textm);margin-bottom:10px">💡 ${isHe?'לחץ בכל מקום על הלוח כדי להוסיף את היום הראשון שלך':'Click anywhere on the calendar to add your first day'}</div>
+        <div class="itin-cal" style="height:${gridHeight}px">
+          <div class="itin-cal-grid" style="height:${gridHeight}px" onclick="calGridClickNoDay(event,480)">${hourLines}</div>
+        </div>
+      </div>`;
+    }
+    return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noItinerary')}</div>`;
+  }
 
   days.forEach(day=>{
     const blocks=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)})).sort((a,b)=>{
@@ -2118,6 +2134,19 @@ function calGridClick(e,dayId,gridStartMin){
   const h=Math.floor(totalMin/60),m=totalMin%60;
   const startTime=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   openAddModal('day',dayId,startTime);
+}
+// Same idea, but for the illustrative placeholder grid shown when no day exists yet —
+// opens the Add Day form (day num/date/title still need filling in) with the activity's
+// start time already pre-filled from where they clicked.
+function calGridClickNoDay(e,gridStartMin){
+  const rect=e.currentTarget.getBoundingClientRect();
+  const y=e.clientY-rect.top;
+  let totalMin=gridStartMin+(y/CAL_PX_PER_MIN);
+  totalMin=Math.round(totalMin/15)*15;
+  totalMin=Math.max(0,Math.min(24*60-15,totalMin));
+  const h=Math.floor(totalMin/60),m=totalMin%60;
+  const startTime=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  openAddModal('day',null,startTime);
 }
 function renderUnscheduledList(untimed,day,cur,isHe){
   if(!untimed.length)return'';
