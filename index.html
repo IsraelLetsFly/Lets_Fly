@@ -1105,7 +1105,7 @@ function renderSec(sec){
     case 'flights':   el.innerHTML=renderFlights();break;
     case 'hotels':    el.innerHTML=renderHotels();break;
     case 'itinerary': el.innerHTML=renderItinerary();loadItineraryWeather();break;
-    case 'map':       el.innerHTML=renderMapPage();initTripMap();break;
+    case 'map':       el.innerHTML=renderMapPage();initTripMap();loadSuggestedAttractions();break;
     case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();break;
     case 'currency':  el.innerHTML=renderCurrency();fetchRates();break;
     case 'transport': el.innerHTML=renderTransport();break;
@@ -2616,6 +2616,26 @@ function renderWeatherInto(el,data){
 // ── PLACE SUGGESTIONS (OpenStreetMap Overpass API — free, no key required) ──
 const OSM_TOURISM_TO_CATEGORY={attraction:'sightseeing',museum:'sightseeing',gallery:'sightseeing',
   viewpoint:'outdoor',zoo:'outdoor',theme_park:'outdoor',artwork:'sightseeing',historic:'sightseeing'};
+// Shared Overpass query: named tourist attractions/museums/historic sites within radiusM of a point.
+// Captures lat/lon (node coords, or the "center" Overpass computes for way/area results) so callers
+// can plot results on a map, not just list them.
+async function fetchNearbyAttractions(lat,lon,radiusM){
+  const q=`[out:json][timeout:20];(node["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});way["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});node["historic"](around:${radiusM},${lat},${lon}););out center 60;`;
+  const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+  const data=await res.json();
+  const seen=new Set();
+  const places=[];
+  (data.elements||[]).forEach(el=>{
+    const name=el.tags?.name;
+    if(!name||seen.has(name))return;
+    seen.add(name);
+    const osmType=el.tags?.tourism||(el.tags?.historic?'historic':'attraction');
+    const plat=el.lat??el.center?.lat??null;
+    const plon=el.lon??el.center?.lon??null;
+    places.push({name,osmType,lat:plat,lon:plon});
+  });
+  return places;
+}
 async function discoverPlaces(){
   const cityInput=document.getElementById('discover-city');
   const city=cityInput?.value.trim();
@@ -2628,18 +2648,7 @@ async function discoverPlaces(){
     const geo=await geoRes.json();
     const loc=geo?.results?.[0];
     if(!loc){ resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצא מיקום עבור':'Couldn\u2019t find a location for'} "${esc(city)}"</div>`; return; }
-    const q=`[out:json][timeout:20];(node["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:6000,${loc.latitude},${loc.longitude});way["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:6000,${loc.latitude},${loc.longitude});node["historic"](around:6000,${loc.latitude},${loc.longitude}););out center 60;`;
-    const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
-    const data=await res.json();
-    const seen=new Set();
-    const places=[];
-    (data.elements||[]).forEach(el=>{
-      const name=el.tags?.name;
-      if(!name||seen.has(name))return;
-      seen.add(name);
-      const osmType=el.tags?.tourism||(el.tags?.historic?'historic':'attraction');
-      places.push({name,osmType});
-    });
+    const places=await fetchNearbyAttractions(loc.latitude,loc.longitude,6000);
     if(!places.length){ resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצאו מקומות מומלצים בקרבת מקום':'No suggested places found nearby'}</div>`; return; }
     lastDiscoveredPlaces=places.slice(0,15);
     resultsEl.innerHTML=lastDiscoveredPlaces.map((p,i)=>{
@@ -3239,6 +3248,10 @@ function renderMapPage(){
   </div>
   <div id="trip-map" class="trip-map-container"></div>
   <div style="font-size:10.5px;color:var(--textd);margin:6px 0 16px">${isHe?'חיפוש ומפה מבוססים על':'Search and map data from'} OpenStreetMap · ${isHe?'לחץ בכל מקום על המפה כדי להוסיף מיקום':'click anywhere on the map to drop a pin'}</div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title"><div class="card-title-left">✨ ${isHe?'אטרקציות מומלצות':'Suggested Attractions'}</div></div>
+    <div id="suggested-attractions"><div class="map-search-status">⏳ ${isHe?'טוען הצעות...':'Loading suggestions...'}</div></div>
+  </div>
   <div class="card">
     <div class="card-title"><div class="card-title-left">📍 ${isHe?'מקומות שמורים':'Saved Places'}</div></div>
     <div id="saved-places-list">${renderSavedPlacesListHTML(places,isHe)}</div>
@@ -3285,6 +3298,7 @@ async function initTripMap(){
     maxZoom:19
   }).addTo(tripMapInstance);
   tripMapMarkerLayer=L.layerGroup().addTo(tripMapInstance);
+  suggestedAttractionsLayer=L.layerGroup().addTo(tripMapInstance);
   tripMapInstance.on('click',onTripMapClick);
   renderSavedPlaceMarkers();
   setTimeout(()=>tripMapInstance&&tripMapInstance.invalidateSize(),150);
@@ -3305,6 +3319,96 @@ function flyToSavedPlace(id){
   const p=(tripData.savedPlaces||[]).find(pl=>pl.id===id);
   if(!p||!tripMapInstance)return;
   tripMapInstance.setView([p.lat,p.lon],15);
+}
+
+// ── SUGGESTED ATTRACTIONS — auto-anchored to your hotel (precise) or flight destination city (fallback) ──
+let suggestedAttractionsLayer=null;
+let lastSuggestedAttractions=[];
+let suggestedAttractionsRequestId=0;
+async function loadSuggestedAttractions(){
+  const myRequestId=++suggestedAttractionsRequestId;
+  const container=document.getElementById('suggested-attractions');
+  if(!container)return;
+  const isHe=lang==='he';
+  container.innerHTML=`<div class="map-search-status">⏳ ${isHe?'מחפש אטרקציות מומלצות...':'Finding suggested attractions...'}</div>`;
+  let anchorLat=null,anchorLon=null,anchorLabel='',anchoredToHotel=false;
+  try{
+    // Prefer the hotel's exact location — most precise, and most relevant to what's walkable/nearby
+    const hotel=(tripData.hotels||[])[0];
+    if(hotel?.name){
+      const q=`${hotel.name}${hotel.dest?', '+hotel.dest:''}`;
+      const geoRes=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+      const geo=await geoRes.json();
+      if(geo?.[0]){ anchorLat=parseFloat(geo[0].lat); anchorLon=parseFloat(geo[0].lon); anchorLabel=hotel.name; anchoredToHotel=true; }
+    }
+    // Fall back to the destination city of the next upcoming flight, then the trip's destination field
+    if(anchorLat===null){
+      const nextFlight=nextUpcomingFlight();
+      const cityName=nextFlight?airportCity(flightTo(nextFlight)):(currentTrip?.destination||'');
+      if(cityName){
+        const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1`);
+        const geo=await geoRes.json();
+        const loc=geo?.results?.[0];
+        if(loc){ anchorLat=loc.latitude; anchorLon=loc.longitude; anchorLabel=cityName; }
+      }
+    }
+    if(myRequestId!==suggestedAttractionsRequestId)return; // a newer call has since started — discard this stale result
+    if(anchorLat===null){
+      container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'הוסף מלון או טיסה כדי לקבל הצעות מותאמות':'Add a hotel or flight to get tailored suggestions'}</div>`;
+      return;
+    }
+    const radiusM=anchoredToHotel?2500:6000; // tighter radius when anchored to a hotel
+    const places=await fetchNearbyAttractions(anchorLat,anchorLon,radiusM);
+    if(myRequestId!==suggestedAttractionsRequestId)return; // stale — a newer call superseded this one
+    if(!places.length){
+      container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצאו אטרקציות בקרבת':'No attractions found near'} ${esc(anchorLabel)}</div>`;
+      return;
+    }
+    lastSuggestedAttractions=places.slice(0,20);
+    container.innerHTML=`<div style="font-size:11px;color:var(--textm);margin-bottom:8px">📍 ${isHe?'בקרבת':'Near'} ${esc(anchorLabel)}</div>`+
+      lastSuggestedAttractions.map((p,i)=>{
+        const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
+        return`<div class="wish-item">
+          <span>${cat.icon}</span>
+          <div class="wish-item-body"><div class="wish-item-text">${esc(p.name)}</div></div>
+          <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="addSuggestedAttractionToWishlist(${i})" title="${isHe?'הוסף לרעיונות ליום':'Add to trip wishlist'}">💡</button>
+          <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור למפה':'Save to map'}">📌</button>
+        </div>`;
+      }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:6px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap</div>`;
+    plotSuggestedAttractionsOnMap();
+  }catch(e){
+    if(myRequestId!==suggestedAttractionsRequestId)return; // stale — don't clobber a newer, successful result
+    container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא ניתן לטעון הצעות כרגע':'Couldn\u2019t load suggestions right now'}</div>`;
+  }
+}
+function plotSuggestedAttractionsOnMap(){
+  if(!tripMapInstance||!suggestedAttractionsLayer)return;
+  suggestedAttractionsLayer.clearLayers();
+  lastSuggestedAttractions.forEach(p=>{
+    if(p.lat==null||p.lon==null)return;
+    const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
+    const marker=L.circleMarker([p.lat,p.lon],{radius:7,color:cat.color,fillColor:cat.color,fillOpacity:.75,weight:2}).addTo(suggestedAttractionsLayer);
+    marker.bindPopup(`<div class="map-popup"><strong>${cat.icon} ${esc(p.name)}</strong></div>`);
+  });
+}
+function addSuggestedAttractionToWishlist(i){
+  const p=lastSuggestedAttractions[i];
+  if(!p)return;
+  if(!tripData.wishlist)tripData.wishlist=[];
+  tripData.wishlist.push({id:uid(),text:p.name,category:OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing',city:currentTrip?.destination||''});
+  saveData();
+  toast('✅ '+(lang==='he'?'נוסף לרעיונות ליום':'Added to trip wishlist'));
+}
+function saveSuggestedAttraction(i){
+  const p=lastSuggestedAttractions[i];
+  if(!p||p.lat==null||p.lon==null)return;
+  if(!tripData.savedPlaces)tripData.savedPlaces=[];
+  tripData.savedPlaces.push({id:uid(),name:p.name,lat:p.lat,lon:p.lon,category:OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing',address:'',notes:''});
+  saveData();
+  renderSavedPlaceMarkers();
+  const listEl=document.getElementById('saved-places-list');
+  if(listEl)listEl.innerHTML=renderSavedPlacesListHTML(tripData.savedPlaces,lang==='he');
+  toast('✅ '+(lang==='he'?'נשמר במקומות שמורים':'Saved to your places'));
 }
 
 // ── SEARCH (Nominatim) ──
