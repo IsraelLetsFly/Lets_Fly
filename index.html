@@ -336,6 +336,20 @@ textarea.inp{resize:vertical;min-height:80px}
 .itin-weather{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--textm);background:var(--bg3);border-radius:var(--rsm);padding:7px 11px;margin-bottom:10px}
 .itin-dayactions-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 
+/* ITINERARY CALENDAR GRID VIEW */
+.itin-view-toggle{display:flex;gap:2px;background:var(--bg3);border-radius:100px;padding:3px}
+.itin-view-toggle button{border:none;background:none;font-family:inherit;font-size:12px;font-weight:600;padding:6px 14px;border-radius:100px;cursor:pointer;color:var(--textm);transition:all .15s}
+.itin-view-toggle button.active{background:var(--accent);color:#04211f}
+.itin-cal{position:relative;margin-top:8px;overflow-x:auto}
+.itin-cal-grid{position:relative;margin-inline-start:50px;border-inline-start:1px solid var(--border);height:100%}
+.itin-cal-hourline{position:absolute;left:0;right:0;border-top:1px solid var(--border);height:0}
+.itin-cal-hour-label{position:absolute;inset-inline-start:-50px;width:42px;text-align:end;font-size:10px;color:var(--textd);transform:translateY(-6px)}
+.itin-cal-event{position:absolute;border-radius:6px;padding:3px 7px;font-size:11px;overflow:hidden;cursor:pointer;border-inline-start:3px solid;transition:filter .15s;z-index:1}
+.itin-cal-event:hover{filter:brightness(1.2);z-index:2}
+.itin-cal-event-time{font-weight:700;font-size:10px;color:var(--text);white-space:nowrap}
+.itin-cal-event-title{font-weight:600;color:var(--textm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itin-cal-unscheduled{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
+
 /* WISHLIST */
 .wish-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
 .wish-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--rsm);margin-bottom:6px}
@@ -1880,9 +1894,15 @@ function renderItinerary(){
   const cur=currentTrip?.currency||'USD';
   const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
   const wishlist=tripData.wishlist||[];
-  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:8px;flex-wrap:wrap">
     <div class="page-title" style="font-size:20px">📅 ${t('secItinerary')}</div>
-    <button class="btn btn-outline btn-sm" onclick="openAddModal('day')">${t('addDay')}</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="itin-view-toggle">
+        <button class="${itinViewMode==='list'?'active':''}" onclick="setItinViewMode('list')">📋 ${isHe?'רשימה':'List'}</button>
+        <button class="${itinViewMode==='calendar'?'active':''}" onclick="setItinViewMode('calendar')">📅 ${isHe?'לוח שנה':'Calendar'}</button>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="openAddModal('day')">${t('addDay')}</button>
+    </div>
   </div>`;
 
   // ── Wishlist (places to visit, not yet scheduled) ──
@@ -1958,7 +1978,7 @@ function renderItinerary(){
           <button class="btn btn-outline btn-sm" onclick="viewDayOnMap('${day.id}')" style="font-size:12px">🗺️ ${isHe?'הצג את היום על המפה':'View day on map'}</button>
         </div>`:''}
         <div id="blocks-${day.id}">
-        ${blocks.map((b,i)=>{
+        ${itinViewMode==='calendar' ? renderDayCalendarGrid(day,blocks,cur,isHe) : blocks.map((b,i)=>{
           const cat=actCategoryInfo(b.category);
           const prevText=i>0?blocks[i-1].text:'';
           const checklist=b.checklist||[];
@@ -1991,6 +2011,90 @@ function renderItinerary(){
     </div>`;
   });
   return html;
+}
+// ── ITINERARY VIEW MODE (list vs calendar grid) ──
+let itinViewMode = localStorage.getItem('lf-itin-view') || 'list';
+function setItinViewMode(mode){
+  itinViewMode = mode;
+  localStorage.setItem('lf-itin-view', mode);
+  renderSec('itinerary');
+  loadItineraryWeather();
+}
+// Assigns each timed block a column/numCols so overlapping activities sit side-by-side
+// (same layout approach as Google Calendar's day view).
+function layoutCalendarBlocks(blocks){
+  const sorted=[...blocks].sort((a,b)=>a.startMin-b.startMin);
+  const clusters=[];
+  let current=[],curEnd=-Infinity;
+  sorted.forEach(b=>{
+    if(current.length&&b.startMin>=curEnd){ clusters.push(current); current=[]; curEnd=-Infinity; }
+    current.push(b);
+    curEnd=Math.max(curEnd,b.endMin);
+  });
+  if(current.length)clusters.push(current);
+  const positioned=[];
+  clusters.forEach(cluster=>{
+    const colEnds=[];
+    cluster.forEach(b=>{
+      let col=colEnds.findIndex(endTime=>endTime<=b.startMin);
+      if(col===-1){ col=colEnds.length; colEnds.push(b.endMin); }
+      else colEnds[col]=b.endMin;
+      b._col=col;
+    });
+    const numCols=colEnds.length;
+    cluster.forEach(b=>positioned.push({...b,col:b._col,numCols}));
+  });
+  return positioned;
+}
+const CAL_PX_PER_MIN=1.15;
+function renderDayCalendarGrid(day,blocks,cur,isHe){
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const timed=blocks.filter(b=>toMin(b.start)!==null).map(b=>({...b,startMin:toMin(b.start),endMin:toMin(b.end)!==null&&toMin(b.end)>toMin(b.start)?toMin(b.end):toMin(b.start)+45}));
+  const untimed=blocks.filter(b=>toMin(b.start)===null);
+  if(!timed.length){
+    return`<div style="font-size:12px;color:var(--textd);padding:10px 0">${isHe?'אין פעילויות עם שעה מוגדרת להצגה בלוח השנה':'No timed activities yet to show on the calendar'}</div>`
+      +renderUnscheduledList(untimed,day,cur,isHe);
+  }
+  const earliest=Math.min(...timed.map(b=>b.startMin));
+  const latest=Math.max(...timed.map(b=>b.endMin));
+  const startHour=Math.max(0,Math.floor(earliest/60)-1);
+  const endHour=Math.min(24,Math.ceil(latest/60)+1);
+  const gridStart=startHour*60;
+  const gridHeight=(endHour-startHour)*60*CAL_PX_PER_MIN;
+  const positioned=layoutCalendarBlocks(timed);
+  let hourLines='';
+  for(let h=startHour;h<=endHour;h++){
+    const top=(h*60-gridStart)*CAL_PX_PER_MIN;
+    hourLines+=`<div class="itin-cal-hourline" style="top:${top}px"></div><div class="itin-cal-hour-label" style="top:${top}px">${String(h).padStart(2,'0')}:00</div>`;
+  }
+  const events=positioned.map(b=>{
+    const cat=actCategoryInfo(b.category);
+    const top=(b.startMin-gridStart)*CAL_PX_PER_MIN;
+    const height=Math.max((b.endMin-b.startMin)*CAL_PX_PER_MIN,22);
+    const widthPct=100/b.numCols;
+    const leftPct=b.col*widthPct;
+    return`<div class="itin-cal-event" style="top:${top}px;height:${height}px;inset-inline-start:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 6px);background:${cat.color}22;border-inline-start-color:${cat.color}" onclick="openAddModal('day','${day.id}')" title="${esc(b.text)}">
+      <div class="itin-cal-event-time">${cat.icon} ${esc(b.start)}${b.end?'–'+esc(b.end):''}</div>
+      <div class="itin-cal-event-title">${esc(b.text)}</div>
+    </div>`;
+  }).join('');
+  return`<div class="itin-cal" style="height:${gridHeight}px">
+      <div class="itin-cal-grid">${hourLines}${events}</div>
+    </div>${renderUnscheduledList(untimed,day,cur,isHe)}`;
+}
+function renderUnscheduledList(untimed,day,cur,isHe){
+  if(!untimed.length)return'';
+  return`<div class="itin-cal-unscheduled">
+    <div style="font-size:11px;font-weight:700;color:var(--textd);text-transform:uppercase;margin-bottom:6px">${isHe?'ללא שעה קבועה':'No fixed time'}</div>
+    ${untimed.map(b=>{
+      const cat=actCategoryInfo(b.category);
+      return`<div class="itin-block" style="margin-top:4px">
+        <span class="itin-block-cat">${cat.icon}</span>
+        <div class="itin-block-body"><div class="itin-text">${esc(b.text)}</div></div>
+        <div class="itin-block-actions"><button class="del-btn" style="font-size:15px" onclick="delItinBlock('${day.id}','${b.id}')">×</button></div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 function delItinBlock(dayId,blockId){
   const day=(tripData.days||[]).find(d=>d.id===dayId);
