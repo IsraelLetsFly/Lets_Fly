@@ -399,6 +399,9 @@ textarea.inp{resize:vertical;min-height:80px}
 .wish-item-body{flex:1;min-width:0}
 .wish-item-text{font-size:13px;font-weight:600}
 .wish-item-meta{font-size:11px;color:var(--textm);margin-top:1px}
+.sp-move-btn{background:none;border:none;color:var(--textd);cursor:pointer;font-size:10px;padding:1px 4px;line-height:1.3;border-radius:4px;transition:all .15s}
+.sp-move-btn:hover:not(:disabled){background:var(--bg3);color:var(--accent)}
+.sp-move-btn:disabled{opacity:.25;cursor:default}
 
 /* TRIP MAP */
 .trip-map-container{width:100%;height:420px;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;background:var(--bg3)}
@@ -1124,7 +1127,7 @@ function renderSec(sec){
     case 'flights':   el.innerHTML=renderFlights();break;
     case 'hotels':    el.innerHTML=renderHotels();break;
     case 'itinerary': el.innerHTML=renderItinerary();loadItineraryWeather();break;
-    case 'map':       el.innerHTML=renderMapPage();initTripMap();loadSuggestedAttractions();break;
+    case 'map':       el.innerHTML=renderMapPage();tripMapInitPromise=initTripMap();loadSuggestedAttractions();break;
     case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();break;
     case 'currency':  el.innerHTML=renderCurrency();fetchRates();break;
     case 'transport': el.innerHTML=renderTransport();break;
@@ -3300,6 +3303,7 @@ function delTransport(id){tripData.transport=(tripData.transport||[]).filter(i=>
 // ── EMERGENCY ──
 // ── TRIP MAP (Leaflet + OpenStreetMap — free, no API key; Nominatim for search/geocoding) ──
 let tripMapInstance=null;
+let tripMapInitPromise=null;
 let tripMapMarkerLayer=null;
 let tempSearchMarker=null;
 let mapSearchResultsCache=[];
@@ -3373,16 +3377,20 @@ function renderMapPage(){
 function renderSavedPlacesListHTML(places,isHe,days){
   if(!places.length)return`<div style="font-size:12px;color:var(--textd);text-align:center;padding:20px">${isHe?'חפש, לחץ על המפה, או הוסף מקומות כדי לשמור אותם כאן':'Search, click the map, or add places to save them here'}</div>`;
   days=days||(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
-  return places.map(p=>{
+  return places.map((p,i)=>{
     const cat=actCategoryInfo(p.category);
     const hasCoords=typeof p.lat==='number'&&typeof p.lon==='number';
-    return`<div class="wish-item" style="align-items:flex-start;flex-wrap:wrap">
+    return`<div class="wish-item" style="align-items:flex-start;flex-wrap:wrap;${hasCoords?'cursor:pointer':''}"${hasCoords?` onclick="flyToSavedPlace('${p.id}')"`:''}>
+      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
+        <button class="sp-move-btn" onclick="event.stopPropagation();movePlaceUp('${p.id}')" ${i===0?'disabled':''} title="${isHe?'הזז למעלה':'Move up'}">▲</button>
+        <button class="sp-move-btn" onclick="event.stopPropagation();movePlaceDown('${p.id}')" ${i===places.length-1?'disabled':''} title="${isHe?'הזז למטה':'Move down'}">▼</button>
+      </div>
       <span style="padding-top:2px">${cat.icon}</span>
       <div class="wish-item-body">
         <div class="wish-item-text">${esc(p.name)}</div>
         ${p.address?`<div class="wish-item-meta">${esc(p.address)}</div>`:''}
       </div>
-      <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
         ${hasCoords?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSavedPlace('${p.id}')" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>`:''}
         <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openMapsChoice('${escJS(p.name)}${p.address?', '+escJS(p.address):''}', this)" title="${isHe?'כיוונים':'Directions'}">📍</button>
         ${days.length?`<select class="inp" id="sp-day-${p.id}" style="width:auto;font-size:11px;padding:5px 7px">
@@ -3414,21 +3422,32 @@ async function initTripMap(){
   setTimeout(()=>tripMapInstance&&tripMapInstance.invalidateSize(),150);
 }
 
+let savedPlaceMarkers={};
 function renderSavedPlaceMarkers(){
   if(!tripMapMarkerLayer)return;
   tripMapMarkerLayer.clearLayers();
+  savedPlaceMarkers={};
   (tripData.savedPlaces||[]).forEach(p=>{
     if(typeof p.lat!=='number'||typeof p.lon!=='number')return;
     const cat=actCategoryInfo(p.category);
     const marker=L.marker([p.lat,p.lon]).addTo(tripMapMarkerLayer);
     marker.bindPopup(`<div class="map-popup"><strong>${cat.icon} ${esc(p.name)}</strong>${p.address?`<div style="font-size:11px;color:#666;margin-top:3px">${esc(p.address)}</div>`:''}</div>`);
+    savedPlaceMarkers[p.id]=marker;
   });
 }
 
-function flyToSavedPlace(id){
+async function flyToSavedPlace(id){
   const p=(tripData.savedPlaces||[]).find(pl=>pl.id===id);
-  if(!p||!tripMapInstance)return;
-  tripMapInstance.setView([p.lat,p.lon],15);
+  if(!p||typeof p.lat!=='number'||typeof p.lon!=='number')return;
+  if(!tripMapInstance){
+    // Not currently on the Map page (e.g. clicked from Itinerary) — switch there first
+    showSec('map');
+    if(tripMapInitPromise)await tripMapInitPromise;
+  }
+  if(!tripMapInstance)return; // Leaflet still unavailable — nothing more we can do
+  tripMapInstance.setView([p.lat,p.lon],16);
+  const marker=savedPlaceMarkers[id];
+  if(marker)marker.openPopup();
 }
 
 // ── SUGGESTED ATTRACTIONS — auto-anchored to your hotel (precise) or flight destination city (fallback) ──
@@ -3470,10 +3489,11 @@ async function loadSuggestedAttractions(manualQuery){
     container.innerHTML=`<div style="font-size:11px;color:var(--textm);margin-bottom:8px">📍 ${isHe?'בקרבת':'Near'} ${esc(anchor.label)}</div>`+
       lastSuggestedAttractions.map((p,i)=>{
         const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
-        return`<div class="wish-item">
+        const clickable=p.lat!=null&&p.lon!=null;
+        return`<div class="wish-item"${clickable?` style="cursor:pointer" onclick="flyToSuggestedAttraction(${i})"`:''}>
           <span>${cat.icon}</span>
           <div class="wish-item-body"><div class="wish-item-text">${esc(p.name)}</div></div>
-          <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור':'Save'}">💾</button>
+          <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="event.stopPropagation();saveSuggestedAttraction(${i})" title="${isHe?'שמור':'Save'}">💾</button>
         </div>`;
       }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap · <span style="cursor:pointer;text-decoration:underline" onclick="toggleSuggestedManualSearch()">${isHe?'חפש אזור אחר':'search a different area'}</span></div><div id="suggested-manual-search" style="display:none;margin-top:8px">${suggestedAttractionsManualSearchHTML(isHe)}</div>`;
     plotSuggestedAttractionsOnMap();
@@ -3492,15 +3512,25 @@ function toggleSuggestedManualSearch(){
   const el=document.getElementById('suggested-manual-search');
   if(el)el.style.display=el.style.display==='none'?'block':'none';
 }
+let suggestedAttractionMarkers={};
 function plotSuggestedAttractionsOnMap(){
   if(!tripMapInstance||!suggestedAttractionsLayer)return;
   suggestedAttractionsLayer.clearLayers();
-  lastSuggestedAttractions.forEach(p=>{
+  suggestedAttractionMarkers={};
+  lastSuggestedAttractions.forEach((p,i)=>{
     if(p.lat==null||p.lon==null)return;
     const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
     const marker=L.circleMarker([p.lat,p.lon],{radius:7,color:cat.color,fillColor:cat.color,fillOpacity:.75,weight:2}).addTo(suggestedAttractionsLayer);
     marker.bindPopup(`<div class="map-popup"><strong>${cat.icon} ${esc(p.name)}</strong></div>`);
+    suggestedAttractionMarkers[i]=marker;
   });
+}
+function flyToSuggestedAttraction(i){
+  const p=lastSuggestedAttractions[i];
+  if(!p||p.lat==null||p.lon==null||!tripMapInstance)return;
+  tripMapInstance.setView([p.lat,p.lon],16);
+  const marker=suggestedAttractionMarkers[i];
+  if(marker)marker.openPopup();
 }
 function saveSuggestedAttraction(i){
   const p=lastSuggestedAttractions[i];
@@ -3611,6 +3641,22 @@ function deleteSavedPlace(id){
   tripData.savedPlaces=(tripData.savedPlaces||[]).filter(p=>p.id!==id);
   saveData();
   renderSavedPlaceMarkers(); // no-op safely if the map isn't initialized on this page
+  renderSec(currentSec);
+}
+function movePlaceUp(id){
+  const list=tripData.savedPlaces||[];
+  const idx=list.findIndex(p=>p.id===id);
+  if(idx<=0)return;
+  [list[idx-1],list[idx]]=[list[idx],list[idx-1]];
+  saveData();
+  renderSec(currentSec);
+}
+function movePlaceDown(id){
+  const list=tripData.savedPlaces||[];
+  const idx=list.findIndex(p=>p.id===id);
+  if(idx<0||idx>=list.length-1)return;
+  [list[idx],list[idx+1]]=[list[idx+1],list[idx]];
+  saveData();
   renderSec(currentSec);
 }
 
