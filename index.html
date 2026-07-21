@@ -2073,10 +2073,12 @@ function renderItinerary(){
         ${isPacked?`<div class="itin-warning itin-warning-pacing">💡 <span>${isHe?'היום הזה נראה עמוס — כדאי לשקול זמן חופשי בין פעילויות':'This day looks packed — consider leaving buffer time between activities'}</span></div>`:''}
         ${day.city&&day.date?`<div class="itin-weather" id="wx-${day.id}">⏳ ${isHe?'טוען תחזית...':'Loading forecast...'}</div>`:''}
         ${dayCost>0?`<div class="itin-daytotal"><span>${isHe?'סה"כ עלות היום':'Day total'}</span><span style="font-family:var(--mono);font-weight:700;color:var(--gold)">${dayCost.toLocaleString()} ${esc(cur)}</span></div>`:''}
-        ${blocks.length?`<div class="itin-dayactions-row">
-          <button class="btn btn-outline btn-sm" onclick="copyDay('${day.id}')" style="font-size:12px">⧉ ${isHe?'שכפל יום':'Copy Day'}</button>
-          <button class="btn btn-outline btn-sm" onclick="viewDayOnMap('${day.id}')" style="font-size:12px">🗺️ ${isHe?'הצג את היום על המפה':'View day on map'}</button>
-        </div>`:''}
+        <div class="itin-dayactions-row">
+          <button class="btn btn-outline btn-sm" onclick="autoFillDay('${day.id}')" style="font-size:12px">✨ ${isHe?'מלא יום אוטומטית':'Auto-fill Day'}</button>
+          <button class="btn btn-outline btn-sm" onclick="optimizeDayRoute('${day.id}')" style="font-size:12px">🧭 ${isHe?'ייעל מסלול':'Optimize Route'}</button>
+          ${blocks.length?`<button class="btn btn-outline btn-sm" onclick="copyDay('${day.id}')" style="font-size:12px">⧉ ${isHe?'שכפל יום':'Copy Day'}</button>
+          <button class="btn btn-outline btn-sm" onclick="viewDayOnMap('${day.id}')" style="font-size:12px">🗺️ ${isHe?'הצג את היום על המפה':'View day on map'}</button>`:''}
+        </div>
         <div id="blocks-${day.id}">
         ${itinViewMode==='calendar' ? renderDayCalendarGrid(day,blocks,cur,isHe) : blocks.map((b,i)=>{
           const cat=actCategoryInfo(b.category);
@@ -2167,6 +2169,118 @@ function layoutCalendarBlocks(blocks){
   return positioned;
 }
 const CAL_PX_PER_MIN=1.15;
+// Great-circle distance in km between two lat/lon points (Haversine formula)
+function haversineKm(lat1,lon1,lat2,lon2){
+  const R=6371;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+// Greedy nearest-neighbor ordering starting from points[0] — simple, fast, and good enough
+// for the small number of stops in a day's itinerary (not a true optimal-TSP solver).
+function nearestNeighborOrder(points){
+  if(points.length<=1)return points.slice();
+  const remaining=points.slice(1);
+  const order=[points[0]];
+  let current=points[0];
+  while(remaining.length){
+    let bestIdx=0,bestDist=Infinity;
+    remaining.forEach((p,i)=>{
+      const d=haversineKm(current.lat,current.lon,p.lat,p.lon);
+      if(d<bestDist){bestDist=d;bestIdx=i;}
+    });
+    current=remaining.splice(bestIdx,1)[0];
+    order.push(current);
+  }
+  return order;
+}
+// ── ROUTE OPTIMIZATION — reorders a day's located activities by shortest walking-ish
+// distance (nearest-neighbor), then re-times them back-to-back preserving each one's own
+// original duration. Activities without coordinates (e.g. a manually-typed dinner
+// reservation) are left completely untouched — only geographically-anchored ones move. ──
+function optimizeDayRoute(dayId){
+  const isHe=lang==='he';
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const blocks=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)}));
+  const located=blocks.filter(b=>typeof b.lat==='number'&&typeof b.lon==='number');
+  if(located.length<2){
+    toast('⚠️ '+(isHe?'צריך לפחות 2 פעילויות עם מיקום כדי לייעל מסלול':'Need at least 2 located activities to optimize a route'));
+    return;
+  }
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  // Compute each located block's own duration so it's preserved after reordering
+  located.forEach(b=>{
+    const s=toMin(b.start),e=toMin(b.end);
+    b._durMin=(s!==null&&e!==null&&e>s)?(e-s):90; // default 90min if no end time was set
+  });
+  // Start from whichever located block currently has the earliest time (or the first one, if none are timed)
+  located.sort((a,b)=>{
+    const am=toMin(a.start),bm=toMin(b.start);
+    if(am===null&&bm===null)return 0;
+    if(am===null)return 1;
+    if(bm===null)return -1;
+    return am-bm;
+  });
+  const ordered=nearestNeighborOrder(located);
+  let cursor=toMin(ordered[0].start);
+  if(cursor===null)cursor=9*60; // default to 9:00 if the very first stop had no time set
+  ordered.forEach((b,i)=>{
+    const startMin=i===0?cursor:cursor;
+    const endMin=startMin+b._durMin;
+    const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+    const realBlock=day.blocks.find(orig=>orig.id===b.id);
+    if(realBlock){
+      realBlock.start=fmt(startMin);realBlock.end=fmt(endMin);realBlock.time=`${fmt(startMin)}–${fmt(endMin)}`;
+      const h=Math.floor(b._durMin/60),m=b._durMin%60;
+      realBlock.dur=h>0?(m>0?`${h}h ${m}m`:`${h}h`):`${m}m`;
+    }
+    cursor=endMin;
+  });
+  saveData();
+  renderSec(currentSec);
+  toast('✅ '+(isHe?`המסלול עודכן — ${ordered.length} פעילויות סודרו מחדש`:`Route optimized — ${ordered.length} activities reordered`));
+}
+// ── AUTO-FILL DAY — pulls the nearest not-yet-scheduled saved places into empty time
+// slots for a day, anchored to the day's existing activities (or hotel/destination). ──
+function autoFillDay(dayId){
+  const isHe=lang==='he';
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const scheduledNames=new Set();
+  (tripData.days||[]).forEach(d=>(d.blocks||[]).forEach(b=>scheduledNames.add((b.text||'').trim().toLowerCase())));
+  let candidates=(tripData.savedPlaces||[]).filter(p=>!scheduledNames.has((p.name||'').trim().toLowerCase()));
+  if(!candidates.length){
+    toast('⚠️ '+(isHe?'אין מקומות שמורים פנויים להוספה':'No unscheduled saved places to add'));
+    return;
+  }
+  // Anchor to an existing located activity in this day, else leave unsorted (candidate list order)
+  const anchor=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)})).find(b=>typeof b.lat==='number'&&typeof b.lon==='number');
+  const withCoords=candidates.filter(p=>typeof p.lat==='number'&&typeof p.lon==='number');
+  if(anchor&&withCoords.length){
+    withCoords.sort((a,b)=>haversineKm(anchor.lat,anchor.lon,a.lat,a.lon)-haversineKm(anchor.lat,anchor.lon,b.lat,b.lon));
+    const withoutCoords=candidates.filter(p=>!(typeof p.lat==='number'&&typeof p.lon==='number'));
+    candidates=[...withCoords,...withoutCoords];
+  }
+  const toAdd=candidates.slice(0,4);
+  if(!day.blocks)day.blocks=[];
+  // Start after the day's last scheduled activity, or 9:00 if the day is empty
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const timedExisting=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)})).filter(b=>toMin(b.end)!==null);
+  let cursor=timedExisting.length?Math.max(...timedExisting.map(b=>toMin(b.end))):9*60;
+  const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+  toAdd.forEach(p=>{
+    const startMin=cursor,endMin=cursor+90;
+    day.blocks.push({id:uid(),start:fmt(startMin),end:fmt(endMin),time:`${fmt(startMin)}–${fmt(endMin)}`,
+      text:p.name,dur:'1h 30m',category:p.category||'',cost:'',confirmation:'',checklist:[],
+      lat:typeof p.lat==='number'?p.lat:null,lon:typeof p.lon==='number'?p.lon:null});
+    cursor=endMin;
+  });
+  saveData();
+  renderSec(currentSec);
+  toast('✅ '+(isHe?`${toAdd.length} פעילויות נוספו ליום ${day.num}`:`${toAdd.length} activities added to Day ${day.num}`));
+}
 // Backward-compat: older saved activities only have a combined "10:00–12:00" time string,
 // not separate start/end fields. Derive start/end from whichever is available.
 function blockTimeRange(b){
@@ -2717,7 +2831,8 @@ function schedulePlaceToDay(placeId,dayId){
   const day=(tripData.days||[]).find(d=>d.id===dayId);
   if(!place||!day)return;
   if(!day.blocks)day.blocks=[];
-  day.blocks.push({id:uid(),start:'',end:'',time:'',text:place.name,dur:'',category:place.category||'',cost:'',confirmation:'',checklist:[]});
+  day.blocks.push({id:uid(),start:'',end:'',time:'',text:place.name,dur:'',category:place.category||'',cost:'',confirmation:'',checklist:[],
+    lat:typeof place.lat==='number'?place.lat:null,lon:typeof place.lon==='number'?place.lon:null});
   saveData();
   renderSec(currentSec);
   toast('✅ '+(isHe?'נוסף ליום '+day.num:'Added to Day '+day.num));
