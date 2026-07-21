@@ -1573,9 +1573,9 @@ function renderToday(){
     html+=`<div style="display:flex;align-items:center;gap:12px">
       <div style="font-size:32px">🏨</div>
       <div>
-        <div style="font-weight:700;font-size:15px">${todayHotel.name}</div>
-        <div style="font-size:12px;color:var(--textm)">${todayHotel.dest||''} · ${isHe?'צ׳ק-אאוט':'Check-out'}: ${todayHotel.checkOut}</div>
-        ${todayHotel.conf?`<div style="font-size:11px;color:var(--textd);margin-top:2px">${isHe?'אישור':'Conf'}: ${todayHotel.conf}</div>`:''}
+        <div style="font-weight:700;font-size:15px">${esc(todayHotel.name)}</div>
+        <div style="font-size:12px;color:var(--textm)">${esc(todayHotel.dest||'')} · ${isHe?'צ׳ק-אאוט':'Check-out'}: ${esc(todayHotel.checkOut)}</div>
+        ${todayHotel.conf?`<div style="font-size:11px;color:var(--textd);margin-top:2px">${isHe?'אישור':'Conf'}: ${esc(todayHotel.conf)}</div>`:''}
       </div>
       ${todayHotel.dest?`<button onclick="openMapsChoice('${escJS(todayHotel.name)}, ${escJS(todayHotel.dest)}', this)" class="btn btn-outline btn-sm" style="margin-inline-start:auto;font-size:11px">📍 ${isHe?'מפה':'Map'}</button>`:''}
     </div>`;
@@ -1663,6 +1663,12 @@ function renderTimelineBar(){
 }
 
 // ── MAPS INTEGRATION ──
+// Opens Google Maps directly on a place (view/search only — not turn-by-turn directions,
+// which is what the Directions button / openMapsChoice popup is for).
+function openInGoogleMaps(query){
+  if(!query||!query.trim())return;
+  window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(query),'_blank');
+}
 function openMapsChoice(query,btn){
   document.querySelectorAll('.maps-choice-popup').forEach(el=>el.remove());
   if(!query||!query.trim()||!btn)return;
@@ -3309,6 +3315,15 @@ let tempSearchMarker=null;
 let mapSearchResultsCache=[];
 let tempPlaceLat=null,tempPlaceLon=null,tempPlaceAddress='';
 let tripMapAnchor=null; // {lat, lon, label, precise} — cached so map center / suggestions / search bias all agree
+let suggestedAttractionsOpen=localStorage.getItem('lf-suggested-open')!=='0'; // default open
+function toggleSuggestedAttractionsCard(){
+  suggestedAttractionsOpen=!suggestedAttractionsOpen;
+  localStorage.setItem('lf-suggested-open',suggestedAttractionsOpen?'1':'0');
+  const body=document.getElementById('suggested-attractions-body');
+  const arrow=document.getElementById('suggested-attractions-arrow');
+  if(body)body.style.display=suggestedAttractionsOpen?'block':'none';
+  if(arrow)arrow.textContent=suggestedAttractionsOpen?'▼':'▶';
+}
 let tripMapAnchorPromise=null;
 
 // Geocode a free-text query via Nominatim. Returns {lat,lon,label} or null (never throws).
@@ -3365,8 +3380,13 @@ function renderMapPage(){
   <div id="trip-map" class="trip-map-container"></div>
   <div style="font-size:10.5px;color:var(--textd);margin:6px 0 16px">${isHe?'חיפוש ומפה מבוססים על':'Search and map data from'} OpenStreetMap · ${isHe?'לחץ בכל מקום על המפה כדי להוסיף מיקום':'click anywhere on the map to drop a pin'}</div>
   <div class="card" style="margin-bottom:14px">
-    <div class="card-title"><div class="card-title-left">✨ ${isHe?'אטרקציות מומלצות':'Suggested Attractions'}</div></div>
-    <div id="suggested-attractions"><div class="map-search-status">⏳ ${isHe?'טוען הצעות...':'Loading suggestions...'}</div></div>
+    <div class="card-title" style="cursor:pointer" onclick="toggleSuggestedAttractionsCard()">
+      <div class="card-title-left">✨ ${isHe?'אטרקציות מומלצות':'Suggested Attractions'}</div>
+      <span id="suggested-attractions-arrow" style="font-size:11px;color:var(--textd)">${suggestedAttractionsOpen?'▼':'▶'}</span>
+    </div>
+    <div id="suggested-attractions-body" style="display:${suggestedAttractionsOpen?'block':'none'}">
+      <div id="suggested-attractions"><div class="map-search-status">⏳ ${isHe?'טוען הצעות...':'Loading suggestions...'}</div></div>
+    </div>
   </div>
   <div class="card">
     <div class="card-title"><div class="card-title-left">📍 ${isHe?'מקומות שמורים':'Saved Places'}</div></div>
@@ -3392,7 +3412,8 @@ function renderSavedPlacesListHTML(places,isHe,days){
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
         ${hasCoords?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSavedPlace('${p.id}')" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>`:''}
-        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openMapsChoice('${escJS(p.name)}${p.address?', '+escJS(p.address):''}', this)" title="${isHe?'כיוונים':'Directions'}">📍</button>
+        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openInGoogleMaps('${escJS(p.name)}${p.address?', '+escJS(p.address):''}')" title="${isHe?'פתח ב-Google Maps':'Open in Google Maps'}">📍</button>
+        <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openMapsChoice('${escJS(p.name)}${p.address?', '+escJS(p.address):''}', this)" title="${isHe?'כיוונים':'Directions'}">🧭</button>
         ${days.length?`<select class="inp" id="sp-day-${p.id}" style="width:auto;font-size:11px;padding:5px 7px">
           ${days.map(d=>`<option value="${d.id}">${isHe?'יום':'Day'} ${d.num}</option>`).join('')}
         </select>
@@ -3493,7 +3514,12 @@ async function loadSuggestedAttractions(manualQuery){
         return`<div class="wish-item"${clickable?` style="cursor:pointer" onclick="flyToSuggestedAttraction(${i})"`:''}>
           <span>${cat.icon}</span>
           <div class="wish-item-body"><div class="wish-item-text">${esc(p.name)}</div></div>
-          <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="event.stopPropagation();saveSuggestedAttraction(${i})" title="${isHe?'שמור':'Save'}">💾</button>
+          <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
+            ${clickable?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSuggestedAttraction(${i})" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>`:''}
+            <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openInGoogleMaps('${escJS(p.name)}')" title="${isHe?'פתח ב-Google Maps':'Open in Google Maps'}">📍</button>
+            <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openMapsChoice('${escJS(p.name)}', this)" title="${isHe?'כיוונים':'Directions'}">🧭</button>
+            <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור':'Save'}">💾</button>
+          </div>
         </div>`;
       }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap · <span style="cursor:pointer;text-decoration:underline" onclick="toggleSuggestedManualSearch()">${isHe?'חפש אזור אחר':'search a different area'}</span></div><div id="suggested-manual-search" style="display:none;margin-top:8px">${suggestedAttractionsManualSearchHTML(isHe)}</div>`;
     plotSuggestedAttractionsOnMap();
