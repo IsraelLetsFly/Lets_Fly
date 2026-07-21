@@ -402,6 +402,9 @@ textarea.inp{resize:vertical;min-height:80px}
 .sp-move-btn{background:none;border:none;color:var(--textd);cursor:pointer;font-size:10px;padding:1px 4px;line-height:1.3;border-radius:4px;transition:all .15s}
 .sp-move-btn:hover:not(:disabled){background:var(--bg3);color:var(--accent)}
 .sp-move-btn:disabled{opacity:.25;cursor:default}
+.sp-visited-check{background:none;border:none;font-size:16px;cursor:pointer;padding-top:2px;line-height:1}
+.wish-item.visited{opacity:.55}
+.wish-item.visited .wish-item-text{text-decoration:line-through}
 
 /* TRIP MAP */
 .trip-map-container{width:100%;height:420px;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;background:var(--bg3)}
@@ -674,10 +677,10 @@ body.nav-locked #navbar-pin-btn{display:flex!important}
 <nav id="navbar" style="display:none">
   <button class="hamburger-btn" id="hamburger-btn" onclick="openSideNav()">☰</button>
   <button class="hamburger-btn" id="home-btn" onclick="goHome()" title="My Trips" style="display:none">🏠</button>
-  <button class="hamburger-btn" id="navbar-pin-btn" onclick="toggleNavLock()" title="Pin sidebar">🔓</button>
   <div class="nav-trip-name" id="nav-trip-name" style="font-size:14px;font-weight:700"></div>
   <div class="nav-sections" id="nav-sections" style="display:none"></div>
   <div class="nav-right">
+    <button class="hamburger-btn" id="navbar-pin-btn" onclick="toggleNavLock()" title="Pin sidebar">📌</button>
     <span id="save-ind" style="font-size:11px;color:var(--textm);display:none">💾</span>
     <button id="share-btn" style="display:none;background:rgba(55,198,186,.15);border:1px solid rgba(55,198,186,.3);border-radius:100px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--accent);transition:all .2s" onclick="openShareModal()">🔗 Share</button>
   </div>
@@ -689,7 +692,7 @@ body.nav-locked #navbar-pin-btn{display:flex!important}
   <!-- Header -->
   <div class="side-nav-header">
     <div class="side-nav-logo" onclick="goHome();closeSideNav()">✈️ LetsFly</div>
-    <button class="lock-btn" id="lock-btn" onclick="toggleNavLock()" title="Lock sidebar">🔓</button>
+    <button class="lock-btn" id="lock-btn" onclick="toggleNavLock()" title="Lock sidebar">📌</button>
   </div>
   <!-- User info -->
   <div class="side-nav-user" id="side-nav-user" onclick="toggleMenu()">
@@ -1743,9 +1746,9 @@ function applySideNavLock(){
   const isLocked = navLocked;
   document.body.classList.toggle('nav-locked', isLocked);
   const lockBtn = document.getElementById('lock-btn');
-  if(lockBtn){ lockBtn.textContent = isLocked ? '🔒' : '🔓'; lockBtn.classList.toggle('locked', isLocked); }
+  if(lockBtn){ lockBtn.classList.toggle('locked', isLocked); lockBtn.title = isLocked ? (lang==='he'?'בטל נעילת סרגל צד':'Unpin sidebar') : (lang==='he'?'נעל סרגל צד פתוח':'Pin sidebar open'); }
   const navPinBtn = document.getElementById('navbar-pin-btn');
-  if(navPinBtn){ navPinBtn.textContent = isLocked ? '🔒' : '🔓'; navPinBtn.classList.toggle('locked', isLocked); navPinBtn.title = isLocked ? (lang==='he'?'בטל נעילת סרגל צד':'Unpin sidebar') : (lang==='he'?'נעל סרגל צד פתוח':'Pin sidebar open'); }
+  if(navPinBtn){ navPinBtn.classList.toggle('locked', isLocked); navPinBtn.title = isLocked ? (lang==='he'?'בטל נעילת סרגל צד':'Unpin sidebar') : (lang==='he'?'נעל סרגל צד פתוח':'Pin sidebar open'); }
   if(isLocked){
     document.getElementById('side-nav').classList.add('open');
     document.getElementById('side-nav-overlay').classList.remove('show');
@@ -1982,7 +1985,6 @@ function renderItinerary(){
   const isHe=lang==='he';
   const cur=currentTrip?.currency||'USD';
   const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
-  const savedPlacesList=tripData.savedPlaces||[];
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:8px;flex-wrap:wrap">
     <div class="page-title" style="font-size:20px">📅 ${t('secItinerary')}</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1999,28 +2001,10 @@ function renderItinerary(){
     </div>
   </div>`;
 
-  // ── Wishlist (places to visit, not yet scheduled) ──
-  html+=`<div class="wish-card">
-    <div class="card-title" style="border:none;padding:0;margin-bottom:10px">
-      <div class="card-title-left">💡 ${isHe?'רעיונות לביקור':'Places to Visit'}</div>
-      <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAddModal('import')">📥 ${isHe?'ייבוא':'Import'}</button>
-    </div>
-    <div style="background:var(--bg3);border-radius:var(--rsm);padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--textm);margin-bottom:8px">✨ ${isHe?'גלה מקומות מומלצים':'Discover places to visit'}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input class="inp" id="discover-city" placeholder="${isHe?'עיר':'City'}" value="${esc(currentTrip?.destination||'')}" style="flex:1;min-width:140px" onkeydown="if(event.key==='Enter'){event.preventDefault();discoverPlaces()}">
-        <button class="btn btn-outline btn-sm" onclick="discoverPlaces()">🔍 ${isHe?'חפש':'Find Places'}</button>
-      </div>
-      <div id="discover-results" style="margin-top:10px"></div>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <input class="inp" id="wish-text" placeholder="${isHe?'לדוגמה: שוק הפרחים':'e.g. Flower market'}" style="flex:1;min-width:160px" onkeydown="if(event.key==='Enter'){event.preventDefault();addWishlistItem()}">
-      <select class="inp" id="wish-category" style="width:auto">
-        ${ACTIVITY_CATEGORIES.map(c=>`<option value="${c.key}">${c.icon} ${isHe?c.labelHe:c.label}</option>`).join('')}
-      </select>
-      <button class="btn btn-outline btn-sm" onclick="addWishlistItem()">+ ${isHe?'הוסף':'Add'}</button>
-    </div>
-    ${renderSavedPlacesListHTML(savedPlacesList,isHe,days)}
+  // Places to Visit now lives on the Map page (merged with Suggested Attractions there)
+  html+=`<div style="font-size:12px;color:var(--textm);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+    💡 ${isHe?'רוצה למצוא ולתזמן מקומות לביקור? זה עבר לעמוד המפה':'Looking for places to visit? That now lives on the Map page'}
+    <button class="btn btn-outline btn-sm" style="font-size:11px;margin-inline-start:auto" onclick="showSec('map')">🗺️ ${t('secMap')}</button>
   </div>`;
 
   if(itinViewMode==='calendar'&&itinCalLayout==='week'){
@@ -2654,43 +2638,6 @@ async function fetchNearbyAttractions(lat,lon,radiusM){
   });
   return places;
 }
-async function discoverPlaces(){
-  const cityInput=document.getElementById('discover-city');
-  const city=cityInput?.value.trim();
-  const resultsEl=document.getElementById('discover-results');
-  if(!city||!resultsEl)return;
-  const isHe=lang==='he';
-  resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textm)">⏳ ${isHe?'מחפש מקומות מעניינים...':'Searching for places...'}</div>`;
-  try{
-    const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
-    const geo=await geoRes.json();
-    const loc=geo?.results?.[0];
-    if(!loc){ resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצא מיקום עבור':'Couldn\u2019t find a location for'} "${esc(city)}"</div>`; return; }
-    const places=await fetchNearbyAttractions(loc.latitude,loc.longitude,6000);
-    if(!places.length){ resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצאו מקומות מומלצים בקרבת מקום':'No suggested places found nearby'}</div>`; return; }
-    lastDiscoveredPlaces=places.slice(0,15);
-    resultsEl.innerHTML=lastDiscoveredPlaces.map((p,i)=>{
-      const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
-      return`<div class="wish-item">
-        <span>${cat.icon}</span>
-        <div class="wish-item-body"><div class="wish-item-text">${esc(p.name)}</div></div>
-        <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="addSuggestedPlace(${i})">+ ${isHe?'הוסף לרשימה':'Add'}</button>
-      </div>`;
-    }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:6px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap</div>`;
-  }catch(e){
-    resultsEl.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא ניתן לטעון הצעות כרגע':'Couldn\u2019t load suggestions right now'}</div>`;
-  }
-}
-let lastDiscoveredPlaces=[];
-function addSuggestedPlace(i){
-  const p=lastDiscoveredPlaces[i];
-  if(!p)return;
-  if(!tripData.savedPlaces)tripData.savedPlaces=[];
-  const cat=OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing';
-  tripData.savedPlaces.push({id:uid(),name:p.name,category:cat,city:currentTrip?.destination||'',lat:p.lat??null,lon:p.lon??null});
-  saveData();renderSec(currentSec);
-  toast('✅ '+(lang==='he'?'נוסף לרשימת המקומות':'Added to your places'));
-}
 // ── IMPORT ATTRACTIONS (paste a list, or upload a CSV/Excel file) ──
 function importAttractions(){
   const isHe=lang==='he';
@@ -2754,9 +2701,9 @@ function addImportedPlaces(names){
   renderSec(currentSec);
   toast('✅ '+(isHe?`${count} מקומות יובאו`:`${count} place${count>1?'s':''} imported`));
 }
-function addWishlistItem(){
-  const input=document.getElementById('wish-text');
-  const catSel=document.getElementById('wish-category');
+function addPlaceManually(){
+  const input=document.getElementById('sp-add-text');
+  const catSel=document.getElementById('sp-add-category');
   const name=input?.value.trim();
   if(!name)return;
   if(!tripData.savedPlaces)tripData.savedPlaces=[];
@@ -3381,17 +3328,48 @@ function renderMapPage(){
   <div style="font-size:10.5px;color:var(--textd);margin:6px 0 16px">${isHe?'חיפוש ומפה מבוססים על':'Search and map data from'} OpenStreetMap · ${isHe?'לחץ בכל מקום על המפה כדי להוסיף מיקום':'click anywhere on the map to drop a pin'}</div>
   <div class="card" style="margin-bottom:14px">
     <div class="card-title" style="cursor:pointer" onclick="toggleSuggestedAttractionsCard()">
-      <div class="card-title-left">✨ ${isHe?'אטרקציות מומלצות':'Suggested Attractions'}</div>
+      <div class="card-title-left">✨ ${isHe?'גלה מקומות':'Discover Places'}</div>
       <span id="suggested-attractions-arrow" style="font-size:11px;color:var(--textd)">${suggestedAttractionsOpen?'▼':'▶'}</span>
     </div>
     <div id="suggested-attractions-body" style="display:${suggestedAttractionsOpen?'block':'none'}">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input class="inp" id="suggested-manual-input" placeholder="${isHe?'חפש ליד עיר או מקום אחר...':'Search near a different city or place...'}" style="flex:1;min-width:160px" onkeydown="if(event.key==='Enter'){event.preventDefault();loadSuggestedAttractions(this.value.trim())}">
+        <button class="btn btn-outline btn-sm" onclick="loadSuggestedAttractions(document.getElementById('suggested-manual-input').value.trim())">🔍 ${isHe?'חפש':'Search'}</button>
+      </div>
       <div id="suggested-attractions"><div class="map-search-status">⏳ ${isHe?'טוען הצעות...':'Loading suggestions...'}</div></div>
     </div>
   </div>
   <div class="card">
-    <div class="card-title"><div class="card-title-left">📍 ${isHe?'מקומות שמורים':'Saved Places'}</div></div>
+    <div class="card-title">
+      <div class="card-title-left">📍 ${isHe?'מקומות שמורים':'Saved Places'}</div>
+      <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAddModal('import')">📥 ${isHe?'ייבוא':'Import'}</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <input class="inp" id="sp-add-text" placeholder="${isHe?'הוסף מקום לפי שם...':'Add a place by name...'}" style="flex:1;min-width:140px" onkeydown="if(event.key==='Enter'){event.preventDefault();addPlaceManually()}">
+      <select class="inp" id="sp-add-category" style="width:auto">
+        ${ACTIVITY_CATEGORIES.map(c=>`<option value="${c.key}">${c.icon} ${isHe?c.labelHe:c.label}</option>`).join('')}
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="addPlaceManually()">+ ${isHe?'הוסף':'Add'}</button>
+    </div>
+    ${places.length>1?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <input class="inp" id="sp-filter-text" placeholder="${isHe?'חפש ברשימה השמורה...':'Search your saved places...'}" style="flex:1;min-width:140px" oninput="renderSavedPlacesListFiltered()">
+      <select class="inp" id="sp-filter-category" style="width:auto" onchange="renderSavedPlacesListFiltered()">
+        <option value="">${isHe?'כל הקטגוריות':'All categories'}</option>
+        ${ACTIVITY_CATEGORIES.map(c=>`<option value="${c.key}">${c.icon} ${isHe?c.labelHe:c.label}</option>`).join('')}
+      </select>
+    </div>`:''}
     <div id="saved-places-list">${renderSavedPlacesListHTML(places,isHe)}</div>
   </div>`;
+}
+function renderSavedPlacesListFiltered(){
+  const isHe=lang==='he';
+  const q=(document.getElementById('sp-filter-text')?.value||'').trim().toLowerCase();
+  const cat=document.getElementById('sp-filter-category')?.value||'';
+  let places=tripData.savedPlaces||[];
+  if(q)places=places.filter(p=>p.name.toLowerCase().includes(q)||(p.address||'').toLowerCase().includes(q));
+  if(cat)places=places.filter(p=>(p.category||'')===cat);
+  const listEl=document.getElementById('saved-places-list');
+  if(listEl)listEl.innerHTML=places.length?renderSavedPlacesListHTML(places,isHe):`<div style="font-size:12px;color:var(--textd);text-align:center;padding:20px">${isHe?'אין תוצאות תואמות':'No matching places'}</div>`;
 }
 
 function renderSavedPlacesListHTML(places,isHe,days){
@@ -3400,12 +3378,12 @@ function renderSavedPlacesListHTML(places,isHe,days){
   return places.map((p,i)=>{
     const cat=actCategoryInfo(p.category);
     const hasCoords=typeof p.lat==='number'&&typeof p.lon==='number';
-    return`<div class="wish-item" style="align-items:flex-start;flex-wrap:wrap;${hasCoords?'cursor:pointer':''}"${hasCoords?` onclick="flyToSavedPlace('${p.id}')"`:''}>
+    return`<div class="wish-item${p.visited?' visited':''}" style="align-items:flex-start;flex-wrap:wrap;${hasCoords?'cursor:pointer':''}"${hasCoords?` onclick="flyToSavedPlace('${p.id}')"`:''}>
       <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
         <button class="sp-move-btn" onclick="event.stopPropagation();movePlaceUp('${p.id}')" ${i===0?'disabled':''} title="${isHe?'הזז למעלה':'Move up'}">▲</button>
         <button class="sp-move-btn" onclick="event.stopPropagation();movePlaceDown('${p.id}')" ${i===places.length-1?'disabled':''} title="${isHe?'הזז למטה':'Move down'}">▼</button>
       </div>
-      <span style="padding-top:2px">${cat.icon}</span>
+      <button class="sp-visited-check" onclick="event.stopPropagation();toggleSavedPlaceVisited('${p.id}')" title="${isHe?'סמן כביקרתי':'Mark as visited'}">${p.visited?'✅':cat.icon}</button>
       <div class="wish-item-body">
         <div class="wish-item-text">${esc(p.name)}</div>
         ${p.address?`<div class="wish-item-meta">${esc(p.address)}</div>`:''}
@@ -3471,7 +3449,8 @@ async function flyToSavedPlace(id){
   if(marker)marker.openPopup();
 }
 
-// ── SUGGESTED ATTRACTIONS — auto-anchored to your hotel (precise) or flight destination city (fallback) ──
+// ── DISCOVER PLACES — auto-anchored to your hotel (precise) or flight destination city (fallback),
+// with an always-visible manual override so this works even without a hotel/flight set yet. ──
 let suggestedAttractionsLayer=null;
 let lastSuggestedAttractions=[];
 let suggestedAttractionsRequestId=0;
@@ -3492,18 +3471,18 @@ async function loadSuggestedAttractions(manualQuery){
     if(myRequestId!==suggestedAttractionsRequestId)return; // a newer call has since started — discard this stale result
     if(!anchor){
       const hasHotelOrFlight=(tripData.hotels||[]).length||(tripData.flights||[]).length||currentTrip?.destination;
-      container.innerHTML=`<div style="font-size:12px;color:var(--textd);margin-bottom:8px">${
+      container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${
         hasHotelOrFlight
-          ?(isHe?'לא הצלחנו לאתר את המלון/היעד שלך במפות. נסה לחפש מיקום ידנית:':'We couldn\u2019t locate your hotel/destination on the map. Try searching for a location manually:')
-          :(isHe?'הוסף מלון או טיסה לקבלת הצעות, או חפש מיקום ידנית:':'Add a hotel or flight for tailored suggestions, or search a location manually:')
-      }</div>${suggestedAttractionsManualSearchHTML(isHe)}`;
+          ?(isHe?'לא הצלחנו לאתר את המלון/היעד שלך במפות. נסה לחפש מיקום למעלה.':'We couldn\u2019t locate your hotel/destination on the map. Try searching for a location above.')
+          :(isHe?'הוסף מלון או טיסה לקבלת הצעות, או חפש מיקום למעלה.':'Add a hotel or flight for tailored suggestions, or search a location above.')
+      }</div>`;
       return;
     }
     const radiusM=anchor.precise?2500:6000; // tighter radius when anchored to an exact place, wider for a whole city
     const places=await fetchNearbyAttractions(anchor.lat,anchor.lon,radiusM);
     if(myRequestId!==suggestedAttractionsRequestId)return; // stale — a newer call superseded this one
     if(!places.length){
-      container.innerHTML=`<div style="font-size:12px;color:var(--textd);margin-bottom:8px">${isHe?'לא נמצאו אטרקציות בקרבת':'No attractions found near'} ${esc(anchor.label)}</div>${suggestedAttractionsManualSearchHTML(isHe)}`;
+      container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצאו אטרקציות בקרבת':'No attractions found near'} ${esc(anchor.label)}</div>`;
       return;
     }
     lastSuggestedAttractions=places.slice(0,20);
@@ -3521,22 +3500,12 @@ async function loadSuggestedAttractions(manualQuery){
             <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור':'Save'}">💾</button>
           </div>
         </div>`;
-      }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap · <span style="cursor:pointer;text-decoration:underline" onclick="toggleSuggestedManualSearch()">${isHe?'חפש אזור אחר':'search a different area'}</span></div><div id="suggested-manual-search" style="display:none;margin-top:8px">${suggestedAttractionsManualSearchHTML(isHe)}</div>`;
+      }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap</div>`;
     plotSuggestedAttractionsOnMap();
   }catch(e){
     if(myRequestId!==suggestedAttractionsRequestId)return; // stale — don't clobber a newer, successful result
-    container.innerHTML=`<div style="font-size:12px;color:var(--textd);margin-bottom:8px">${isHe?'לא ניתן לטעון הצעות כרגע':'Couldn\u2019t load suggestions right now'}</div>${suggestedAttractionsManualSearchHTML(isHe)}`;
+    container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא ניתן לטעון הצעות כרגע':'Couldn\u2019t load suggestions right now'}</div>`;
   }
-}
-function suggestedAttractionsManualSearchHTML(isHe){
-  return`<div style="display:flex;gap:8px;flex-wrap:wrap">
-    <input class="inp" id="suggested-manual-input" placeholder="${isHe?'לדוגמה: שם המלון, או שם העיר':'e.g. hotel name, or city name'}" style="flex:1;min-width:140px" onkeydown="if(event.key==='Enter'){event.preventDefault();loadSuggestedAttractions(this.value.trim())}">
-    <button class="btn btn-outline btn-sm" onclick="loadSuggestedAttractions(document.getElementById('suggested-manual-input').value.trim())">🔍 ${isHe?'חפש':'Search'}</button>
-  </div>`;
-}
-function toggleSuggestedManualSearch(){
-  const el=document.getElementById('suggested-manual-search');
-  if(el)el.style.display=el.style.display==='none'?'block':'none';
 }
 let suggestedAttractionMarkers={};
 function plotSuggestedAttractionsOnMap(){
@@ -3682,6 +3651,13 @@ function movePlaceDown(id){
   const idx=list.findIndex(p=>p.id===id);
   if(idx<0||idx>=list.length-1)return;
   [list[idx],list[idx+1]]=[list[idx+1],list[idx]];
+  saveData();
+  renderSec(currentSec);
+}
+function toggleSavedPlaceVisited(id){
+  const p=(tripData.savedPlaces||[]).find(pl=>pl.id===id);
+  if(!p)return;
+  p.visited=!p.visited;
   saveData();
   renderSec(currentSec);
 }
