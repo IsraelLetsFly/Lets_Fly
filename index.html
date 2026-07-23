@@ -3440,7 +3440,22 @@ function renderMapPage(){
     </div>
   </div>
   <div id="trip-map" class="trip-map-container"></div>
-  <div style="font-size:10.5px;color:var(--textd);margin:6px 0 16px">${isHe?'חיפוש ומפה מבוססים על':'Search and map data from'} OpenStreetMap · ${isHe?'לחץ בכל מקום על המפה כדי להוסיף מיקום':'click anywhere on the map to drop a pin'}</div>
+  <div style="font-size:10.5px;color:var(--textd);margin:6px 0 12px">${isHe?'חיפוש ומפה מבוססים על':'Search and map data from'} OpenStreetMap · ${isHe?'לחץ בכל מקום על המפה כדי להוסיף מיקום':'click anywhere on the map to drop a pin'}</div>
+  ${(()=>{
+    const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
+    if(!days.length)return'';
+    return`<div class="card" style="padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-outline btn-sm" onclick="mapDayStep(-1)" title="${isHe?'קודם':'Previous'}">◀</button>
+        <select class="inp" id="map-day-select" style="width:auto;flex:1" onchange="setMapSelectedDay(this.value)">
+          <option value="all"${mapSelectedDayId==='all'?' selected':''}>🗺️ ${isHe?'כל הימים':'All Days'}</option>
+          ${days.map((d,i)=>`<option value="${d.id}"${mapSelectedDayId===d.id?' selected':''}>${isHe?'יום':'Day'} ${d.num}${d.title?': '+esc(d.title):''}</option>`).join('')}
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="mapDayStep(1)" title="${isHe?'הבא':'Next'}">▶</button>
+      </div>
+      <div id="map-day-summary" style="margin-top:8px"></div>
+    </div>`;
+  })()}
   <div class="card" style="margin-bottom:14px">
     <div class="card-title" style="cursor:pointer" onclick="toggleSuggestedAttractionsCard()">
       <div class="card-title-left">✨ ${isHe?'גלה מקומות':'Discover Places'}</div>
@@ -3529,25 +3544,121 @@ async function initTripMap(){
     attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
     maxZoom:19
   }).addTo(tripMapInstance);
+  dayRouteLayer=L.layerGroup().addTo(tripMapInstance);
   tripMapMarkerLayer=L.layerGroup().addTo(tripMapInstance);
   suggestedAttractionsLayer=L.layerGroup().addTo(tripMapInstance);
   tripMapInstance.on('click',onTripMapClick);
   renderSavedPlaceMarkers();
+  renderMapDaySummary();
   setTimeout(()=>tripMapInstance&&tripMapInstance.invalidateSize(),150);
 }
 
+// Consistent color per day, reusing the same palette used for budget categories
+function getDayColor(index){ return BUDGET_COLORS[index%BUDGET_COLORS.length]; }
+// Which day (if any) each saved place is currently scheduled into, keyed by lowercased name
+function getScheduledPlaceDayMap(){
+  const map={};
+  (tripData.days||[]).forEach(day=>{
+    (day.blocks||[]).forEach(b=>{
+      const key=(b.text||'').trim().toLowerCase();
+      if(key)map[key]={dayId:day.id,dayNum:day.num};
+    });
+  });
+  return map;
+}
+
+let dayRouteLayer=null;
+let mapSelectedDayId='all';
 let savedPlaceMarkers={};
 function renderSavedPlaceMarkers(){
-  if(!tripMapMarkerLayer)return;
+  if(!tripMapMarkerLayer||!dayRouteLayer)return;
   tripMapMarkerLayer.clearLayers();
+  dayRouteLayer.clearLayers();
   savedPlaceMarkers={};
+  const isHe=lang==='he';
+  const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
+  const scheduledMap=getScheduledPlaceDayMap();
+  const placeByName={};
+  (tripData.savedPlaces||[]).forEach(p=>{ placeByName[(p.name||'').trim().toLowerCase()]=p; });
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const locatedSortedBlocks=day=>(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)}))
+    .filter(b=>typeof b.lat==='number'&&typeof b.lon==='number')
+    .sort((a,b)=>{ const am=toMin(a.start),bm=toMin(b.start); if(am===null&&bm===null)return 0; if(am===null)return 1; if(bm===null)return -1; return am-bm; });
+
+  const drawDay=(day,idx,{highlight}={})=>{
+    const color=getDayColor(idx);
+    const located=locatedSortedBlocks(day);
+    if(located.length>=2){
+      L.polyline(located.map(b=>[b.lat,b.lon]),{color,weight:highlight?4:3,opacity:highlight?0.9:0.6,dashArray:highlight?null:'6,5'}).addTo(dayRouteLayer);
+    }
+    located.forEach((b,i)=>{
+      const marker=L.circleMarker([b.lat,b.lon],{radius:highlight?9:7,color:'#fff',weight:2,fillColor:color,fillOpacity:1}).addTo(tripMapMarkerLayer);
+      marker.bindPopup(`<div class="map-popup"><strong>${isHe?'יום':'Day'} ${day.num} · #${i+1}: ${esc(b.text)}</strong>${b.start?`<div style="font-size:11px;color:#666;margin-top:3px">${esc(b.start)}${b.end?'–'+esc(b.end):''}</div>`:''}</div>`);
+      const srcPlace=placeByName[(b.text||'').trim().toLowerCase()];
+      if(srcPlace)savedPlaceMarkers[srcPlace.id]=marker;
+    });
+  };
+
+  if(mapSelectedDayId==='all'){
+    days.forEach((day,idx)=>drawDay(day,idx));
+  }else{
+    const idx=days.findIndex(d=>d.id===mapSelectedDayId);
+    const day=days[idx];
+    if(day)drawDay(day,idx,{highlight:true});
+  }
+
+  // Unscheduled saved places always show, dimmed relative to whatever's highlighted
   (tripData.savedPlaces||[]).forEach(p=>{
     if(typeof p.lat!=='number'||typeof p.lon!=='number')return;
+    const key=(p.name||'').trim().toLowerCase();
+    if(scheduledMap[key])return; // already drawn as part of a day's route above
     const cat=actCategoryInfo(p.category);
-    const marker=L.marker([p.lat,p.lon]).addTo(tripMapMarkerLayer);
+    const marker=L.marker([p.lat,p.lon],{opacity:mapSelectedDayId==='all'?0.8:0.4}).addTo(tripMapMarkerLayer);
     marker.bindPopup(`<div class="map-popup"><strong>${cat.icon} ${esc(p.name)}</strong>${p.address?`<div style="font-size:11px;color:#666;margin-top:3px">${esc(p.address)}</div>`:''}</div>`);
     savedPlaceMarkers[p.id]=marker;
   });
+
+  if(mapSelectedDayId!=='all'){
+    const day=days.find(d=>d.id===mapSelectedDayId);
+    const located=day?locatedSortedBlocks(day):[];
+    if(located.length&&tripMapInstance)tripMapInstance.fitBounds(located.map(b=>[b.lat,b.lon]),{padding:[50,50],maxZoom:16});
+  }
+}
+function renderMapDaySummary(){
+  const el=document.getElementById('map-day-summary');
+  if(!el)return;
+  const isHe=lang==='he';
+  if(mapSelectedDayId==='all'){ el.innerHTML=''; return; }
+  const day=(tripData.days||[]).find(d=>d.id===mapSelectedDayId);
+  if(!day){ el.innerHTML=''; return; }
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const located=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)}))
+    .filter(b=>typeof b.lat==='number'&&typeof b.lon==='number')
+    .sort((a,b)=>{ const am=toMin(a.start),bm=toMin(b.start); if(am===null&&bm===null)return 0; if(am===null)return 1; if(bm===null)return -1; return am-bm; });
+  if(located.length<2){
+    el.innerHTML=`<div style="font-size:11.5px;color:var(--textd)">${isHe?'הוסף לפחות 2 פעילויות עם מיקום כדי לראות מסלול':'Add at least 2 located activities to see a route'}</div>`;
+    return;
+  }
+  let totalKm=0;
+  for(let i=0;i<located.length-1;i++)totalKm+=haversineKm(located[i].lat,located[i].lon,located[i+1].lat,located[i+1].lon);
+  const walkMin=Math.round(totalKm/4.5*60);
+  el.innerHTML=`<div style="font-size:11.5px;color:var(--textm)">📏 ${isHe?'מרחק קו ישר':'Straight-line distance'}: <strong>${totalKm.toFixed(1)} km</strong> · 🚶 ~${walkMin} ${isHe?'דק׳ הליכה (הערכה)':'min walking (estimate)'}</div>`;
+}
+function setMapSelectedDay(dayId){
+  mapSelectedDayId=dayId;
+  renderSavedPlaceMarkers();
+  renderMapDaySummary();
+}
+function mapDayStep(delta){
+  const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
+  const ids=['all',...days.map(d=>d.id)];
+  const idx=ids.indexOf(mapSelectedDayId);
+  const newIdx=((idx<0?0:idx)+delta+ids.length)%ids.length;
+  mapSelectedDayId=ids[newIdx];
+  const sel=document.getElementById('map-day-select');
+  if(sel)sel.value=mapSelectedDayId;
+  renderSavedPlaceMarkers();
+  renderMapDaySummary();
 }
 
 async function flyToSavedPlace(id){
