@@ -1213,6 +1213,18 @@ function renderDashboard(){
       <div class="bp-stub-item"><div class="bp-stub-lbl">${isHe?'לילות':'NIGHTS'}</div><div class="bp-stub-val">${nights}</div></div>
     </div>
   </div>
+  ${(tripData.days||[]).length<2?`<div class="card" style="background:linear-gradient(135deg,rgba(55,198,186,.12),rgba(139,143,232,.08));border-color:rgba(55,198,186,.3);margin-bottom:14px;cursor:pointer" onclick="openAddModal('smartbuild')">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="font-size:28px">✨</div>
+      <div style="flex:1">
+        <div style="font-weight:800;font-size:15px">${isHe?'עדיין לא תכננת ימים? תן לנו לבנות עבורך':'Haven\u2019t planned your days yet? Let us build it for you'}</div>
+        <div style="font-size:12px;color:var(--textm);margin-top:2px">${isHe?'לוח זמנים מלא, אוטומטי, מבוסס על מקומות אמיתיים':'A full automatic schedule, built from real nearby places'}</div>
+      </div>
+      <button class="btn btn-primary btn-sm">${isHe?'התחל':'Start'}</button>
+    </div>
+  </div>`:`<div style="margin-bottom:14px">
+    <button class="btn btn-outline btn-sm" onclick="openAddModal('smartbuild')">✨ ${isHe?'בניית טיול חכם':'Smart Trip Builder'}</button>
+  </div>`}
   <div class="stats-row">
     <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="st-done">${done}</div><div class="stat-lbl">${t('tasksDone')}</div></div>
     <div class="stat-card"><div class="stat-num" style="color:var(--coral)" id="st-left">${todos.length-done}</div><div class="stat-lbl">${t('tasksLeft')}</div></div>
@@ -1997,6 +2009,7 @@ function renderItinerary(){
         <button class="${itinCalLayout==='week'?'active':''}" onclick="setItinCalLayout('week')">${isHe?'שבוע':'Week'}</button>
         <button class="${itinCalLayout==='month'?'active':''}" onclick="setItinCalLayout('month')">${isHe?'חודש':'Month'}</button>
       </div>`:''}
+      <button class="btn btn-outline btn-sm" onclick="openAddModal('smartbuild')">✨ ${isHe?'בניית טיול חכם':'Smart Build'}</button>
       <button class="btn btn-outline btn-sm" onclick="openAddModal('day')">${t('addDay')}</button>
     </div>
   </div>`;
@@ -2280,6 +2293,157 @@ function autoFillDay(dayId){
   saveData();
   renderSec(currentSec);
   toast('✅ '+(isHe?`${toAdd.length} פעילויות נוספו ליום ${day.num}`:`${toAdd.length} activities added to Day ${day.num}`));
+}
+
+// ── SMART TRIP BUILDER — generates a full multi-day itinerary automatically from just
+// dates + a pace/interest preference. Entirely rule-based (no AI): resolves your trip's
+// location, pulls a pool of real nearby attractions + food places, chains them into a
+// geographically sensible route, slices that route into day-sized chunks, and times each
+// stop with category-aware durations. Never touches a day that already has activities in it,
+// and never removes anything — purely additive. ──
+const SMART_BUILD_PACE={relaxed:{count:2,label:'Relaxed (2/day)'},balanced:{count:4,label:'Balanced (4/day)'},packed:{count:6,label:'Packed (6/day)'}};
+const SMART_BUILD_DURATIONS={food:90,sightseeing:120,outdoor:150,shopping:90,nightlife:120,hotel:60,transport:60,'':90};
+let smartBuildRunId=0;
+async function runSmartTripBuilder(){
+  const isHe=lang==='he';
+  const myRunId=++smartBuildRunId;
+  const statusEl=document.getElementById('stb-status');
+  if(!statusEl)return;
+  if(!currentTrip?.start_date||!currentTrip?.end_date){
+    statusEl.innerHTML=`<div style="color:var(--coral)">${isHe?'הוסף תאריכי התחלה וסיום לטיול קודם':'Add trip start/end dates first'}</div>`;
+    return;
+  }
+  const pace=document.querySelector('input[name="stb-pace"]:checked')?.value||'balanced';
+  const selectedCats=Array.from(document.querySelectorAll('.stb-cat-check:checked')).map(el=>el.value);
+  const perDayCount=SMART_BUILD_PACE[pace].count;
+  const setStatus=msg=>{ if(myRunId===smartBuildRunId&&statusEl)statusEl.innerHTML=`<div style="color:var(--textm)">⏳ ${msg}</div>`; };
+
+  try{
+    setStatus(isHe?'מאתר את מיקום הטיול...':'Locating your trip...');
+    const anchor=await resolveTripAnchor();
+    if(myRunId!==smartBuildRunId)return;
+    if(!anchor){
+      statusEl.innerHTML=`<div style="color:var(--coral)">${isHe?'לא הצלחנו לאתר את הטיול — הוסף מלון, טיסה או יעד':'Couldn\u2019t locate your trip — add a hotel, flight, or destination first'}</div>`;
+      return;
+    }
+
+    setStatus(isHe?'מחפש אטרקציות ומקומות אוכל בקרבת מקום...':'Finding nearby attractions and places to eat...');
+    const radiusM=anchor.precise?4000:8000;
+    const[attractions,food]=await Promise.all([
+      fetchNearbyAttractions(anchor.lat,anchor.lon,radiusM),
+      fetchNearbyFood(anchor.lat,anchor.lon,radiusM)
+    ]);
+    if(myRunId!==smartBuildRunId)return;
+
+    // Build the candidate pool: dedupe by name, tag each with our category, apply the
+    // interest filter if the user picked specific categories, keep only ones with coordinates
+    const seen=new Set();
+    let pool=[...attractions,...food].filter(p=>{
+      if(p.lat==null||p.lon==null)return false;
+      const key=p.name.trim().toLowerCase();
+      if(seen.has(key))return false;
+      seen.add(key);
+      return true;
+    }).map(p=>({...p,category:osmPlaceCategory(p.osmType)}));
+    if(selectedCats.length)pool=pool.filter(p=>selectedCats.includes(p.category));
+    // Exclude anything already scheduled anywhere in the trip
+    const scheduledNames=new Set();
+    (tripData.days||[]).forEach(d=>(d.blocks||[]).forEach(b=>scheduledNames.add((b.text||'').trim().toLowerCase())));
+    pool=pool.filter(p=>!scheduledNames.has(p.name.trim().toLowerCase()));
+
+    if(!pool.length){
+      statusEl.innerHTML=`<div style="color:var(--coral)">${isHe?'לא נמצאו מקומות מתאימים בקרבת מקום':'No matching places found nearby'}</div>`;
+      return;
+    }
+
+    setStatus(isHe?'בונה את המסלול...':'Building your itinerary...');
+    // Chain the whole pool into one geographically sensible route, then slice into day-sized chunks
+    const chained=nearestNeighborOrder(pool);
+
+    const dates=enumerateDatesInRange(currentTrip.start_date,currentTrip.end_date);
+    if(!tripData.days)tripData.days=[];
+    const existingByDate={};
+    tripData.days.forEach(d=>{ if(d.date)existingByDate[d.date]=d; });
+    let nextDayNum=Math.max(0,...tripData.days.map(d=>d.num||0));
+    const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+
+    let poolIdx=0,daysCreated=0,daysFilled=0,activitiesAdded=0;
+    dates.forEach(dateStr=>{
+      let day=existingByDate[dateStr];
+      if(!day){
+        nextDayNum++;
+        day={id:uid(),num:nextDayNum,title:'',date:dateStr,city:currentTrip.destination||'',blocks:[],note:''};
+        tripData.days.push(day);
+        existingByDate[dateStr]=day;
+        daysCreated++;
+      }
+      if((day.blocks||[]).length>0)return; // never touch a day that already has plans
+      if(poolIdx>=chained.length)return; // ran out of candidates
+      const picks=chained.slice(poolIdx,poolIdx+perDayCount);
+      poolIdx+=perDayCount;
+      if(!picks.length)return;
+      if(!day.blocks)day.blocks=[];
+      let cursor=9*60; // start each generated day at 9:00
+      picks.forEach(p=>{
+        const durMin=SMART_BUILD_DURATIONS[p.category]||90;
+        const startMin=cursor,endMin=cursor+durMin;
+        const h=Math.floor(durMin/60),m=durMin%60;
+        day.blocks.push({id:uid(),start:fmt(startMin),end:fmt(endMin),time:`${fmt(startMin)}–${fmt(endMin)}`,
+          text:p.name,dur:h>0?(m>0?`${h}h ${m}m`:`${h}h`):`${m}m`,category:p.category,cost:'',confirmation:'',checklist:[],
+          lat:p.lat,lon:p.lon});
+        cursor=endMin+30; // 30min buffer between stops
+        activitiesAdded++;
+        // Also keep it in Saved Places so it's visible/manageable on the Map
+        if(!tripData.savedPlaces)tripData.savedPlaces=[];
+        if(!tripData.savedPlaces.some(sp=>sp.name.trim().toLowerCase()===p.name.trim().toLowerCase())){
+          tripData.savedPlaces.push({id:uid(),name:p.name,category:p.category,lat:p.lat,lon:p.lon});
+        }
+      });
+      daysFilled++;
+    });
+
+    if(myRunId!==smartBuildRunId)return;
+    if(!activitiesAdded){
+      statusEl.innerHTML=`<div style="color:var(--coral)">${isHe?'כל הימים כבר מתוכננים — אין מה להוסיף':'Every day already has plans — nothing to add'}</div>`;
+      return;
+    }
+    // Final pass: tidy each newly-filled day's route order (belt-and-suspenders on top of the
+    // geographic chaining above, using the exact same logic as the manual "Optimize Route" button)
+    Object.values(existingByDate).forEach(day=>{
+      const located=(day.blocks||[]).filter(b=>typeof b.lat==='number'&&typeof b.lon==='number');
+      if(located.length>=2)optimizeDayRouteSilent(day.id);
+    });
+    saveData();
+    statusEl.innerHTML=`<div style="color:var(--green);font-weight:600">✅ ${isHe?`נוצרו ${daysCreated} ימים חדשים עם ${activitiesAdded} פעילויות!`:`Built ${daysCreated} new day${daysCreated===1?'':'s'} with ${activitiesAdded} activities!`}</div>`;
+    setTimeout(()=>{ if(myRunId===smartBuildRunId){ closeModal('modal-add'); renderSec('itinerary'); } },1600);
+  }catch(e){
+    if(myRunId!==smartBuildRunId)return;
+    statusEl.innerHTML=`<div style="color:var(--coral)">${isHe?'משהו השתבש. נסה שוב.':'Something went wrong. Please try again.'}</div>`;
+  }
+}
+// Same reordering logic as optimizeDayRoute(), without its own toast/UI feedback —
+// used internally as a cleanup pass after the Smart Builder places initial picks.
+function optimizeDayRouteSilent(dayId){
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const blocks=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)}));
+  const located=blocks.filter(b=>typeof b.lat==='number'&&typeof b.lon==='number');
+  if(located.length<2)return;
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  located.forEach(b=>{ const s=toMin(b.start),e=toMin(b.end); b._durMin=(s!==null&&e!==null&&e>s)?(e-s):90; });
+  located.sort((a,b)=>{ const am=toMin(a.start),bm=toMin(b.start); if(am===null&&bm===null)return 0; if(am===null)return 1; if(bm===null)return -1; return am-bm; });
+  const ordered=nearestNeighborOrder(located);
+  let cursor=toMin(ordered[0].start);
+  if(cursor===null)cursor=9*60;
+  const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+  ordered.forEach(b=>{
+    const startMin=cursor,endMin=cursor+b._durMin;
+    const realBlock=day.blocks.find(orig=>orig.id===b.id);
+    if(realBlock){
+      realBlock.start=fmt(startMin);realBlock.end=fmt(endMin);realBlock.time=`${fmt(startMin)}–${fmt(endMin)}`;
+    }
+    cursor=endMin;
+  });
 }
 // Backward-compat: older saved activities only have a combined "10:00–12:00" time string,
 // not separate start/end fields. Derive start/end from whichever is available.
@@ -2732,6 +2896,36 @@ function renderWeatherInto(el,data){
 // ── PLACE SUGGESTIONS (OpenStreetMap Overpass API — free, no key required) ──
 const OSM_TOURISM_TO_CATEGORY={attraction:'sightseeing',museum:'sightseeing',gallery:'sightseeing',
   viewpoint:'outdoor',zoo:'outdoor',theme_park:'outdoor',artwork:'sightseeing',historic:'sightseeing'};
+const OSM_AMENITY_TO_CATEGORY={restaurant:'food',cafe:'food',fast_food:'food',bar:'nightlife',pub:'nightlife'};
+function osmPlaceCategory(osmType){ return OSM_TOURISM_TO_CATEGORY[osmType]||OSM_AMENITY_TO_CATEGORY[osmType]||'sightseeing'; }
+// Same shape/pattern as fetchNearbyAttractions, but for restaurants/cafes/bars — needed so the
+// Smart Trip Builder can place meals, not just sightseeing, into a generated day.
+async function fetchNearbyFood(lat,lon,radiusM){
+  const q=`[out:json][timeout:20];(node["amenity"~"restaurant|cafe|fast_food|bar|pub"]["name"](around:${radiusM},${lat},${lon});way["amenity"~"restaurant|cafe|fast_food|bar|pub"]["name"](around:${radiusM},${lat},${lon}););out center 60;`;
+  const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+  const data=await res.json();
+  const seen=new Set();
+  const places=[];
+  (data.elements||[]).forEach(el=>{
+    const name=el.tags?.name;
+    if(!name||seen.has(name))return;
+    seen.add(name);
+    const osmType=el.tags?.amenity||'restaurant';
+    const plat=el.lat??el.center?.lat??null;
+    const plon=el.lon??el.center?.lon??null;
+    places.push({name,osmType,lat:plat,lon:plon});
+  });
+  return places;
+}
+// Every calendar date (YYYY-MM-DD) from start to end inclusive
+function enumerateDatesInRange(startStr,endStr){
+  if(!startStr||!endStr)return[];
+  const dates=[];
+  let cur=new Date(startStr+'T00:00:00');
+  const end=new Date(endStr+'T00:00:00');
+  while(cur<=end){ dates.push(dateToStr(cur)); cur.setDate(cur.getDate()+1); }
+  return dates;
+}
 // Shared Overpass query: named tourist attractions/museums/historic sites within radiusM of a point.
 // Captures lat/lon (node coords, or the "center" Overpass computes for way/area results) so callers
 // can plot results on a map, not just list them.
@@ -4100,6 +4294,38 @@ function getModalContent(type,editData){
   }
 
   if(type==='budget') return'';
+
+  if(type==='smartbuild'){
+    return`
+    ${modalTitleBar(`✨ ${isHe?'בניית טיול חכם':'Smart Trip Builder'}`)}
+    <div style="font-size:12px;color:var(--textm);background:var(--bg3);border-radius:var(--rsm);padding:10px 12px;margin-bottom:14px">
+      ${isHe?'ניצור לך אוטומטית לוח זמנים מלא לפי התאריכים שלך, בהתבסס על מקומות אמיתיים בקרבת המלון/יעד שלך. ':'We\u2019ll automatically build a full schedule from your trip dates, using real nearby places around your hotel/destination. '}
+      <strong>${isHe?'זה לעולם לא ימחק או ישנה ימים שכבר יש בהם תוכניות.':'This will never overwrite or change a day that already has plans.'}</strong>
+    </div>
+    <div class="field">
+      <div class="field-label">${isHe?'קצב הטיול':'Trip pace'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${Object.entries(SMART_BUILD_PACE).map(([key,p],i)=>`<label style="flex:1;min-width:100px;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:1px solid var(--border);border-radius:var(--rsm);cursor:pointer;font-size:12.5px" class="stb-pace-label">
+          <input type="radio" name="stb-pace" value="${key}" ${key==='balanced'?'checked':''} style="cursor:pointer">
+          ${isHe?(key==='relaxed'?'רגוע (2/יום)':key==='balanced'?'מאוזן (4/יום)':'עמוס (6/יום)'):p.label}
+        </label>`).join('')}
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">${isHe?'תחומי עניין (השאר ריק לכולם)':'Interests (leave blank for everything)'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${ACTIVITY_CATEGORIES.filter(c=>c.key).map(c=>`<label style="display:flex;align-items:center;gap:5px;padding:6px 10px;border:1px solid var(--border);border-radius:100px;cursor:pointer;font-size:12px">
+          <input type="checkbox" class="stb-cat-check" value="${c.key}" style="cursor:pointer">
+          ${c.icon} ${isHe?c.labelHe:c.label}
+        </label>`).join('')}
+      </div>
+    </div>
+    <div id="stb-status" style="min-height:20px;margin:10px 0;font-size:12.5px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="runSmartTripBuilder()">🚀 ${isHe?'בנה את הטיול שלי':'Build My Trip'}</button>
+    </div>`;
+  }
 
   if(type==='import'){
     return`
