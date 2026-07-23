@@ -4187,7 +4187,9 @@ function openAddModal(type,editId,prefillTime,prefillDate){
     document.querySelectorAll('#fl-legs-container .fl-leg-block').forEach(initLegAutocomplete);
   }
   if(type==='hotel'){
+    hotelCityAnchor=null;
     linkDateRange('ht-in','ht-out');
+    hotelCityAutocomplete('ht-dest','ht-name');
     hotelNameAutocomplete('ht-name');
   }
 }
@@ -4238,8 +4240,8 @@ function getModalContent(type,editData){
     const h=editData||{};
     return`
     ${modalTitleBar(h.id?`✏️ ${isHe?'ערוך מלון':'Edit Hotel'}`:`🏨 ${isHe?'הוסף מלון':'Add Hotel'}`)}
-    <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" value="${esc(h.name||'')}" placeholder="Marriott Bangkok" autocomplete="off"></div>
-    <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" value="${esc(h.dest||'')}" placeholder="Bangkok"></div>
+    <div class="field"><div class="field-label">${t('destination')}</div><input class="inp" id="ht-dest" value="${esc(h.dest||'')}" placeholder="Bangkok" autocomplete="off"></div>
+    <div class="field"><div class="field-label">${t('hotelName')}</div><input class="inp" id="ht-name" value="${esc(h.name||'')}" placeholder="${isHe?'הזן קודם עיר למעלה...':'Enter a city above first...'}" autocomplete="off" ${h.dest?'':'disabled'}></div>
     <div class="grid2">
       <div class="field"><div class="field-label">${t('checkIn')}</div><input class="inp" id="ht-in" type="date" value="${esc(h.checkIn||'')}"></div>
       <div class="field"><div class="field-label">${t('checkOut')}</div><input class="inp" id="ht-out" type="date" value="${esc(h.checkOut||'')}"></div>
@@ -4963,9 +4965,31 @@ function addReturnFlight(id){
   modal.classList.add('show');
   document.querySelectorAll('#fl-legs-container .fl-leg-block').forEach(initLegAutocomplete);
 }
-// ── HOTEL NAME AUTOCOMPLETE (OpenStreetMap Overpass — free, anchored to the trip's location) ──
+// ── HOTEL SEARCH (city-anchored) — the destination city you type is geocoded and used as the
+// search center for hotel names, instead of the trip-wide anchor, so multi-city trips get
+// relevant suggestions for whichever city you're actually adding a hotel in. ──
 let hotelAcDebounce=null;
 let hotelAcResultsCache=[];
+let hotelCityAnchor=null;
+let hotelCityDebounce=null;
+function hotelCityAutocomplete(destInputId,nameInputId){
+  const destInput=document.getElementById(destInputId);
+  const nameInput=document.getElementById(nameInputId);
+  if(!destInput||!nameInput)return;
+  const resolveCityAnchor=async()=>{
+    const city=destInput.value.trim();
+    if(!city){ hotelCityAnchor=null; nameInput.disabled=true; nameInput.placeholder=lang==='he'?'הזן קודם עיר למעלה...':'Enter a city above first...'; return; }
+    const loc=await geocodeQuery(city);
+    hotelCityAnchor=loc?{lat:loc.lat,lon:loc.lon,label:city}:null;
+    nameInput.disabled=false;
+    nameInput.placeholder=hotelCityAnchor?(lang==='he'?`חפש מלון ב${city}...`:`Search for a hotel in ${city}...`):(lang==='he'?'לדוגמה: Hilton':'e.g. Hilton');
+  };
+  destInput.addEventListener('input',()=>{
+    clearTimeout(hotelCityDebounce);
+    hotelCityDebounce=setTimeout(resolveCityAnchor,600);
+  });
+  if(destInput.value.trim())resolveCityAnchor(); // pre-fill case (editing an existing hotel)
+}
 function hotelNameAutocomplete(inputId){
   const input=document.getElementById(inputId);
   if(!input)return;
@@ -4987,25 +5011,41 @@ async function searchHotelsByName(query,box,inputId){
   box.classList.add('show');
   box.innerHTML=`<div class="map-search-status">⏳ ${isHe?'מחפש מלונות...':'Searching hotels...'}</div>`;
   try{
-    const anchor=await resolveTripAnchor();
+    const anchor=hotelCityAnchor||await resolveTripAnchor();
     if(!anchor){
-      box.innerHTML=`<div class="map-search-status">${isHe?'הוסף יעד לטיול כדי לחפש מלונות':'Add a trip destination to search hotels'}</div>`;
+      box.innerHTML=`<div class="map-search-status">${isHe?'הזן עיר כדי לחפש מלונות':'Enter a city to search hotels'}</div>`;
       return;
     }
     const radiusM=anchor.precise?15000:30000; // wide enough to cover a whole city's worth of hotels
     const safeQ=query.replace(/["\\]/g,'\\$&');
-    const q=`[out:json][timeout:15];(node["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon});way["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon}););out center 10;`;
-    const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
-    const data=await res.json();
+    const overpassQ=`[out:json][timeout:15];(node["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon});way["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon}););out center 10;`;
+    // Combine two sources: Overpass gives precise hotel-tagged results, but OSM's hotel tagging
+    // is spotty for big chains — Nominatim's broader index often finds "Hilton Bangkok..." even
+    // when it isn't cleanly tagged tourism=hotel, so we merge both instead of relying on one.
+    const d=Math.max(0.15,radiusM/111000);
+    const nominatimUrl=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=8&viewbox=${anchor.lon-d},${anchor.lat+d},${anchor.lon+d},${anchor.lat-d}&bounded=0`;
+    const[overpassRes,nominatimRes]=await Promise.all([
+      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:overpassQ}).then(r=>r.json()).catch(()=>null),
+      fetch(nominatimUrl).then(r=>r.json()).catch(()=>null),
+    ]);
     const seen=new Set();
     const results=[];
-    (data.elements||[]).forEach(el=>{
+    (overpassRes?.elements||[]).forEach(el=>{
       const name=el.tags?.name;
-      if(!name||seen.has(name))return;
-      seen.add(name);
+      if(!name||seen.has(name.toLowerCase()))return;
+      seen.add(name.toLowerCase());
       const addrParts=[el.tags['addr:street'],el.tags['addr:housenumber']].filter(Boolean).join(' ');
       const city=el.tags['addr:city']||'';
       results.push({name,address:[addrParts,city].filter(Boolean).join(', ')});
+    });
+    (nominatimRes||[]).forEach(r=>{
+      const name=(r.display_name||'').split(',')[0].trim();
+      if(!name||seen.has(name.toLowerCase()))return;
+      // Only keep Nominatim results that actually look like they contain the search text
+      // (Nominatim's viewbox is a soft bias, not a hard filter, so it can return unrelated matches)
+      if(!name.toLowerCase().includes(query.toLowerCase()))return;
+      seen.add(name.toLowerCase());
+      results.push({name,address:r.display_name.split(',').slice(1,3).join(',').trim()});
     });
     if(!results.length){
       box.innerHTML=`<div class="map-search-status">${isHe?'לא נמצאו מלונות תואמים':'No matching hotels found'}</div>`;
@@ -5020,8 +5060,6 @@ async function searchHotelsByName(query,box,inputId){
       row.onmousedown=(e)=>{ e.preventDefault(); };
       row.onclick=()=>{
         document.getElementById(inputId).value=r.name;
-        const destEl=document.getElementById('ht-dest');
-        if(destEl&&!destEl.value.trim())destEl.value=anchor.label;
         box.classList.remove('show');
         document.getElementById(inputId).dispatchEvent(new Event('change'));
       };
