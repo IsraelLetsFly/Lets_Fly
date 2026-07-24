@@ -2925,9 +2925,20 @@ async function fetchNearbyFood(lat,lon,radiusM){
     const osmType=el.tags?.amenity||'restaurant';
     const plat=el.lat??el.center?.lat??null;
     const plon=el.lon??el.center?.lon??null;
-    places.push({name,osmType,lat:plat,lon:plon});
+    places.push(extractPlaceExtras({name,osmType,lat:plat,lon:plon},el.tags));
   });
   return places;
+}
+// Pulls the handful of extra tags OSM often has (website, Wikipedia link, phone, opening
+// hours) onto a place object — this data comes back in every Overpass response already,
+// we just weren't reading it before.
+function extractPlaceExtras(place,tags){
+  if(!tags)return place;
+  place.website=tags.website||tags['contact:website']||'';
+  place.wikipedia=tags.wikipedia||'';
+  place.phone=tags.phone||tags['contact:phone']||'';
+  place.openingHours=tags.opening_hours||'';
+  return place;
 }
 // Every calendar date (YYYY-MM-DD) from start to end inclusive
 function enumerateDatesInRange(startStr,endStr){
@@ -2954,7 +2965,7 @@ async function fetchNearbyAttractions(lat,lon,radiusM){
     const osmType=el.tags?.tourism||(el.tags?.historic?'historic':'attraction');
     const plat=el.lat??el.center?.lat??null;
     const plon=el.lon??el.center?.lon??null;
-    places.push({name,osmType,lat:plat,lon:plon});
+    places.push(extractPlaceExtras({name,osmType,lat:plat,lon:plon},el.tags));
   });
   return places;
 }
@@ -3735,6 +3746,7 @@ function renderSavedPlacesListHTML(places,isHe,days){
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
         ${hasCoords?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSavedPlace('${p.id}')" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>`:''}
+        ${(p.website||p.wikipedia||p.phone||p.openingHours)?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="showPlaceDetails(tripData.savedPlaces.find(sp=>sp.id==='${p.id}'))" title="${isHe?'מידע נוסף':'More info'}">ℹ️</button>`:''}
         <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openInGoogleMaps('${escJS(p.name)}${p.address?', '+escJS(p.address):''}')" title="${isHe?'פתח ב-Google Maps':'Open in Google Maps'}">📍</button>
         <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openMapsChoice('${escJS(p.name)}${p.address?', '+escJS(p.address):''}', this)" title="${isHe?'כיוונים':'Directions'}">🧭</button>
         ${days.length?`<select class="inp" id="sp-day-${p.id}" style="width:auto;font-size:11px;padding:5px 7px">
@@ -3894,6 +3906,116 @@ async function flyToSavedPlace(id){
 // with an always-visible manual override so this works even without a hotel/flight set yet. ──
 let suggestedAttractionsLayer=null;
 let lastSuggestedAttractions=[];
+
+// ── PLACE DETAILS — click any place to see a photo/description (via Wikipedia, when OSM links
+// to an article) plus its real website, phone, and hours if OpenStreetMap has them. Nothing here
+// is fetched until the user actually clicks a place, so browsing the list stays fast. ──
+async function fetchWikipediaSummary(wikipediaTag){
+  if(!wikipediaTag)return null;
+  const parts=wikipediaTag.split(':');
+  const wikiLang=parts.length>1?parts[0]:'en';
+  const title=parts.length>1?parts.slice(1).join(':'):parts[0];
+  try{
+    const res=await fetch(`https://${wikiLang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+    if(!res.ok)return null;
+    const data=await res.json();
+    return{
+      extract:data.extract||'',
+      thumbnail:data.thumbnail?.source||'',
+      pageUrl:data.content_urls?.desktop?.page||''
+    };
+  }catch(e){ return null; }
+}
+function showPlaceDetails(place){
+  const isHe=lang==='he';
+  const modal=document.getElementById('modal-add');
+  const inner=document.getElementById('modal-add-inner');
+  if(!modal||!inner)return;
+  const cat=actCategoryInfo(place.category||osmPlaceCategory(place.osmType));
+  inner.innerHTML=`
+    ${modalTitleBar(`${cat.icon} ${esc(place.name)}`)}
+    <div id="pd-photo-area" style="margin-bottom:12px"></div>
+    <div id="pd-extract" style="font-size:13px;color:var(--textm);margin-bottom:12px">
+      <div class="map-search-status">⏳ ${isHe?'טוען מידע...':'Loading info...'}</div>
+    </div>
+    ${place.openingHours?`<div class="item-row"><span class="item-lbl">${isHe?'שעות פתיחה':'Hours'}</span><span class="item-val">${esc(place.openingHours)}</span></div>`:''}
+    ${place.phone?`<div class="item-row"><span class="item-lbl">${isHe?'טלפון':'Phone'}</span><span class="item-val"><a href="tel:${escJS(place.phone.replace(/[^+\d]/g,''))}" style="color:var(--accent);text-decoration:none">${esc(place.phone)}</a></span></div>`:''}
+    ${place.website?`<div class="item-row"><span class="item-lbl">${isHe?'אתר':'Website'}</span><span class="item-val"><a href="${esc(place.website)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${esc(place.website.replace(/^https?:\/\//,'').replace(/\/$/,''))} ↗</a></span></div>`:''}
+    <div id="pd-wiki-link"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      ${place.lat!=null&&place.lon!=null?`<button class="btn btn-outline btn-sm" onclick="closeModal('modal-add');setTimeout(()=>flyToPlaceCoords(${place.lat},${place.lon}),300)">🗺️ ${isHe?'הצג במפה':'Show on map'}</button>`:''}
+      <button class="btn btn-outline btn-sm" onclick="openInGoogleMaps('${escJS(place.name)}')">📍 Google Maps</button>
+      <button class="btn btn-outline btn-sm" onclick="openMapsChoice('${escJS(place.name)}', this)">🧭 ${isHe?'כיוונים':'Directions'}</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${isHe?'סגור':'Close'}</button>
+      <button class="btn btn-primary" onclick="savePlaceFromDetails()">💾 ${isHe?'שמור':'Save'}</button>
+    </div>`;
+  window.__pdCurrentPlace=place;
+  modal.classList.add('show');
+  fetchWikipediaSummary(place.wikipedia).then(info=>{
+    const photoEl=document.getElementById('pd-photo-area');
+    const extractEl=document.getElementById('pd-extract');
+    const linkEl=document.getElementById('pd-wiki-link');
+    if(!photoEl||!extractEl)return; // modal was closed before this resolved
+    if(info?.thumbnail)photoEl.innerHTML=`<img src="${esc(info.thumbnail)}" alt="" style="width:100%;max-height:180px;object-fit:cover;border-radius:var(--rsm)">`;
+    extractEl.innerHTML=info?.extract?esc(info.extract):`<span style="color:var(--textd)">${isHe?'אין מידע נוסף זמין עבור מקום זה':'No additional info available for this place'}</span>`;
+    if(info?.pageUrl)linkEl.innerHTML=`<a href="${esc(info.pageUrl)}" target="_blank" rel="noopener" style="font-size:11.5px;color:var(--accent);text-decoration:none">📖 ${isHe?'עוד בוויקיפדיה':'More on Wikipedia'} ↗</a>`;
+  });
+}
+function flyToPlaceCoords(lat,lon){
+  if(!tripMapInstance)return;
+  tripMapInstance.setView([lat,lon],16);
+}
+function savePlaceFromDetails(){
+  const p=window.__pdCurrentPlace;
+  if(!p)return;
+  if(!tripData.savedPlaces)tripData.savedPlaces=[];
+  const cat=p.category||osmPlaceCategory(p.osmType);
+  if(!tripData.savedPlaces.some(sp=>sp.name.trim().toLowerCase()===p.name.trim().toLowerCase())){
+    tripData.savedPlaces.push({id:uid(),name:p.name,lat:p.lat??null,lon:p.lon??null,category:cat,
+      address:p.address||'',website:p.website||'',wikipedia:p.wikipedia||'',phone:p.phone||'',openingHours:p.openingHours||''});
+    saveData();
+  }
+  closeModal('modal-add');
+  renderSec(currentSec);
+  toast('✅ '+(lang==='he'?'נשמר לרשימת המקומות':'Saved to your places'));
+}
+// Groups place results by category with section headers, so a mixed list of sightseeing/food/
+// etc. reads as an organized guide instead of one flat, hard-to-scan list.
+function renderPlaceResultsGrouped(places,isHe){
+  const byCategory={};
+  places.forEach((p,i)=>{
+    const key=p.category||'sightseeing';
+    if(!byCategory[key])byCategory[key]=[];
+    byCategory[key].push(i);
+  });
+  const categoryOrder=ACTIVITY_CATEGORIES.map(c=>c.key).filter(k=>byCategory[k]&&byCategory[k].length);
+  return categoryOrder.map(catKey=>{
+    const cat=actCategoryInfo(catKey);
+    const indices=byCategory[catKey];
+    return`<div style="margin-bottom:8px">
+      <div style="font-size:10.5px;font-weight:700;color:var(--textd);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 4px">${cat.icon} ${isHe?cat.labelHe:cat.label} · ${indices.length}</div>
+      ${indices.map(i=>renderSuggestionRow(places[i],i,isHe)).join('')}
+    </div>`;
+  }).join('');
+}
+function renderSuggestionRow(p,i,isHe){
+  const cat=actCategoryInfo(p.category);
+  const clickable=p.lat!=null&&p.lon!=null;
+  const hasExtras=p.website||p.wikipedia||p.phone||p.openingHours;
+  return`<div class="wish-item" style="cursor:pointer" onclick="showPlaceDetails(lastSuggestedAttractions[${i}])">
+    <span>${cat.icon}</span>
+    <div class="wish-item-body">
+      <div class="wish-item-text">${esc(p.name)}</div>
+      ${hasExtras?`<div class="wish-item-meta">ℹ️ ${isHe?'לחץ למידע נוסף':'Tap for more info'}</div>`:''}
+    </div>
+    <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
+      ${clickable?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSuggestedAttraction(${i})" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>`:''}
+      <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור':'Save'}">💾</button>
+    </div>
+  </div>`;
+}
 let suggestedAttractionsRequestId=0;
 async function loadSuggestedAttractions(manualQuery){
   const myRequestId=++suggestedAttractionsRequestId;
@@ -3920,28 +4042,26 @@ async function loadSuggestedAttractions(manualQuery){
       return;
     }
     const radiusM=anchor.precise?2500:6000; // tighter radius when anchored to an exact place, wider for a whole city
-    const places=await fetchNearbyAttractions(anchor.lat,anchor.lon,radiusM);
-    if(myRequestId!==suggestedAttractionsRequestId)return; // stale — a newer call superseded this one
+    const[attractions,food]=await Promise.all([
+      fetchNearbyAttractions(anchor.lat,anchor.lon,radiusM),
+      fetchNearbyFood(anchor.lat,anchor.lon,radiusM)
+    ]);
+    if(myRequestId!==suggestedAttractionsRequestId)return;
+    const seen=new Set();
+    const places=[...attractions,...food].filter(p=>{
+      const key=p.name.trim().toLowerCase();
+      if(seen.has(key))return false;
+      seen.add(key);
+      return true;
+    }).map(p=>({...p,category:osmPlaceCategory(p.osmType)}));
     if(!places.length){
       container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצאו אטרקציות בקרבת':'No attractions found near'} ${esc(anchor.label)}</div>`;
       return;
     }
-    lastSuggestedAttractions=places.slice(0,20);
+    lastSuggestedAttractions=places.slice(0,30);
     container.innerHTML=`<div style="font-size:11px;color:var(--textm);margin-bottom:8px">📍 ${isHe?'בקרבת':'Near'} ${esc(anchor.label)}</div>`+
-      lastSuggestedAttractions.map((p,i)=>{
-        const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
-        const clickable=p.lat!=null&&p.lon!=null;
-        return`<div class="wish-item"${clickable?` style="cursor:pointer" onclick="flyToSuggestedAttraction(${i})"`:''}>
-          <span>${cat.icon}</span>
-          <div class="wish-item-body"><div class="wish-item-text">${esc(p.name)}</div></div>
-          <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
-            ${clickable?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSuggestedAttraction(${i})" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>`:''}
-            <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openInGoogleMaps('${escJS(p.name)}')" title="${isHe?'פתח ב-Google Maps':'Open in Google Maps'}">📍</button>
-            <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="openMapsChoice('${escJS(p.name)}', this)" title="${isHe?'כיוונים':'Directions'}">🧭</button>
-            <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="saveSuggestedAttraction(${i})" title="${isHe?'שמור':'Save'}">💾</button>
-          </div>
-        </div>`;
-      }).join('')+`<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap</div>`;
+      renderPlaceResultsGrouped(lastSuggestedAttractions,isHe)+
+      `<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap</div>`;
     plotSuggestedAttractionsOnMap();
   }catch(e){
     if(myRequestId!==suggestedAttractionsRequestId)return; // stale — don't clobber a newer, successful result
@@ -3972,7 +4092,8 @@ function saveSuggestedAttraction(i){
   const p=lastSuggestedAttractions[i];
   if(!p)return;
   if(!tripData.savedPlaces)tripData.savedPlaces=[];
-  tripData.savedPlaces.push({id:uid(),name:p.name,lat:p.lat??null,lon:p.lon??null,category:OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing',address:'',notes:''});
+  tripData.savedPlaces.push({id:uid(),name:p.name,lat:p.lat??null,lon:p.lon??null,category:p.category||osmPlaceCategory(p.osmType),
+    address:'',notes:'',website:p.website||'',wikipedia:p.wikipedia||'',phone:p.phone||'',openingHours:p.openingHours||''});
   saveData();
   renderSavedPlaceMarkers();
   const listEl=document.getElementById('saved-places-list');
