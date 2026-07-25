@@ -825,6 +825,7 @@ body.light #bottom-nav{background:rgba(247,242,231,.88)}
     <div class="field"><div class="field-label" data-t="tripIcon">Trip Icon</div>
       <div class="emoji-row" id="emoji-picker">🌴🏝️🗺️🏔️🌊🏙️🌍🇯🇵🇹🇭🇬🇷🇮🇹🇫🇷🇺🇸🇬🇧🇪🇸🇵🇹🇲🇽🇧🇷🇦🇺🏕️⛷️🤿🚢✈️🧳🎌🌺🏖️🦁🐘🗼🗽🕌</div>
     </div>
+    <div id="nt-error" style="display:none;font-size:12.5px;color:var(--coral);background:rgba(255,92,92,.1);border:1px solid rgba(255,92,92,.25);border-radius:var(--rsm);padding:9px 12px;margin-bottom:4px"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-new')" data-t="cancel">Cancel</button>
       <button class="btn btn-primary" onclick="createTrip()" data-t="create">Create Trip</button>
@@ -1193,7 +1194,7 @@ function renderSec(sec){
   if(!el)return;
   switch(sec){
     case 'today':     el.innerHTML=renderToday();break;
-    case 'dashboard': el.innerHTML=renderDashboard();startCountdown();updateStats();break;
+    case 'dashboard': el.innerHTML=renderDashboard();startCountdown();updateStats();loadDestinationInfoCard();break;
     case 'tasks':     el.innerHTML=renderTasks();break;
     case 'flights':   el.innerHTML=renderFlights();break;
     case 'hotels':    el.innerHTML=renderHotels();break;
@@ -1345,6 +1346,10 @@ function renderDashboard(){
       <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('currency')}</div>${esc(currentTrip.currency||'USD')}</div>
       <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('notes')}</div>${esc(currentTrip.notes||'—')}</div>
     </div>
+  </div>
+  <div class="card" id="dest-info-card">
+    <div class="card-title"><div class="card-title-left">🌍 ${isHe?'על היעד':'About Your Destination'}</div></div>
+    <div id="dest-info-body"><div class="map-search-status">⏳ ${isHe?'טוען...':'Loading...'}</div></div>
   </div>`;
 }
 
@@ -3057,10 +3062,12 @@ async function fetchDayWeather(dayId,city,dateStr){
     const geo=await geoRes.json();
     const loc=geo?.results?.[0];
     if(!loc){ el.innerHTML=`<span>🌤️</span><span>${lang==='he'?'לא נמצאה תחזית':'Forecast unavailable'}</span>`; return; }
-    const wxRes=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`);
+    const wxRes=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`);
     const wx=await wxRes.json();
     if(!wx?.daily?.time?.length){ el.innerHTML=`<span>🌤️</span><span>${lang==='he'?'לא נמצאה תחזית':'Forecast unavailable'}</span>`; return; }
-    const data={code:wx.daily.weathercode[0],max:Math.round(wx.daily.temperature_2m_max[0]),min:Math.round(wx.daily.temperature_2m_min[0])};
+    const fmtTime=iso=>iso?iso.split('T')[1]:'';
+    const data={code:wx.daily.weathercode[0],max:Math.round(wx.daily.temperature_2m_max[0]),min:Math.round(wx.daily.temperature_2m_min[0]),
+      sunrise:fmtTime(wx.daily.sunrise?.[0]),sunset:fmtTime(wx.daily.sunset?.[0])};
     weatherCache[cacheKey]=data;
     renderWeatherInto(el,data);
   }catch(e){
@@ -3080,7 +3087,7 @@ function weatherIcon(code){
   return'🌤️';
 }
 function renderWeatherInto(el,data){
-  el.innerHTML=`<span>${weatherIcon(data.code)}</span><span>${data.min}\u00b0–${data.max}\u00b0</span>`;
+  el.innerHTML=`<span>${weatherIcon(data.code)}</span><span>${data.min}\u00b0–${data.max}\u00b0</span>${data.sunrise?`<span style="color:var(--textd)">·</span><span>🌅 ${esc(data.sunrise)}</span>`:''}${data.sunset?`<span>🌇 ${esc(data.sunset)}</span>`:''}`;
 }
 
 // ── WISHLIST (places to visit, not yet scheduled to a specific day) ──
@@ -3798,9 +3805,9 @@ function formatBilingualName(namedetails,fallbackName){
 async function geocodeQuery(q){
   if(!q||!q.trim())return null;
   try{
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&namedetails=1&accept-language=en`);
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&namedetails=1&addressdetails=1&accept-language=en`);
     const data=await res.json();
-    if(data?.[0])return{lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon),label:q};
+    if(data?.[0])return{lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon),label:q,countryCode:data[0].address?.country_code?.toUpperCase()||null};
   }catch(e){/* network/CORS failure — treat as "not found" */}
   return null;
 }
@@ -3808,6 +3815,82 @@ async function geocodeQuery(q){
 // trying several fallbacks in order of precision so one bad/unmatched query doesn't sink the
 // whole feature. Result is cached (tripMapAnchor) so map init / suggestions / search bias reuse
 // the same lookup instead of racing separate geocoding calls against each other.
+// ── DESTINATION COUNTRY INFO (REST Countries — free, no key) ──
+// Built on the same country code Nominatim already gives us during trip-anchor resolution,
+// so this needs no extra geocoding step of its own.
+let tripCountryInfo=null;
+let tripCountryInfoPromise=null;
+async function resolveTripCountryInfo(force){
+  if(tripCountryInfo&&!force)return tripCountryInfo;
+  if(tripCountryInfoPromise&&!force)return tripCountryInfoPromise;
+  tripCountryInfoPromise=(async()=>{
+    const anchor=await resolveTripAnchor();
+    if(!anchor?.countryCode){ tripCountryInfo=null; return null; }
+    try{
+      const res=await fetch(`https://restcountries.com/v3.1/alpha/${anchor.countryCode}`);
+      if(!res.ok){ tripCountryInfo=null; return null; }
+      const data=await res.json();
+      const c=Array.isArray(data)?data[0]:data;
+      if(!c){ tripCountryInfo=null; return null; }
+      const currencyCode=Object.keys(c.currencies||{})[0]||'';
+      const currency=currencyCode?c.currencies[currencyCode]:null;
+      const callingCode=c.idd?.root?c.idd.root+(c.idd.suffixes?.[0]||''):'';
+      tripCountryInfo={
+        name:c.name?.common||anchor.label,flagEmoji:c.flag||'',
+        capital:(c.capital||[])[0]||'',
+        languages:Object.values(c.languages||{}),
+        currencyCode,currencyName:currency?.name||'',currencySymbol:currency?.symbol||'',
+        callingCode,drivingSide:c.car?.side||'',timezones:c.timezones||[]
+      };
+      return tripCountryInfo;
+    }catch(e){ tripCountryInfo=null; return null; }
+  })();
+  const result=await tripCountryInfoPromise;
+  tripCountryInfoPromise=null;
+  return result;
+}
+// ── PUBLIC HOLIDAYS (Nager.Date — free, no key) ──
+let tripHolidaysCache=null;
+async function resolveTripHolidays(){
+  if(tripHolidaysCache)return tripHolidaysCache;
+  const anchor=await resolveTripAnchor();
+  if(!anchor?.countryCode||!currentTrip?.start_date||!currentTrip?.end_date){ tripHolidaysCache=[]; return[]; }
+  const startYear=new Date(currentTrip.start_date).getFullYear();
+  const endYear=new Date(currentTrip.end_date).getFullYear();
+  const years=[...new Set([startYear,endYear])];
+  try{
+    const results=await Promise.all(years.map(y=>
+      fetch(`https://date.nager.at/api/v3/publicholidays/${y}/${anchor.countryCode}`).then(r=>r.ok?r.json():[]).catch(()=>[])
+    ));
+    const inRange=results.flat().filter(h=>h.date>=currentTrip.start_date&&h.date<=currentTrip.end_date);
+    tripHolidaysCache=inRange;
+    return inRange;
+  }catch(e){ tripHolidaysCache=[]; return[]; }
+}
+// Loads the Dashboard's Destination Info card: country basics (REST Countries) plus any public
+// holidays landing within the trip dates (Nager.Date) — both keyed off the same resolved anchor.
+async function loadDestinationInfoCard(){
+  const body=document.getElementById('dest-info-body');
+  if(!body)return;
+  const isHe=lang==='he';
+  const[info,holidays]=await Promise.all([resolveTripCountryInfo(),resolveTripHolidays()]);
+  if(!body)return; // page may have navigated away while this was loading
+  if(!info){
+    document.getElementById('dest-info-card')?.style.setProperty('display','none');
+    return;
+  }
+  const holidayHTML=holidays.length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+    ${holidays.map(h=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:4px"><span>🎌</span><span style="color:var(--gold);font-weight:600">${fmtDate(h.date)}</span><span>${esc(h.localName||h.name)}</span></div>`).join('')}
+  </div>`:'';
+  body.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${isHe?'מטבע':'Currency'}</div>${info.currencySymbol||''} ${esc(info.currencyCode)}${info.currencyName?` · ${esc(info.currencyName)}`:''}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${isHe?'קידומת חיוג':'Calling code'}</div>${esc(info.callingCode||'—')}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${isHe?'שפות':'Languages'}</div>${esc(info.languages.slice(0,3).join(', ')||'—')}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${isHe?'נהיגה':'Driving side'}</div>${info.drivingSide==='left'?(isHe?'שמאל':'Left'):info.drivingSide==='right'?(isHe?'ימין':'Right'):'—'}</div>
+    </div>
+    ${holidayHTML}`;
+}
 async function resolveTripAnchor(force){
   if(tripMapAnchor&&!force)return tripMapAnchor;
   if(tripMapAnchorPromise&&!force)return tripMapAnchorPromise;
@@ -3825,7 +3908,7 @@ async function resolveTripAnchor(force){
     if(currentTrip?.destination)candidates.push({q:currentTrip.destination,label:currentTrip.destination,precise:false});
     for(const c of candidates){
       const loc=await geocodeQuery(c.q);
-      if(loc){ tripMapAnchor={lat:loc.lat,lon:loc.lon,label:c.label,precise:c.precise}; return tripMapAnchor; }
+      if(loc){ tripMapAnchor={lat:loc.lat,lon:loc.lon,label:c.label,precise:c.precise,countryCode:loc.countryCode}; return tripMapAnchor; }
     }
     tripMapAnchor=null;
     return null;
@@ -4049,7 +4132,45 @@ function renderMapDaySummary(){
   let totalKm=0;
   for(let i=0;i<located.length-1;i++)totalKm+=haversineKm(located[i].lat,located[i].lon,located[i+1].lat,located[i+1].lon);
   const walkMin=Math.round(totalKm/4.5*60);
-  el.innerHTML=`<div style="font-size:11.5px;color:var(--textm)">📏 ${isHe?'מרחק קו ישר':'Straight-line distance'}: <strong>${totalKm.toFixed(1)} km</strong> · 🚶 ~${walkMin} ${isHe?'דק׳ הליכה (הערכה)':'min walking (estimate)'}</div>`;
+  el.innerHTML=`<div style="font-size:11.5px;color:var(--textm)">📏 ${isHe?'מרחק קו ישר':'Straight-line distance'}: <strong>${totalKm.toFixed(1)} km</strong> · 🚶 ~${walkMin} ${isHe?'דק׳ הליכה (הערכה)':'min walking (estimate)'}</div>
+    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 9px" onclick="loadRealRouteForDay('${mapSelectedDayId}','foot')">🚶 ${isHe?'מסלול הליכה אמיתי':'Real walking route'}</button>
+      <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 9px" onclick="loadRealRouteForDay('${mapSelectedDayId}','driving')">🚗 ${isHe?'מסלול נהיגה אמיתי':'Real driving route'}</button>
+    </div>`;
+}
+// Upgrades the straight-line estimate to a real, road-following route via OSRM's free public
+// routing server. Deliberately opt-in (button click), never automatic — OSRM's public instance
+// is a shared community service meant for occasional lookups, not silent background polling.
+async function loadRealRouteForDay(dayId,profile){
+  const isHe=lang==='he';
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const located=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)}))
+    .filter(b=>typeof b.lat==='number'&&typeof b.lon==='number')
+    .sort((a,b)=>{ const am=toMin(a.start),bm=toMin(b.start); if(am===null&&bm===null)return 0; if(am===null)return 1; if(bm===null)return -1; return am-bm; });
+  if(located.length<2)return;
+  const el=document.getElementById('map-day-summary');
+  if(el)el.insertAdjacentHTML('beforeend',`<div id="real-route-status" style="margin-top:6px;font-size:11px;color:var(--textm)">⏳ ${isHe?'טוען מסלול אמיתי...':'Loading real route...'}</div>`);
+  try{
+    const coords=located.map(b=>`${b.lon},${b.lat}`).join(';');
+    const res=await fetch(`https://router.project-osrm.org/route/v1/${profile}/${coords}?overview=full&geometries=geojson`);
+    const data=await res.json();
+    const route=data?.routes?.[0];
+    const statusEl=document.getElementById('real-route-status');
+    if(!route){ if(statusEl)statusEl.innerHTML=`${isHe?'לא נמצא מסלול':'No route found'}`; return; }
+    const km=(route.distance/1000).toFixed(1);
+    const mins=Math.round(route.duration/60);
+    const modeLabel=profile==='foot'?(isHe?'הליכה':'walking'):(isHe?'נהיגה':'driving');
+    if(statusEl)statusEl.outerHTML=`<div style="font-size:11.5px;color:var(--green);font-weight:600">🧭 ${isHe?'מסלול אמיתי':'Real route'} (${modeLabel}): ${km} km · ${mins} ${isHe?'דק׳':'min'}</div>`;
+    if(dayRouteLayer&&typeof L!=='undefined'&&route.geometry?.coordinates){
+      const latlngs=route.geometry.coordinates.map(c=>[c[1],c[0]]);
+      L.polyline(latlngs,{color:'#ff6b6b',weight:4,opacity:.85}).addTo(dayRouteLayer);
+    }
+  }catch(e){
+    const statusEl=document.getElementById('real-route-status');
+    if(statusEl)statusEl.innerHTML=isHe?'טעינת המסלול נכשלה':'Couldn\u2019t load the real route';
+  }
 }
 function setMapSelectedDay(dayId){
   mapSelectedDayId=dayId;
@@ -4638,7 +4759,7 @@ function getModalContent(type,editData){
     <div class="stb-section-label">${isHe?'כמה ימים?':'How many days?'}</div>
     <div class="stb-stepper">
       <button type="button" class="stb-stepper-btn" onclick="stbStepDays(-1)">−</button>
-      <input class="stb-stepper-input" id="stb-num-days" type="number" min="1" max="30" value="${defaultDays}" oninput="stbClampDays()">
+      <input class="stb-stepper-input" id="stb-num-days" type="number" min="1" max="30" value="${defaultDays}" onblur="stbClampDays()">
       <button type="button" class="stb-stepper-btn" onclick="stbStepDays(1)">+</button>
       <span class="stb-stepper-hint">${dateRangeDays?(isHe?`הטיול שלך: ${dateRangeDays} ימים`:`Your trip: ${dateRangeDays} days`):(isHe?'ללא תאריך קבוע':'no fixed dates yet')}</span>
     </div>
@@ -4967,27 +5088,44 @@ async function loadTrips(){
 }
 
 async function createTrip(){
+  const isHe=lang==='he';
+  const errEl=document.getElementById('nt-error');
+  const hideErr=()=>{ if(errEl){ errEl.style.display='none'; errEl.textContent=''; } };
+  const showErr=msg=>{ if(errEl){ errEl.textContent=msg; errEl.style.display='block'; } else toast('❌ '+msg); };
+  hideErr();
   const name=document.getElementById('nt-name').value.trim();
   const start=document.getElementById('nt-start').value;
   const end=document.getElementById('nt-end').value;
-  if(!name)return toast('⚠️ '+t('tripName'));
-  if(!start||!end)return toast('⚠️ '+t('startDate'));
+  if(!name)return showErr('⚠️ '+t('tripName'));
+  if(!start||!end)return showErr('⚠️ '+t('startDate'));
+  if(end<start)return showErr('⚠️ '+(isHe?'תאריך הסיום לא יכול להיות לפני תאריך ההתחלה':'End date can\u2019t be before the start date'));
+  // If the session has gone stale (expired token, etc.) the insert will fail with a confusing
+  // RLS error — check for a live user first and give a clear, actionable message instead.
+  if(!currentUser?.id){
+    showErr('⚠️ '+(isHe?'החיבור שלך פג תוקף. רענן את הדף והתחבר שוב.':'Your session has expired. Please refresh the page and sign in again.'));
+    return;
+  }
   const{data,error}=await sb.from('trips').insert({
-    user_id:currentUser.id,name,emoji:selectedEmoji,
+    user_id:currentUser.id,name,emoji:selectedEmoji||'🌴',
     destination:document.getElementById('nt-dest').value.trim(),
     start_date:start,end_date:end,
     travelers:parseInt(document.getElementById('nt-travelers').value)||1,
     currency:document.getElementById('nt-currency').value,
     notes:document.getElementById('nt-notes').value.trim(),data:{}
   }).select().single();
-  if(error)return toast('❌ '+error.message);
-  closeModal('modal-new');clearNewForm();toast('✅ '+name);openTrip(data);
+  if(error){
+    console.error('createTrip failed:',error);
+    showErr('❌ '+(error.message||(isHe?'שמירת הטיול נכשלה':'Couldn\u2019t save the trip'))+(error.hint?' — '+error.hint:''));
+    return;
+  }
+  hideErr();closeModal('modal-new');clearNewForm();toast('✅ '+name);openTrip(data);
 }
 
 function clearNewForm(){
   ['nt-name','nt-dest','nt-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('nt-start').value='';document.getElementById('nt-end').value='';
   document.getElementById('nt-travelers').value='2';document.getElementById('nt-currency').value='USD';
+  const errEl=document.getElementById('nt-error');if(errEl){errEl.style.display='none';errEl.textContent='';}
 }
 
 function askDelete(id){deleteTripId=id;openModal('modal-delete');}
