@@ -403,6 +403,32 @@ textarea.inp{resize:vertical;min-height:80px}
 .sp-move-btn:hover:not(:disabled){background:var(--bg3);color:var(--accent)}
 .sp-move-btn:disabled{opacity:.25;cursor:default}
 .sp-visited-check{background:none;border:none;font-size:16px;cursor:pointer;padding-top:2px;line-height:1}
+
+/* SMART TRIP BUILDER */
+.stb-intro{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--textm);background:linear-gradient(135deg,rgba(55,198,186,.1),rgba(139,143,232,.06));border:1px solid rgba(55,198,186,.2);border-radius:var(--r);padding:12px 14px;margin-bottom:18px;line-height:1.5}
+.stb-section-label{font-size:11px;font-weight:700;color:var(--textd);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px}
+.stb-stepper{display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:100px;padding:6px;width:fit-content}
+.stb-stepper-btn{width:34px;height:34px;border-radius:50%;border:none;background:var(--bg4);color:var(--text);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.stb-stepper-btn:hover{background:var(--accent);color:#04211f;transform:scale(1.08)}
+.stb-stepper-btn:active{transform:scale(.92)}
+.stb-stepper-input{width:52px;text-align:center;background:none;border:none;font-family:inherit;font-size:18px;font-weight:800;color:var(--text)}
+.stb-stepper-input::-webkit-outer-spin-button,.stb-stepper-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stb-stepper-hint{font-size:11px;color:var(--textd);margin-inline-start:6px}
+.stb-pace-row{display:flex;gap:8px;flex-wrap:wrap}
+.stb-pace-card{position:relative;flex:1;min-width:100px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 10px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .2s;background:var(--bg3)}
+.stb-pace-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stb-pace-card input{position:absolute;opacity:0;pointer-events:none}
+.stb-pace-card:has(input:checked){border-color:var(--accent);background:rgba(55,198,186,.12);box-shadow:0 4px 16px rgba(55,198,186,.15)}
+.stb-pace-icon{font-size:22px}
+.stb-pace-name{font-size:13px;font-weight:700}
+.stb-pace-sub{font-size:10.5px;color:var(--textd)}
+.stb-pace-card:has(input:checked) .stb-pace-sub{color:var(--accent)}
+.stb-chip-row{display:flex;gap:8px;flex-wrap:wrap}
+.stb-chip{position:relative;display:flex;align-items:center;padding:8px 14px;border:1.5px solid var(--border);border-radius:100px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--textm);transition:all .2s;background:var(--bg3)}
+.stb-chip:hover{border-color:var(--border2);transform:translateY(-1px)}
+.stb-chip input{position:absolute;opacity:0;pointer-events:none}
+.stb-chip:has(input:checked){border-color:var(--accent);background:rgba(55,198,186,.15);color:var(--accent)}
+.stb-hint{font-size:11px;color:var(--textd);margin-top:10px;line-height:1.5}
 .wish-item.visited{opacity:.55}
 .wish-item.visited .wish-item-text{text-decoration:line-through}
 
@@ -2382,6 +2408,46 @@ function autoFillDay(dayId){
 const SMART_BUILD_PACE={relaxed:{count:2,label:'Relaxed (2/day)'},balanced:{count:4,label:'Balanced (4/day)'},packed:{count:6,label:'Packed (6/day)'}};
 const SMART_BUILD_DURATIONS={food:90,sightseeing:120,outdoor:150,shopping:90,nightlife:120,hotel:60,transport:60,'':90};
 let smartBuildRunId=0;
+// Splits a geographically-chained pool of places into day-sized batches, capping how many of
+// the same category can land in one day (never more than half a day of any single type) — this
+// is what stops "you like food" from turning into an entire day of nothing but restaurants.
+function buildDiverseDayBatches(chainedPool,perDayCount,maxDays){
+  const maxPerCategory=Math.max(1,Math.ceil(perDayCount/2));
+  const remaining=chainedPool.slice();
+  const days=[];
+  while(remaining.length&&days.length<maxDays){
+    const dayPicks=[];
+    const categoryCounts={};
+    let i=0;
+    while(i<remaining.length&&dayPicks.length<perDayCount){
+      const p=remaining[i];
+      const cat=p.category;
+      const count=categoryCounts[cat]||0;
+      if(count<maxPerCategory){
+        dayPicks.push(p);
+        categoryCounts[cat]=count+1;
+        remaining.splice(i,1);
+      }else{
+        i++;
+      }
+    }
+    if(!dayPicks.length)break;
+    days.push(dayPicks);
+  }
+  return days;
+}
+function stbClampDays(){
+  const input=document.getElementById('stb-num-days');
+  if(!input)return;
+  let v=parseInt(input.value)||1;
+  v=Math.max(1,Math.min(30,v));
+  input.value=v;
+}
+function stbStepDays(delta){
+  const input=document.getElementById('stb-num-days');
+  if(!input)return;
+  input.value=Math.max(1,Math.min(30,(parseInt(input.value)||1)+delta));
+}
 async function runSmartTripBuilder(){
   const isHe=lang==='he';
   const myRunId=++smartBuildRunId;
@@ -2420,7 +2486,14 @@ async function runSmartTripBuilder(){
       seen.add(key);
       return true;
     }).map(p=>({...p,category:osmPlaceCategory(p.osmType)}));
-    if(selectedCats.length)pool=pool.filter(p=>selectedCats.includes(p.category));
+    if(selectedCats.length){
+      const priority=pool.filter(p=>selectedCats.includes(p.category));
+      const other=pool.filter(p=>!selectedCats.includes(p.category));
+      // Favor the selected interests, but keep enough variety from other categories that a day
+      // never ends up being just one thing (e.g. picking "Food" shouldn't mean eating all day).
+      const otherSampleSize=Math.max(numDays*2,6);
+      pool=[...priority,...other.slice(0,otherSampleSize)];
+    }
     // Exclude anything already scheduled anywhere in the trip
     const scheduledNames=new Set();
     (tripData.days||[]).forEach(d=>(d.blocks||[]).forEach(b=>scheduledNames.add((b.text||'').trim().toLowerCase())));
@@ -2432,8 +2505,11 @@ async function runSmartTripBuilder(){
     }
 
     setStatus(isHe?'בונה את המסלול...':'Building your itinerary...');
-    // Chain the whole pool into one geographically sensible route, then slice into day-sized chunks
+    // Chain the whole pool into one geographically sensible route, then split into day-sized
+    // batches that stay diverse (never one category dominating a whole day — see the cap logic
+    // in buildDiverseDayBatches).
     const chained=nearestNeighborOrder(pool);
+    const dayBatches=buildDiverseDayBatches(chained,perDayCount,numDays);
 
     let dates;
     if(currentTrip?.start_date){
@@ -2449,7 +2525,7 @@ async function runSmartTripBuilder(){
     let nextDayNum=Math.max(0,...tripData.days.map(d=>d.num||0));
     const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
 
-    let poolIdx=0,daysCreated=0,daysFilled=0,activitiesAdded=0;
+    let batchIdx=0,daysCreated=0,daysFilled=0,activitiesAdded=0;
     const touchedDays=[];
     dates.forEach(dateStr=>{
       let day=dateStr?existingByDate[dateStr]:null;
@@ -2462,9 +2538,9 @@ async function runSmartTripBuilder(){
       }
       touchedDays.push(day);
       if((day.blocks||[]).length>0)return; // never touch a day that already has plans
-      if(poolIdx>=chained.length)return; // ran out of candidates
-      const picks=chained.slice(poolIdx,poolIdx+perDayCount);
-      poolIdx+=perDayCount;
+      if(batchIdx>=dayBatches.length)return; // ran out of candidates
+      const picks=dayBatches[batchIdx];
+      batchIdx++;
       if(!picks.length)return;
       if(!day.blocks)day.blocks=[];
       let cursor=9*60; // start each generated day at 9:00
@@ -2497,6 +2573,31 @@ async function runSmartTripBuilder(){
       const located=(day.blocks||[]).filter(b=>typeof b.lat==='number'&&typeof b.lon==='number');
       if(located.length>=2)optimizeDayRouteSilent(day.id);
     });
+    // Weather-awareness pass: flag any day with an outdoor activity where the real forecast
+    // (Open-Meteo, only available ~16 days out) shows rain, so it's caught before you travel
+    // rather than on the day itself.
+    const weatherDays=touchedDays.filter(d=>d.date&&d.city&&(d.blocks||[]).some(b=>b.category==='outdoor'));
+    if(weatherDays.length){
+      setStatus(isHe?'בודק תחזית מזג אוויר...':'Checking the weather forecast...');
+      const today=new Date().toISOString().split('T')[0];
+      for(const day of weatherDays){
+        const daysOut=Math.floor((new Date(day.date)-new Date(today))/86400000);
+        if(daysOut<0||daysOut>16)continue; // outside the forecast's real range
+        try{
+          const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(day.city)}&count=1`);
+          const geo=await geoRes.json();
+          const loc=geo?.results?.[0];
+          if(!loc)continue;
+          const wxRes=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=weathercode&timezone=auto&start_date=${day.date}&end_date=${day.date}`);
+          const wx=await wxRes.json();
+          const code=wx?.daily?.weathercode?.[0];
+          if(code!=null&&code>=51){ // any form of forecast precipitation (drizzle through thunderstorm)
+            const note=isHe?'🌧️ תחזית גשם ליום זה — כדאי לשקול להחליף את הפעילות בחוץ':'🌧️ Rain in the forecast for this day — consider swapping the outdoor plan';
+            day.note=day.note?day.note+' · '+note:note;
+          }
+        }catch(e){/* best-effort only — a failed weather check shouldn't block the build */}
+      }
+    }
     saveData();
     statusEl.innerHTML=`<div style="color:var(--green);font-weight:600">✅ ${isHe?`נוצרו ${daysCreated} ימים חדשים עם ${activitiesAdded} פעילויות!`:`Built ${daysCreated} new day${daysCreated===1?'':'s'} with ${activitiesAdded} activities!`}</div>`;
     setTimeout(()=>{ if(myRunId===smartBuildRunId){ closeModal('modal-add'); renderSec('itinerary'); } },1600);
@@ -4524,39 +4625,41 @@ function getModalContent(type,editData){
   if(type==='smartbuild'){
     const dateRangeDays=(currentTrip?.start_date&&currentTrip?.end_date)?enumerateDatesInRange(currentTrip.start_date,currentTrip.end_date).length:0;
     const defaultDays=dateRangeDays||3;
+    const paceIcons={relaxed:'🌤️',balanced:'⚖️',packed:'🔥'};
+    const paceLabels={relaxed:isHe?'רגוע':'Relaxed',balanced:isHe?'מאוזן':'Balanced',packed:isHe?'עמוס':'Packed'};
+    const paceSubs={relaxed:isHe?'2 בכל יום':'2 a day',balanced:isHe?'4 בכל יום':'4 a day',packed:isHe?'6 בכל יום':'6 a day'};
     return`
     ${modalTitleBar(`✨ ${isHe?'בניית טיול חכם':'Smart Trip Builder'}`)}
-    <div style="font-size:12px;color:var(--textm);background:var(--bg3);border-radius:var(--rsm);padding:10px 12px;margin-bottom:14px">
-      ${isHe?'ניצור לך אוטומטית לוח זמנים מלא, בהתבסס על מקומות אמיתיים בקרבת המלון/יעד שלך. ':'We\u2019ll automatically build a full schedule, using real nearby places around your hotel/destination. '}
-      <strong>${isHe?'זה לעולם לא ימחק או ישנה ימים שכבר יש בהם תוכניות.':'This will never overwrite or change a day that already has plans.'}</strong>
+    <div class="stb-intro">
+      <span style="font-size:20px">🧠</span>
+      <div>${isHe?'לוח זמנים מלא, אוטומטי, בהתבסס על מקומות אמיתיים בקרבת המלון/יעד שלך.':'A full automatic schedule, built from real places near your hotel/destination.'} <strong>${isHe?'לעולם לא ידרוס יום שכבר יש בו תוכניות.':'Never overwrites a day that already has plans.'}</strong></div>
     </div>
-    <div class="field">
-      <div class="field-label">${isHe?'כמה ימים לבנות?':'How many days to build?'}</div>
-      <input class="inp" id="stb-num-days" type="number" min="1" max="30" value="${defaultDays}" style="width:100px">
-      <div style="font-size:10.5px;color:var(--textd);margin-top:4px">${
-        dateRangeDays
-          ?(isHe?`הטיול שלך הוא ${dateRangeDays} ימים — שנה אם תרצה לבנות פחות`:`Your trip is ${dateRangeDays} days — change this if you want to build fewer`)
-          :(isHe?'לא הוגדרו תאריכי טיול, אז הימים ייבנו ללא תאריך קבוע':'No trip dates are set, so days will be built without a fixed date')
-      }</div>
+
+    <div class="stb-section-label">${isHe?'כמה ימים?':'How many days?'}</div>
+    <div class="stb-stepper">
+      <button type="button" class="stb-stepper-btn" onclick="stbStepDays(-1)">−</button>
+      <input class="stb-stepper-input" id="stb-num-days" type="number" min="1" max="30" value="${defaultDays}" oninput="stbClampDays()">
+      <button type="button" class="stb-stepper-btn" onclick="stbStepDays(1)">+</button>
+      <span class="stb-stepper-hint">${dateRangeDays?(isHe?`הטיול שלך: ${dateRangeDays} ימים`:`Your trip: ${dateRangeDays} days`):(isHe?'ללא תאריך קבוע':'no fixed dates yet')}</span>
     </div>
-    <div class="field">
-      <div class="field-label">${isHe?'קצב הטיול':'Trip pace'}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${Object.entries(SMART_BUILD_PACE).map(([key,p],i)=>`<label style="flex:1;min-width:100px;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:1px solid var(--border);border-radius:var(--rsm);cursor:pointer;font-size:12.5px" class="stb-pace-label">
-          <input type="radio" name="stb-pace" value="${key}" ${key==='balanced'?'checked':''} style="cursor:pointer">
-          ${isHe?(key==='relaxed'?'רגוע (2/יום)':key==='balanced'?'מאוזן (4/יום)':'עמוס (6/יום)'):p.label}
-        </label>`).join('')}
-      </div>
+
+    <div class="stb-section-label">${isHe?'קצב הטיול':'Trip pace'}</div>
+    <div class="stb-pace-row">
+      ${Object.keys(SMART_BUILD_PACE).map(key=>`<label class="stb-pace-card" title="${paceSubs[key]}">
+        <input type="radio" name="stb-pace" value="${key}" ${key==='balanced'?'checked':''}>
+        <span class="stb-pace-icon">${paceIcons[key]}</span>
+        <span class="stb-pace-name">${paceLabels[key]}</span>
+      </label>`).join('')}
     </div>
-    <div class="field">
-      <div class="field-label">${isHe?'תחומי עניין (השאר ריק לכולם)':'Interests (leave blank for everything)'}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${ACTIVITY_CATEGORIES.filter(c=>c.key).map(c=>`<label style="display:flex;align-items:center;gap:5px;padding:6px 10px;border:1px solid var(--border);border-radius:100px;cursor:pointer;font-size:12px">
-          <input type="checkbox" class="stb-cat-check" value="${c.key}" style="cursor:pointer">
-          ${c.icon} ${isHe?c.labelHe:c.label}
-        </label>`).join('')}
-      </div>
+
+    <div class="stb-section-label">${isHe?'תחומי עניין (השאר ריק לכולם)':'Interests (leave blank for everything)'}</div>
+    <div class="stb-chip-row">
+      ${ACTIVITY_CATEGORIES.filter(c=>c.key).map(c=>`<label class="stb-chip">
+        <input type="checkbox" class="stb-cat-check" value="${c.key}">
+        <span>${c.icon} ${isHe?c.labelHe:c.label}</span>
+      </label>`).join('')}
     </div>
+    <div class="stb-hint">💡 ${isHe?'נעדיף מקומות שבחרת, אבל עדיין נשלב מגוון — לא יום שלם באותו סוג':'We\u2019ll favor what you pick, but still mix in variety — never a whole day of just one thing'}</div>
     <div id="stb-status" style="min-height:20px;margin:10px 0;font-size:12.5px"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
