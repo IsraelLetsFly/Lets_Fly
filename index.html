@@ -612,11 +612,34 @@ body.nav-locked #navbar-pin-btn{display:flex!important}
 .tc-btn-dup{background:rgba(0,0,0,.55);border:none;color:#fff;width:27px;height:27px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:background .15s}
 .tc-btn-dup:hover{background:rgba(55,198,186,.8)}
 
+#bottom-nav{
+  display:none;position:fixed;top:auto;bottom:0;left:0;right:0;height:auto;z-index:700;
+  background:rgba(14,35,40,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-top:1px solid var(--border);border-bottom:none;
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  justify-content:space-around;align-items:center;
+}
+body.light #bottom-nav{background:rgba(247,242,231,.88)}
+.bnav-btn{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;font-family:inherit;cursor:pointer;
+  padding:6px 10px;border-radius:14px;color:var(--textd);
+  transition:color .2s,transform .15s;flex:1;max-width:80px;
+}
+.bnav-btn:active{transform:scale(.92)}
+.bnav-icon{font-size:20px;transition:transform .2s}
+.bnav-label{font-size:9.5px;font-weight:600}
+.bnav-btn.active{color:var(--accent)}
+.bnav-btn.active .bnav-icon{transform:translateY(-1px) scale(1.08)}
+.bnav-btn.active::before{content:'';position:absolute;margin-top:-30px;width:4px;height:4px;border-radius:50%;background:var(--accent)}
 @media(max-width:768px){
   .hamburger-btn{display:flex}
   .nav-sections{display:none!important}
   .page{padding:18px 12px 40px}
+  body.in-trip #bottom-nav{display:flex}
+  body.in-trip #page-trip{padding-bottom:76px}
 }
+@media(min-width:769px){#bottom-nav{display:none!important}}
 @media(max-width:640px){
   .trips-grid{grid-template-columns:1fr 1fr}
   .grid2{grid-template-columns:1fr}
@@ -728,6 +751,15 @@ body.nav-locked #navbar-pin-btn{display:flex!important}
   </div>
 </div>
 
+<!-- MOBILE BOTTOM NAV -->
+<nav id="bottom-nav">
+  <button class="bnav-btn" data-sec="dashboard" onclick="showSec('dashboard')"><span class="bnav-icon">📊</span><span class="bnav-label" data-t="secDashboard">Dashboard</span></button>
+  <button class="bnav-btn" data-sec="itinerary" onclick="showSec('itinerary')"><span class="bnav-icon">📅</span><span class="bnav-label" data-t="secItinerary">Itinerary</span></button>
+  <button class="bnav-btn" data-sec="map" onclick="showSec('map')"><span class="bnav-icon">🗺️</span><span class="bnav-label" data-t="secMap">Map</span></button>
+  <button class="bnav-btn" data-sec="budget" onclick="showSec('budget')"><span class="bnav-icon">💰</span><span class="bnav-label" data-t="secBudget">Budget</span></button>
+  <button class="bnav-btn" id="bnav-more-btn" onclick="openSideNav()"><span class="bnav-icon">☰</span><span class="bnav-label" data-t="more">More</span></button>
+</nav>
+
 <div id="app">
   <!-- HOME -->
   <div class="page active" id="page-home">
@@ -810,7 +842,7 @@ const T={
     destinations:'Destinations',travelers:'Travelers',currency:'Currency',notes:'Notes',
     tripIcon:'Trip Icon',cancel:'Cancel',create:'Create Trip',
     deleteTrip:'🗑️ Delete Trip?',deleteWarn:'This will permanently delete the trip and all its data.',
-    delete:'Delete',back:'← Back',nights:'nights',travelers2:'travelers',
+    delete:'Delete',back:'← Back',nights:'nights',travelers2:'travelers',more:'More',
     planNewTrip:'Plan a New Trip',greeting:'My Trips',
     secToday:'Today',secDashboard:'Dashboard',secTasks:'Tasks',secFlights:'Flights',secHotels:'Hotels',
     secItinerary:'Itinerary',secMap:'Map',secBudget:'Budget',secCurrency:'Currency',
@@ -846,7 +878,7 @@ const T={
     destinations:'יעדים',travelers:'נוסעים',currency:'מטבע',notes:'הערות',
     tripIcon:'אייקון טיול',cancel:'ביטול',create:'צור טיול',
     deleteTrip:'🗑️ מחק טיול?',deleteWarn:'הטיול וכל הנתונים שלו יימחקו לצמיתות.',
-    delete:'מחק',back:'→ חזור',nights:'לילות',travelers2:'נוסעים',
+    delete:'מחק',back:'→ חזור',nights:'לילות',travelers2:'נוסעים',more:'עוד',
     planNewTrip:'תכנן טיול חדש',greeting:'הטיולים שלי',
     secToday:'היום',secDashboard:'דשבורד',secTasks:'משימות',secFlights:'טיסות',secHotels:'מלונות',
     secItinerary:'לו"ז',secMap:'מפה',secBudget:'תקציב',secCurrency:'המרה',
@@ -1021,6 +1053,7 @@ function goHome(){
   const hbEl=document.getElementById('hamburger-btn');if(hbEl)hbEl.style.display='none';
   const homeBtnEl=document.getElementById('home-btn');if(homeBtnEl)homeBtnEl.style.display='none';
   const pbEl=document.getElementById('navbar-pin-btn');if(pbEl)pbEl.style.display='none';
+  document.body.classList.remove('in-trip');
   updateSideNavMode(false);
   if(!navLocked) closeSideNav();
   history.replaceState(null,'',window.location.pathname);
@@ -1058,6 +1091,7 @@ function openTrip(trip,sec){
   const sBtn=document.getElementById('share-btn');if(sBtn)sBtn.style.display='inline-flex';
   document.getElementById('hamburger-btn').style.display='flex';
   const pbEl2=document.getElementById('navbar-pin-btn');if(pbEl2)pbEl2.style.display='flex';
+  document.body.classList.add('in-trip');
   updateSideNavMode(true);
   showPage('page-trip');
   showSec(sec||'dashboard');
@@ -1117,6 +1151,9 @@ function showSec(sec){
   document.querySelectorAll('.snb').forEach(b=>{
     const m=b.getAttribute('onclick')?.match(/showSec\('(\w+)'\)/);
     if(m)b.classList.toggle('active',m[1]===sec);
+  });
+  document.querySelectorAll('.bnav-btn[data-sec]').forEach(b=>{
+    b.classList.toggle('active',b.dataset.sec===sec);
   });
   // Update nav-trip-name
   const ntn=document.getElementById('nav-trip-name');
