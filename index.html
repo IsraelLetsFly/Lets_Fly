@@ -3,11 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#37C6BA">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
 <title>✈️ LetsFly</title>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&family=Heebo:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -825,6 +831,7 @@ body.light #bottom-nav{background:rgba(247,242,231,.88)}
     <div class="field"><div class="field-label" data-t="tripIcon">Trip Icon</div>
       <div class="emoji-row" id="emoji-picker">🌴🏝️🗺️🏔️🌊🏙️🌍🇯🇵🇹🇭🇬🇷🇮🇹🇫🇷🇺🇸🇬🇧🇪🇸🇵🇹🇲🇽🇧🇷🇦🇺🏕️⛷️🤿🚢✈️🧳🎌🌺🏖️🦁🐘🗼🗽🕌</div>
     </div>
+    <div id="nt-error" style="display:none;font-size:12.5px;color:var(--coral);background:rgba(255,92,92,.1);border:1px solid rgba(255,92,92,.25);border-radius:var(--rsm);padding:9px 12px;margin-bottom:4px"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-new')" data-t="cancel">Cancel</button>
       <button class="btn btn-primary" onclick="createTrip()" data-t="create">Create Trip</button>
@@ -849,11 +856,46 @@ body.light #bottom-nav{background:rgba(247,242,231,.88)}
 
 <script>
 const SB_URL='https://peqseinicyynggnqnimc.supabase.co';
+// Register the Service Worker for offline app-shell caching. This is best-effort: if
+// registration fails (unsupported browser, file:// protocol, blocked scope, etc.) the app
+// still works completely normally online — it just won't have the offline app-shell cache.
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{/* non-fatal — see comment above */});
+  });
+}
 const SB_KEY='sb_publishable_KEcpcc9mptTU3ydvH_LvhQ_x-6-uNun';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
 let currentUser=null,currentTrip=null,tripData={},currentSec='dashboard';
+let isOfflineMode=false;
+// Snapshots the last-viewed trip to localStorage so it can still be opened (read-only) if a
+// later visit happens without a network connection — Supabase's live API can't be reached
+// offline, so this is the fallback that keeps the trip from just disappearing.
+function snapshotTripForOffline(trip){
+  try{ localStorage.setItem('lf-offline-trip-'+trip.id,JSON.stringify({trip,savedAt:Date.now()})); }
+  catch(e){/* localStorage full/unavailable — not critical, offline fallback just won't have this trip */}
+}
+function loadOfflineTripSnapshot(tripId){
+  try{
+    const raw=localStorage.getItem('lf-offline-trip-'+tripId);
+    return raw?JSON.parse(raw):null;
+  }catch(e){ return null; }
+}
 let selectedEmoji='🌴',deleteTripId=null,saveTimer=null,pendingSave=false,cdInterval=null,convRates={};
+// Native fetchWithTimeout() has NO default timeout — if a free public API (Overpass especially, under
+// shared community load) hangs or is slow to respond, a plain fetchWithTimeout() call waits indefinitely
+// with no way for the UI to recover, which looks exactly like "the app is stuck." Every network
+// call in this app goes through this wrapper instead, so nothing can hang longer than timeoutMs.
+async function fetchWithTimeout(url,options={},timeoutMs=8000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    return await fetch(url,{...options,signal:controller.signal});
+  }finally{
+    clearTimeout(timer);
+  }
+}
 let lang=localStorage.getItem('lf-lang')||'en';
 let theme=localStorage.getItem('lf-theme')||'dark';
 
@@ -1011,8 +1053,36 @@ function showApp(){
   const savedSec=sessionStorage.getItem('lf-sec')||'dashboard';
   if(savedTripId){
     sb.from('trips').select('*').eq('id',savedTripId).eq('user_id',currentUser.id).single()
-      .then(({data})=>{ if(data) openTrip(data,savedSec); else goHome(); });
+      .then(({data})=>{
+        if(data){ isOfflineMode=false; openTrip(data,savedSec); }
+        else tryOfflineFallback(savedTripId,savedSec);
+      })
+      .catch(()=>tryOfflineFallback(savedTripId,savedSec));
   } else { goHome(); }
+}
+// If the live fetch failed (likely offline), fall back to the last snapshot saved for this trip
+// rather than losing it entirely — with a clear banner so it's obvious changes won't save.
+function tryOfflineFallback(tripId,sec){
+  const snap=loadOfflineTripSnapshot(tripId);
+  if(snap){
+    isOfflineMode=true;
+    isViewOnly=true; // no live connection to save to — reuse the existing, already-tested read-only protection
+    openTrip(snap.trip,sec);
+    showOfflineBanner(snap.savedAt);
+  }else{
+    goHome();
+  }
+}
+function showOfflineBanner(savedAt){
+  const isHe=lang==='he';
+  document.getElementById('offline-banner')?.remove();
+  const banner=document.createElement('div');
+  banner.id='offline-banner';
+  banner.style.cssText=`position:fixed;top:var(--nav-h);left:0;right:0;z-index:400;background:rgba(242,179,61,.12);border-bottom:1px solid rgba(242,179,61,.3);padding:7px 20px;font-size:12px;font-weight:600;color:var(--gold);display:flex;align-items:center;gap:8px`;
+  const savedStr=savedAt?new Date(savedAt).toLocaleString(isHe?'he-IL':'en-US',{dateStyle:'medium',timeStyle:'short'}):'';
+  banner.innerHTML=`📡 ${isHe?`אתה במצב לא מקוון — מציג עותק שמור מ-${savedStr}. שינויים לא יישמרו.`:`You\u2019re offline — showing a saved copy from ${savedStr}. Changes won\u2019t be saved.`}`;
+  document.body.appendChild(banner);
+  const appEl=document.getElementById('app');if(appEl)appEl.style.paddingTop='calc(var(--nav-h) + 34px)';
 }
 
 // ── AUTH ──
@@ -1109,6 +1179,7 @@ function migrateWishlistToSavedPlaces(){
 }
 function openTrip(trip,sec){
   currentTrip=trip;tripData=trip.data||{};
+  if(!isOfflineMode)snapshotTripForOffline(trip);
   migrateWishlistToSavedPlaces();
   document.getElementById('nav-trip-name').textContent=trip.emoji+' '+trip.name;
   buildTripPage();
@@ -1193,7 +1264,7 @@ function renderSec(sec){
   if(!el)return;
   switch(sec){
     case 'today':     el.innerHTML=renderToday();break;
-    case 'dashboard': el.innerHTML=renderDashboard();startCountdown();updateStats();break;
+    case 'dashboard': el.innerHTML=renderDashboard();startCountdown();updateStats();loadDestinationInfoCard();break;
     case 'tasks':     el.innerHTML=renderTasks();break;
     case 'flights':   el.innerHTML=renderFlights();break;
     case 'hotels':    el.innerHTML=renderHotels();break;
@@ -1209,7 +1280,7 @@ function renderSec(sec){
 // ── SAVE ──
 function saveData(immediate){
   if(!currentTrip)return;
-  if(isViewOnly)return; // no saving in view-only mode
+  if(isViewOnly)return; // no saving in view-only mode (this also covers offline mode — see tryOfflineFallback)
   const ind=document.getElementById('save-ind');if(ind)ind.style.display='inline';
   pendingSave=true;
   if(saveTimer)clearTimeout(saveTimer);
@@ -1345,6 +1416,10 @@ function renderDashboard(){
       <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('currency')}</div>${esc(currentTrip.currency||'USD')}</div>
       <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${t('notes')}</div>${esc(currentTrip.notes||'—')}</div>
     </div>
+  </div>
+  <div class="card" id="dest-info-card">
+    <div class="card-title"><div class="card-title-left">🌍 ${isHe?'על היעד':'About Your Destination'}</div></div>
+    <div id="dest-info-body"><div class="map-search-status">⏳ ${isHe?'טוען...':'Loading...'}</div></div>
   </div>`;
 }
 
@@ -2191,9 +2266,11 @@ function renderItinerary(){
         <div class="itin-dayactions-row">
           <button class="btn btn-outline btn-sm" onclick="autoFillDay('${day.id}')" style="font-size:12px">✨ ${isHe?'מלא יום אוטומטית':'Auto-fill Day'}</button>
           <button class="btn btn-outline btn-sm" onclick="optimizeDayRoute('${day.id}')" style="font-size:12px">🧭 ${isHe?'ייעל מסלול':'Optimize Route'}</button>
+          ${blocks.length>=2?`<button class="btn btn-outline btn-sm" onclick="checkDayTravelTimes('${day.id}')" style="font-size:12px">🚦 ${isHe?'בדוק זמני נסיעה':'Check travel times'}</button>`:''}
           ${blocks.length?`<button class="btn btn-outline btn-sm" onclick="copyDay('${day.id}')" style="font-size:12px">⧉ ${isHe?'שכפל יום':'Copy Day'}</button>
           <button class="btn btn-outline btn-sm" onclick="viewDayOnMap('${day.id}')" style="font-size:12px">🗺️ ${isHe?'הצג את היום על המפה':'View day on map'}</button>`:''}
         </div>
+        <div id="travel-warnings-${day.id}"></div>
         <div id="blocks-${day.id}">
         ${itinViewMode==='calendar' ? renderDayCalendarGrid(day,blocks,cur,isHe) : blocks.map((b,i)=>{
           const cat=actCategoryInfo(b.category);
@@ -2456,7 +2533,9 @@ async function runSmartTripBuilder(){
   const numDays=Math.max(1,Math.min(30,parseInt(document.getElementById('stb-num-days')?.value)||3));
   const pace=document.querySelector('input[name="stb-pace"]:checked')?.value||'balanced';
   const selectedCats=Array.from(document.querySelectorAll('.stb-cat-check:checked')).map(el=>el.value);
-  const perDayCount=SMART_BUILD_PACE[pace].count;
+  const familyMode=document.getElementById('stb-family-mode')?.checked||false;
+  const perDayCount=familyMode?Math.min(3,SMART_BUILD_PACE[pace].count):SMART_BUILD_PACE[pace].count;
+  const bufferMin=familyMode?45:30; // extra rest/transition buffer between stops for a family pace
   const setStatus=msg=>{ if(myRunId===smartBuildRunId&&statusEl)statusEl.innerHTML=`<div style="color:var(--textm)">⏳ ${msg}</div>`; };
 
   try{
@@ -2502,6 +2581,11 @@ async function runSmartTripBuilder(){
     if(!pool.length){
       statusEl.innerHTML=`<div style="color:var(--coral)">${isHe?'לא נמצאו מקומות מתאימים בקרבת מקום':'No matching places found nearby'}</div>`;
       return;
+    }
+    if(familyMode){
+      // Bias toward OSM-tagged wheelchair-accessible places — the closest real, verifiable data
+      // to "stroller-friendly" (OSM has no dedicated stroller tag, so we don't fabricate one).
+      pool=[...pool.filter(p=>p.wheelchair==='yes'),...pool.filter(p=>p.wheelchair!=='yes')];
     }
 
     setStatus(isHe?'בונה את המסלול...':'Building your itinerary...');
@@ -2551,7 +2635,7 @@ async function runSmartTripBuilder(){
         day.blocks.push({id:uid(),start:fmt(startMin),end:fmt(endMin),time:`${fmt(startMin)}–${fmt(endMin)}`,
           text:p.name,dur:h>0?(m>0?`${h}h ${m}m`:`${h}h`):`${m}m`,category:p.category,cost:'',confirmation:'',checklist:[],
           lat:p.lat,lon:p.lon,website:p.website||'',wikipedia:p.wikipedia||'',phone:p.phone||'',openingHours:p.openingHours||''});
-        cursor=endMin+30; // 30min buffer between stops
+        cursor=endMin+bufferMin;
         activitiesAdded++;
         // Also keep it in Saved Places so it's visible/manageable on the Map
         if(!tripData.savedPlaces)tripData.savedPlaces=[];
@@ -2571,7 +2655,7 @@ async function runSmartTripBuilder(){
     // geographic chaining above, using the exact same logic as the manual "Optimize Route" button)
     touchedDays.forEach(day=>{
       const located=(day.blocks||[]).filter(b=>typeof b.lat==='number'&&typeof b.lon==='number');
-      if(located.length>=2)optimizeDayRouteSilent(day.id);
+      if(located.length>=2)optimizeDayRouteSilent(day.id,bufferMin);
     });
     // Weather-awareness pass: flag any day with an outdoor activity where the real forecast
     // (Open-Meteo, only available ~16 days out) shows rain, so it's caught before you travel
@@ -2584,11 +2668,11 @@ async function runSmartTripBuilder(){
         const daysOut=Math.floor((new Date(day.date)-new Date(today))/86400000);
         if(daysOut<0||daysOut>16)continue; // outside the forecast's real range
         try{
-          const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(day.city)}&count=1`);
+          const geoRes=await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(day.city)}&count=1`);
           const geo=await geoRes.json();
           const loc=geo?.results?.[0];
           if(!loc)continue;
-          const wxRes=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=weathercode&timezone=auto&start_date=${day.date}&end_date=${day.date}`);
+          const wxRes=await fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=weathercode&timezone=auto&start_date=${day.date}&end_date=${day.date}`);
           const wx=await wxRes.json();
           const code=wx?.daily?.weathercode?.[0];
           if(code!=null&&code>=51){ // any form of forecast precipitation (drizzle through thunderstorm)
@@ -2598,8 +2682,26 @@ async function runSmartTripBuilder(){
         }catch(e){/* best-effort only — a failed weather check shouldn't block the build */}
       }
     }
+    let familyChecklistCount=0;
+    if(familyMode){
+      const familyItems=isHe?[
+        'עגלת תינוק / מנשא','חיתולים ומגבונים','חטיפים ומים','תרופות לילדים','בגדים להחלפה',
+        'משחקים/מסך לזמן המתנה','קרם הגנה לילדים','שקית לכביסה מלוכלכת'
+      ]:[
+        'Stroller / baby carrier','Diapers & wipes','Snacks & water','Kids\u2019 medication','Change of clothes',
+        'Entertainment for waiting time','Kids\u2019 sunscreen','Bag for dirty laundry'
+      ];
+      if(!tripData.todoGroups)tripData.todoGroups=[];
+      if(!tripData.todos)tripData.todos=[];
+      const groupId='fam'+uid();
+      tripData.todoGroups.push({id:groupId,name:isHe?'📋 רשימת ציוד למשפחה':'📋 Family packing list'});
+      familyItems.forEach(text=>{
+        tripData.todos.push({id:uid(),text,done:false,cat:groupId});
+        familyChecklistCount++;
+      });
+    }
     saveData();
-    statusEl.innerHTML=`<div style="color:var(--green);font-weight:600">✅ ${isHe?`נוצרו ${daysCreated} ימים חדשים עם ${activitiesAdded} פעילויות!`:`Built ${daysCreated} new day${daysCreated===1?'':'s'} with ${activitiesAdded} activities!`}</div>`;
+    statusEl.innerHTML=`<div style="color:var(--green);font-weight:600">✅ ${isHe?`נוצרו ${daysCreated} ימים חדשים עם ${activitiesAdded} פעילויות!`:`Built ${daysCreated} new day${daysCreated===1?'':'s'} with ${activitiesAdded} activities!`}${familyChecklistCount?(isHe?` וגם רשימת ציוד משפחתית.`:` Plus a family packing checklist.`):''}</div>`;
     setTimeout(()=>{ if(myRunId===smartBuildRunId){ closeModal('modal-add'); renderSec('itinerary'); } },1600);
   }catch(e){
     if(myRunId!==smartBuildRunId)return;
@@ -2608,7 +2710,7 @@ async function runSmartTripBuilder(){
 }
 // Same reordering logic as optimizeDayRoute(), without its own toast/UI feedback —
 // used internally as a cleanup pass after the Smart Builder places initial picks.
-function optimizeDayRouteSilent(dayId){
+function optimizeDayRouteSilent(dayId,bufferMin=0){
   const day=(tripData.days||[]).find(d=>d.id===dayId);
   if(!day)return;
   const blocks=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)}));
@@ -2621,8 +2723,9 @@ function optimizeDayRouteSilent(dayId){
   let cursor=toMin(ordered[0].start);
   if(cursor===null)cursor=9*60;
   const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
-  ordered.forEach(b=>{
-    const startMin=cursor,endMin=cursor+b._durMin;
+  ordered.forEach((b,i)=>{
+    const startMin=i===0?cursor:cursor+bufferMin;
+    const endMin=startMin+b._durMin;
     const realBlock=day.blocks.find(orig=>orig.id===b.id);
     if(realBlock){
       realBlock.start=fmt(startMin);realBlock.end=fmt(endMin);realBlock.time=`${fmt(startMin)}–${fmt(endMin)}`;
@@ -3053,14 +3156,16 @@ async function fetchDayWeather(dayId,city,dateStr){
     return;
   }
   try{
-    const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+    const geoRes=await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
     const geo=await geoRes.json();
     const loc=geo?.results?.[0];
     if(!loc){ el.innerHTML=`<span>🌤️</span><span>${lang==='he'?'לא נמצאה תחזית':'Forecast unavailable'}</span>`; return; }
-    const wxRes=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`);
+    const wxRes=await fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`);
     const wx=await wxRes.json();
     if(!wx?.daily?.time?.length){ el.innerHTML=`<span>🌤️</span><span>${lang==='he'?'לא נמצאה תחזית':'Forecast unavailable'}</span>`; return; }
-    const data={code:wx.daily.weathercode[0],max:Math.round(wx.daily.temperature_2m_max[0]),min:Math.round(wx.daily.temperature_2m_min[0])};
+    const fmtTime=iso=>iso?iso.split('T')[1]:'';
+    const data={code:wx.daily.weathercode[0],max:Math.round(wx.daily.temperature_2m_max[0]),min:Math.round(wx.daily.temperature_2m_min[0]),
+      sunrise:fmtTime(wx.daily.sunrise?.[0]),sunset:fmtTime(wx.daily.sunset?.[0])};
     weatherCache[cacheKey]=data;
     renderWeatherInto(el,data);
   }catch(e){
@@ -3080,7 +3185,7 @@ function weatherIcon(code){
   return'🌤️';
 }
 function renderWeatherInto(el,data){
-  el.innerHTML=`<span>${weatherIcon(data.code)}</span><span>${data.min}\u00b0–${data.max}\u00b0</span>`;
+  el.innerHTML=`<span>${weatherIcon(data.code)}</span><span>${data.min}\u00b0–${data.max}\u00b0</span>${data.sunrise?`<span style="color:var(--textd)">·</span><span>🌅 ${esc(data.sunrise)}</span>`:''}${data.sunset?`<span>🌇 ${esc(data.sunset)}</span>`:''}`;
 }
 
 // ── WISHLIST (places to visit, not yet scheduled to a specific day) ──
@@ -3092,8 +3197,8 @@ function osmPlaceCategory(osmType){ return OSM_TOURISM_TO_CATEGORY[osmType]||OSM
 // Same shape/pattern as fetchNearbyAttractions, but for restaurants/cafes/bars — needed so the
 // Smart Trip Builder can place meals, not just sightseeing, into a generated day.
 async function fetchNearbyFood(lat,lon,radiusM){
-  const q=`[out:json][timeout:20];(node["amenity"~"restaurant|cafe|fast_food|bar|pub"]["name"](around:${radiusM},${lat},${lon});way["amenity"~"restaurant|cafe|fast_food|bar|pub"]["name"](around:${radiusM},${lat},${lon}););out center 60;`;
-  const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+  const q=`[out:json][timeout:10];(node["amenity"~"restaurant|cafe|fast_food|bar|pub"]["name"](around:${radiusM},${lat},${lon});way["amenity"~"restaurant|cafe|fast_food|bar|pub"]["name"](around:${radiusM},${lat},${lon}););out center 35;`;
+  const res=await fetchWithTimeout('https://overpass-api.de/api/interpreter',{method:'POST',body:q},11000);
   const data=await res.json();
   const seen=new Set();
   const places=[];
@@ -3117,6 +3222,7 @@ function extractPlaceExtras(place,tags){
   place.wikipedia=tags.wikipedia||'';
   place.phone=tags.phone||tags['contact:phone']||'';
   place.openingHours=tags.opening_hours||'';
+  place.wheelchair=tags.wheelchair||''; // closest real OSM data to "stroller-friendly" — no fabricated tag
   return place;
 }
 // Every calendar date (YYYY-MM-DD) from start to end inclusive
@@ -3132,8 +3238,8 @@ function enumerateDatesInRange(startStr,endStr){
 // Captures lat/lon (node coords, or the "center" Overpass computes for way/area results) so callers
 // can plot results on a map, not just list them.
 async function fetchNearbyAttractions(lat,lon,radiusM){
-  const q=`[out:json][timeout:20];(node["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});way["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});node["historic"](around:${radiusM},${lat},${lon}););out center 60;`;
-  const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+  const q=`[out:json][timeout:10];(node["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});way["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});node["historic"](around:${radiusM},${lat},${lon}););out center 35;`;
+  const res=await fetchWithTimeout('https://overpass-api.de/api/interpreter',{method:'POST',body:q},11000);
   const data=await res.json();
   const seen=new Set();
   const places=[];
@@ -3488,6 +3594,8 @@ function renderBudget(){
           <input class="budget-inp bitem-amt" type="number" value="${parseFloat(item.amount||0).toFixed(0)}"
             onchange="updBudgetField('${item.id}','amount',this.value)"
             style="max-width:90px;font-weight:700;color:var(--text);text-align:end">
+          <input type="date" value="${esc(item.date||'')}" onchange="updBudgetField('${item.id}','date',this.value)"
+            class="budget-inp" style="max-width:120px;font-size:11px;color:var(--textd)" title="${lang==='he'?'תאריך (לניתוח)':'Date (for analytics)'}">
           <span class="status-pill sp-${item.status||'planned'}" id="bst-${item.id}" onclick="cycleStatus('${item.id}')">${statusLabel(item.status)}</span>
           <button class="del-btn" onclick="delBudget('${item.id}')">×</button>
         </div>`).join('')}
@@ -3499,6 +3607,7 @@ function renderBudget(){
   </div>
   <div style="display:flex;gap:10px;margin-top:14px">
     <button class="btn btn-outline btn-sm" onclick="addBGroup()">${lang==='he'?'+ קטגוריה חדשה':'+ New Category'}</button>
+    <button class="btn btn-outline btn-sm" onclick="openBudgetAnalytics()">📊 ${lang==='he'?'ניתוח תקציב':'Budget Analytics'}</button>
   </div>`;
   return html;
 }
@@ -3536,6 +3645,9 @@ function openAddItemModal(groupId){
         </select>
       </div>
     </div>
+    <div class="field"><div class="field-label">${lang==='he'?'תאריך (אופציונלי, לניתוח לפי יום)':'Date (optional, powers day-by-day analytics)'}</div>
+      <input class="inp" id="ni-date" type="date">
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
       <button class="btn btn-primary" onclick="saveNewBItem('${groupId}')">${t('save')}</button>
@@ -3549,8 +3661,9 @@ function saveNewBItem(groupId){
   if(!desc)return toast('⚠️ '+(lang==='he'?'הזן תיאור':'Enter description'));
   const amount=parseFloat(document.getElementById('ni-amt')?.value)||0;
   const status=document.getElementById('ni-status')?.value||'planned';
+  const date=document.getElementById('ni-date')?.value||'';
   if(!tripData.budget)tripData.budget=[];
-  tripData.budget.push({id:uid(),desc,amount,groupId,status});
+  tripData.budget.push({id:uid(),desc,amount,groupId,status,date});
   saveData();closeModal('modal-add');renderSec('budget');
 }
 
@@ -3609,6 +3722,130 @@ function cycleStatus(id){
 function delBudget(id){
   tripData.budget=(tripData.budget||[]).filter(i=>i.id!==id);
   saveData(true);renderSec('budget');
+}
+
+// ── BUDGET ANALYTICS — pivot views (by category, by day) plus a burn-rate chart comparing
+// actual paid spend against an even planned pace across the trip. ──
+function openBudgetAnalytics(){
+  const isHe=lang==='he';
+  const inner=document.getElementById('modal-add-inner');
+  const modal=document.getElementById('modal-add');
+  if(!inner||!modal)return;
+  inner.innerHTML=`
+    ${modalTitleBar(`📊 ${isHe?'ניתוח תקציב':'Budget Analytics'}`)}
+    <div id="ba-content">${renderBudgetAnalyticsContent(isHe)}</div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-add')">${isHe?'סגור':'Close'}</button>
+    </div>`;
+  modal.classList.add('show');
+}
+function renderBudgetAnalyticsContent(isHe){
+  const groups=getBGroups();
+  const items=tripData.budget||[];
+  const cur=currentTrip.currency||'USD';
+  const statuses=['planned','booked','paid'];
+  if(!items.length){
+    return`<div style="font-size:12.5px;color:var(--textd);text-align:center;padding:20px">${isHe?'אין עדיין פריטי תקציב לניתוח':'No budget items yet to analyze'}</div>`;
+  }
+  // ── Pivot 1: category × status ──
+  const catPivot=groups.map(g=>{
+    const gItems=items.filter(i=>i.groupId===g.id);
+    const row={name:g.name,color:g.color};
+    statuses.forEach(s=>{ row[s]=gItems.filter(i=>i.status===s).reduce((sum,i)=>sum+parseFloat(i.amount||0),0); });
+    row.total=statuses.reduce((s,st)=>s+row[st],0);
+    return row;
+  }).filter(r=>r.total>0);
+  const catTotals={};
+  statuses.forEach(s=>{ catTotals[s]=catPivot.reduce((sum,r)=>sum+r[s],0); });
+  catTotals.total=statuses.reduce((s,st)=>s+catTotals[st],0);
+
+  const catTableHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:start;padding:6px 4px;color:var(--textd);font-weight:600">${isHe?'קטגוריה':'Category'}</th>
+      ${statuses.map(s=>`<th style="text-align:end;padding:6px 4px;color:var(--textd);font-weight:600">${statusLabel(s)}</th>`).join('')}
+      <th style="text-align:end;padding:6px 4px;color:var(--textd);font-weight:600">${isHe?'סה"כ':'Total'}</th>
+    </tr></thead>
+    <tbody>
+      ${catPivot.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 4px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-inline-end:6px"></span>${esc(r.name)}</td>
+        ${statuses.map(s=>`<td style="text-align:end;padding:6px 4px;color:${r[s]?'var(--text)':'var(--textd)'}">${r[s]?r[s].toLocaleString():'—'}</td>`).join('')}
+        <td style="text-align:end;padding:6px 4px;font-weight:700">${r.total.toLocaleString()}</td>
+      </tr>`).join('')}
+      <tr style="border-top:2px solid var(--border)">
+        <td style="padding:6px 4px;font-weight:700">${isHe?'סה"כ':'Total'}</td>
+        ${statuses.map(s=>`<td style="text-align:end;padding:6px 4px;font-weight:700">${catTotals[s].toLocaleString()}</td>`).join('')}
+        <td style="text-align:end;padding:6px 4px;font-weight:800;color:var(--accent)">${catTotals.total.toLocaleString()}</td>
+      </tr>
+    </tbody>
+  </table>`;
+
+  // ── Pivot 2: day × status (only items with a date; everything else falls into "No date") ──
+  const byDate={};
+  items.forEach(i=>{
+    const key=i.date||'__nodate__';
+    if(!byDate[key])byDate[key]={};
+    statuses.forEach(s=>{ if(!(s in byDate[key]))byDate[key][s]=0; });
+    byDate[key][i.status||'planned']=(byDate[key][i.status||'planned']||0)+parseFloat(i.amount||0);
+  });
+  const dateKeys=Object.keys(byDate).filter(k=>k!=='__nodate__').sort();
+  const dayTableHTML=dateKeys.length?`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:start;padding:6px 4px;color:var(--textd);font-weight:600">${isHe?'תאריך':'Date'}</th>
+      ${statuses.map(s=>`<th style="text-align:end;padding:6px 4px;color:var(--textd);font-weight:600">${statusLabel(s)}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+      ${dateKeys.map(k=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 4px">${fmtDate(k)}</td>
+        ${statuses.map(s=>`<td style="text-align:end;padding:6px 4px;color:${byDate[k][s]?'var(--text)':'var(--textd)'}">${byDate[k][s]?byDate[k][s].toLocaleString():'—'}</td>`).join('')}
+      </tr>`).join('')}
+      ${byDate['__nodate__']?`<tr><td style="padding:6px 4px;color:var(--textd);font-style:italic">${isHe?'ללא תאריך':'No date'}</td>
+        ${statuses.map(s=>`<td style="text-align:end;padding:6px 4px;color:var(--textd)">${byDate['__nodate__'][s]?byDate['__nodate__'][s].toLocaleString():'—'}</td>`).join('')}
+      </tr>`:''}
+    </tbody>
+  </table>`:`<div style="font-size:11.5px;color:var(--textd);margin-top:8px">${isHe?'הוסף תאריכים לפריטי תקציב כדי לראות פילוח יומי':'Add dates to budget items to see a day-by-day breakdown'}</div>`;
+
+  // ── Burn-rate chart: actual cumulative paid spend vs an even planned pace ──
+  const target=parseFloat(tripData.budgetTarget||0);
+  let chartHTML='';
+  if(target>0&&currentTrip?.start_date&&currentTrip?.end_date){
+    const tripDates=enumerateDatesInRange(currentTrip.start_date,currentTrip.end_date);
+    const n=tripDates.length;
+    if(n>1){
+      let cum=0;
+      const actualByDate=tripDates.map(d=>{
+        cum+=items.filter(i=>i.date===d&&i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+        return cum;
+      });
+      const w=560,h=180,pad=30;
+      const maxY=Math.max(target,actualByDate[actualByDate.length-1],1);
+      const xFor=idx=>pad+(idx/(n-1))*(w-2*pad);
+      const yFor=val=>h-pad-(val/maxY)*(h-2*pad);
+      const plannedPts=tripDates.map((d,i)=>`${xFor(i)},${yFor(target*(i/(n-1)))}`).join(' ');
+      const actualPts=tripDates.map((d,i)=>`${xFor(i)},${yFor(actualByDate[i])}`).join(' ');
+      chartHTML=`<div style="margin-top:6px">
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto">
+          <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--border)" stroke-width="1"/>
+          <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="var(--border)" stroke-width="1"/>
+          <polyline points="${plannedPts}" fill="none" stroke="var(--textd)" stroke-width="2" stroke-dasharray="4,4"/>
+          <polyline points="${actualPts}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        </svg>
+        <div style="display:flex;gap:14px;font-size:11px;color:var(--textm);margin-top:4px">
+          <span><span style="display:inline-block;width:16px;height:2px;background:var(--accent);vertical-align:middle;margin-inline-end:4px"></span>${isHe?'הוצאה בפועל':'Actual spend'}</span>
+          <span><span style="display:inline-block;width:16px;height:2px;background:var(--textd);vertical-align:middle;margin-inline-end:4px;border-top:2px dashed var(--textd)"></span>${isHe?'קצב מתוכנן':'Planned pace'}</span>
+        </div>
+      </div>`;
+    }
+  }else{
+    chartHTML=`<div style="font-size:11.5px;color:var(--textd);margin-top:8px">${isHe?'הגדר יעד תקציב ותאריכי טיול כדי לראות תרשים שריפת תקציב':'Set a budget target and trip dates to see a burn-rate chart'}</div>`;
+  }
+
+  return`
+    <div class="stb-section-label">${isHe?'לפי קטגוריה':'By category'}</div>
+    ${catTableHTML}
+    <div class="stb-section-label">${isHe?'לפי יום':'By day'}</div>
+    ${dayTableHTML}
+    <div class="stb-section-label">${isHe?'קצב שריפת תקציב':'Burn rate'}</div>
+    ${chartHTML}`;
 }
 
 // ── BUDGET DRAG & DROP ──
@@ -3721,7 +3958,7 @@ function renderCurrency(){
   </div>`;
 }
 async function fetchRates(){
-  try{const r=await fetch('https://open.er-api.com/v6/latest/USD');const d=await r.json();if(d.rates){convRates=d.rates;doConvert();}}
+  try{const r=await fetchWithTimeout('https://open.er-api.com/v6/latest/USD');const d=await r.json();if(d.rates){convRates=d.rates;doConvert();}}
   catch(e){const el=document.getElementById('cv-rate');if(el)el.textContent='Could not load rates';}
 }
 function doConvert(){
@@ -3795,19 +4032,104 @@ function formatBilingualName(namedetails,fallbackName){
   return en||local||fallbackName||'';
 }
 // Geocode a free-text query via Nominatim. Returns {lat,lon,label} or null (never throws).
+// Cached per query text for the session — repeated identical searches (e.g. re-opening a modal
+// that re-resolves the same city) return instantly instead of hitting the network again.
+const geocodeCache={};
 async function geocodeQuery(q){
   if(!q||!q.trim())return null;
+  const key=q.trim().toLowerCase();
+  if(key in geocodeCache)return geocodeCache[key];
   try{
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&namedetails=1&accept-language=en`);
+    const res=await fetchWithTimeout(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&namedetails=1&addressdetails=1&accept-language=en`,{},6000);
     const data=await res.json();
-    if(data?.[0])return{lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon),label:q};
-  }catch(e){/* network/CORS failure — treat as "not found" */}
+    if(data?.[0]){
+      const result={lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon),label:q,countryCode:data[0].address?.country_code?.toUpperCase()||null};
+      geocodeCache[key]=result;
+      return result;
+    }
+  }catch(e){/* network/CORS failure — treat as "not found", but don't cache it so a later retry can still succeed */}
   return null;
 }
 // Resolves where this trip is "anchored" for map centering and nearby-attraction search,
 // trying several fallbacks in order of precision so one bad/unmatched query doesn't sink the
 // whole feature. Result is cached (tripMapAnchor) so map init / suggestions / search bias reuse
 // the same lookup instead of racing separate geocoding calls against each other.
+// ── DESTINATION COUNTRY INFO (REST Countries — free, no key) ──
+// Built on the same country code Nominatim already gives us during trip-anchor resolution,
+// so this needs no extra geocoding step of its own.
+let tripCountryInfo=null;
+let tripCountryInfoPromise=null;
+async function resolveTripCountryInfo(force){
+  if(tripCountryInfo&&!force)return tripCountryInfo;
+  if(tripCountryInfoPromise&&!force)return tripCountryInfoPromise;
+  tripCountryInfoPromise=(async()=>{
+    const anchor=await resolveTripAnchor();
+    if(!anchor?.countryCode){ tripCountryInfo=null; return null; }
+    try{
+      const res=await fetchWithTimeout(`https://restcountries.com/v3.1/alpha/${anchor.countryCode}`);
+      if(!res.ok){ tripCountryInfo=null; return null; }
+      const data=await res.json();
+      const c=Array.isArray(data)?data[0]:data;
+      if(!c){ tripCountryInfo=null; return null; }
+      const currencyCode=Object.keys(c.currencies||{})[0]||'';
+      const currency=currencyCode?c.currencies[currencyCode]:null;
+      const callingCode=c.idd?.root?c.idd.root+(c.idd.suffixes?.[0]||''):'';
+      tripCountryInfo={
+        name:c.name?.common||anchor.label,flagEmoji:c.flag||'',
+        capital:(c.capital||[])[0]||'',
+        languages:Object.values(c.languages||{}),
+        currencyCode,currencyName:currency?.name||'',currencySymbol:currency?.symbol||'',
+        callingCode,drivingSide:c.car?.side||'',timezones:c.timezones||[]
+      };
+      return tripCountryInfo;
+    }catch(e){ tripCountryInfo=null; return null; }
+  })();
+  const result=await tripCountryInfoPromise;
+  tripCountryInfoPromise=null;
+  return result;
+}
+// ── PUBLIC HOLIDAYS (Nager.Date — free, no key) ──
+let tripHolidaysCache=null;
+async function resolveTripHolidays(){
+  if(tripHolidaysCache)return tripHolidaysCache;
+  const anchor=await resolveTripAnchor();
+  if(!anchor?.countryCode||!currentTrip?.start_date||!currentTrip?.end_date){ tripHolidaysCache=[]; return[]; }
+  const startYear=new Date(currentTrip.start_date).getFullYear();
+  const endYear=new Date(currentTrip.end_date).getFullYear();
+  const years=[...new Set([startYear,endYear])];
+  try{
+    const results=await Promise.all(years.map(y=>
+      fetchWithTimeout(`https://date.nager.at/api/v3/publicholidays/${y}/${anchor.countryCode}`).then(r=>r.ok?r.json():[]).catch(()=>[])
+    ));
+    const inRange=results.flat().filter(h=>h.date>=currentTrip.start_date&&h.date<=currentTrip.end_date);
+    tripHolidaysCache=inRange;
+    return inRange;
+  }catch(e){ tripHolidaysCache=[]; return[]; }
+}
+// Loads the Dashboard's Destination Info card: country basics (REST Countries) plus any public
+// holidays landing within the trip dates (Nager.Date) — both keyed off the same resolved anchor.
+async function loadDestinationInfoCard(){
+  const body=document.getElementById('dest-info-body');
+  if(!body)return;
+  const isHe=lang==='he';
+  const[info,holidays]=await Promise.all([resolveTripCountryInfo(),resolveTripHolidays()]);
+  if(!body)return; // page may have navigated away while this was loading
+  if(!info){
+    document.getElementById('dest-info-card')?.style.setProperty('display','none');
+    return;
+  }
+  const holidayHTML=holidays.length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+    ${holidays.map(h=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:4px"><span>🎌</span><span style="color:var(--gold);font-weight:600">${fmtDate(h.date)}</span><span>${esc(h.localName||h.name)}</span></div>`).join('')}
+  </div>`:'';
+  body.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${isHe?'מטבע':'Currency'}</div>${info.currencySymbol||''} ${esc(info.currencyCode)}${info.currencyName?` · ${esc(info.currencyName)}`:''}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${isHe?'קידומת חיוג':'Calling code'}</div>${esc(info.callingCode||'—')}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${isHe?'שפות':'Languages'}</div>${esc(info.languages.slice(0,3).join(', ')||'—')}</div>
+      <div><div style="font-size:11px;color:var(--textd);margin-bottom:3px">${isHe?'נהיגה':'Driving side'}</div>${info.drivingSide==='left'?(isHe?'שמאל':'Left'):info.drivingSide==='right'?(isHe?'ימין':'Right'):'—'}</div>
+    </div>
+    ${holidayHTML}`;
+}
 async function resolveTripAnchor(force){
   if(tripMapAnchor&&!force)return tripMapAnchor;
   if(tripMapAnchorPromise&&!force)return tripMapAnchorPromise;
@@ -3823,9 +4145,12 @@ async function resolveTripAnchor(force){
     const flightCity=nextFlight?airportCity(flightTo(nextFlight)):'';
     if(flightCity)candidates.push({q:flightCity,label:flightCity,precise:false});
     if(currentTrip?.destination)candidates.push({q:currentTrip.destination,label:currentTrip.destination,precise:false});
-    for(const c of candidates){
-      const loc=await geocodeQuery(c.q);
-      if(loc){ tripMapAnchor={lat:loc.lat,lon:loc.lon,label:c.label,precise:c.precise}; return tripMapAnchor; }
+    // Fire every candidate at once instead of waiting on each one in turn — a slow-to-fail
+    // early candidate used to hold up every candidate after it, compounding latency badly.
+    const results=await Promise.all(candidates.map(c=>geocodeQuery(c.q)));
+    for(let i=0;i<candidates.length;i++){
+      const loc=results[i];
+      if(loc){ tripMapAnchor={lat:loc.lat,lon:loc.lon,label:candidates[i].label,precise:candidates[i].precise,countryCode:loc.countryCode}; return tripMapAnchor; }
     }
     tripMapAnchor=null;
     return null;
@@ -3952,7 +4277,9 @@ async function initTripMap(){
     maxZoom:19
   }).addTo(tripMapInstance);
   dayRouteLayer=L.layerGroup().addTo(tripMapInstance);
-  tripMapMarkerLayer=L.layerGroup().addTo(tripMapInstance);
+  tripMapMarkerLayer=(typeof L.markerClusterGroup==='function')
+    ?L.markerClusterGroup({maxClusterRadius:50,spiderfyOnMaxZoom:true,showCoverageOnHover:false}).addTo(tripMapInstance)
+    :L.layerGroup().addTo(tripMapInstance);
   suggestedAttractionsLayer=L.layerGroup().addTo(tripMapInstance);
   tripMapInstance.on('click',onTripMapClick);
   renderSavedPlaceMarkers();
@@ -4049,7 +4376,91 @@ function renderMapDaySummary(){
   let totalKm=0;
   for(let i=0;i<located.length-1;i++)totalKm+=haversineKm(located[i].lat,located[i].lon,located[i+1].lat,located[i+1].lon);
   const walkMin=Math.round(totalKm/4.5*60);
-  el.innerHTML=`<div style="font-size:11.5px;color:var(--textm)">📏 ${isHe?'מרחק קו ישר':'Straight-line distance'}: <strong>${totalKm.toFixed(1)} km</strong> · 🚶 ~${walkMin} ${isHe?'דק׳ הליכה (הערכה)':'min walking (estimate)'}</div>`;
+  el.innerHTML=`<div style="font-size:11.5px;color:var(--textm)">📏 ${isHe?'מרחק קו ישר':'Straight-line distance'}: <strong>${totalKm.toFixed(1)} km</strong> · 🚶 ~${walkMin} ${isHe?'דק׳ הליכה (הערכה)':'min walking (estimate)'}</div>
+    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 9px" onclick="loadRealRouteForDay('${mapSelectedDayId}','foot')">🚶 ${isHe?'מסלול הליכה אמיתי':'Real walking route'}</button>
+      <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 9px" onclick="loadRealRouteForDay('${mapSelectedDayId}','driving')">🚗 ${isHe?'מסלול נהיגה אמיתי':'Real driving route'}</button>
+    </div>`;
+}
+// Upgrades the straight-line estimate to a real, road-following route via OSRM's free public
+// routing server. Deliberately opt-in (button click), never automatic — OSRM's public instance
+// is a shared community service meant for occasional lookups, not silent background polling.
+// Checks whether the scheduled gap between consecutive activities actually allows enough real
+// travel time (via OSRM's free routing server). Deliberately a manual, opt-in check — not run
+// automatically on every render — so it doesn't turn into background polling against a shared
+// community service.
+async function checkDayTravelTimes(dayId){
+  const isHe=lang==='he';
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const warnEl=document.getElementById('travel-warnings-'+dayId);
+  if(warnEl)warnEl.innerHTML=`<div style="font-size:11.5px;color:var(--textm);margin-bottom:8px">⏳ ${isHe?'בודק זמני נסיעה אמיתיים...':'Checking real travel times...'}</div>`;
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const located=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)}))
+    .filter(b=>typeof b.lat==='number'&&typeof b.lon==='number'&&toMin(b.start)!==null&&toMin(b.end)!==null)
+    .sort((a,b)=>toMin(a.start)-toMin(b.start));
+  if(located.length<2){
+    if(warnEl)warnEl.innerHTML=`<div style="font-size:11.5px;color:var(--textd);margin-bottom:8px">${isHe?'צריך לפחות 2 פעילויות עם מיקום ושעה כדי לבדוק':'Need at least 2 timed, located activities to check'}</div>`;
+    return;
+  }
+  const warnings=[];
+  try{
+    for(let i=0;i<located.length-1;i++){
+      const a=located[i],b=located[i+1];
+      const scheduledGapMin=toMin(b.start)-toMin(a.end);
+      if(scheduledGapMin<0)continue; // overlapping times are already flagged elsewhere as conflicts
+      const res=await fetchWithTimeout(`https://router.project-osrm.org/route/v1/foot/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`,{},8000);
+      const data=await res.json();
+      const route=data?.routes?.[0];
+      if(!route)continue;
+      const travelMin=Math.round(route.duration/60);
+      if(travelMin>scheduledGapMin){
+        warnings.push({from:a.text,to:b.text,scheduledGapMin,travelMin});
+      }
+    }
+  }catch(e){
+    if(warnEl)warnEl.innerHTML=`<div style="font-size:11.5px;color:var(--textd);margin-bottom:8px">${isHe?'לא ניתן היה לבדוק זמני נסיעה כרגע':'Couldn\u2019t check travel times right now'}</div>`;
+    return;
+  }
+  if(!warnEl)return;
+  if(!warnings.length){
+    warnEl.innerHTML=`<div style="font-size:11.5px;color:var(--green);margin-bottom:8px">✅ ${isHe?'זמני הנסיעה בין הפעילויות נראים הגיוניים':'Travel times between activities look reasonable'}</div>`;
+    return;
+  }
+  warnEl.innerHTML=warnings.map(w=>`<div style="font-size:11.5px;color:var(--coral);background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.2);border-radius:var(--rsm);padding:7px 11px;margin-bottom:6px">
+    ⚠️ ${isHe?`רק ${w.scheduledGapMin} דק׳ מתוזמנות בין`:`Only ${w.scheduledGapMin} min scheduled between`} "${esc(w.from)}" → "${esc(w.to)}" ${isHe?'אבל הליכה אמיתית לוקחת':'but real walking takes'} ~${w.travelMin} ${isHe?'דק׳':'min'}
+  </div>`).join('');
+}
+async function loadRealRouteForDay(dayId,profile){
+  const isHe=lang==='he';
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  if(!day)return;
+  const toMin=t=>{ if(!t)return null; const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const located=(day.blocks||[]).map(b=>({...b,...blockTimeRange(b)}))
+    .filter(b=>typeof b.lat==='number'&&typeof b.lon==='number')
+    .sort((a,b)=>{ const am=toMin(a.start),bm=toMin(b.start); if(am===null&&bm===null)return 0; if(am===null)return 1; if(bm===null)return -1; return am-bm; });
+  if(located.length<2)return;
+  const el=document.getElementById('map-day-summary');
+  if(el)el.insertAdjacentHTML('beforeend',`<div id="real-route-status" style="margin-top:6px;font-size:11px;color:var(--textm)">⏳ ${isHe?'טוען מסלול אמיתי...':'Loading real route...'}</div>`);
+  try{
+    const coords=located.map(b=>`${b.lon},${b.lat}`).join(';');
+    const res=await fetchWithTimeout(`https://router.project-osrm.org/route/v1/${profile}/${coords}?overview=full&geometries=geojson`);
+    const data=await res.json();
+    const route=data?.routes?.[0];
+    const statusEl=document.getElementById('real-route-status');
+    if(!route){ if(statusEl)statusEl.innerHTML=`${isHe?'לא נמצא מסלול':'No route found'}`; return; }
+    const km=(route.distance/1000).toFixed(1);
+    const mins=Math.round(route.duration/60);
+    const modeLabel=profile==='foot'?(isHe?'הליכה':'walking'):(isHe?'נהיגה':'driving');
+    if(statusEl)statusEl.outerHTML=`<div style="font-size:11.5px;color:var(--green);font-weight:600">🧭 ${isHe?'מסלול אמיתי':'Real route'} (${modeLabel}): ${km} km · ${mins} ${isHe?'דק׳':'min'}</div>`;
+    if(dayRouteLayer&&typeof L!=='undefined'&&route.geometry?.coordinates){
+      const latlngs=route.geometry.coordinates.map(c=>[c[1],c[0]]);
+      L.polyline(latlngs,{color:'#ff6b6b',weight:4,opacity:.85}).addTo(dayRouteLayer);
+    }
+  }catch(e){
+    const statusEl=document.getElementById('real-route-status');
+    if(statusEl)statusEl.innerHTML=isHe?'טעינת המסלול נכשלה':'Couldn\u2019t load the real route';
+  }
 }
 function setMapSelectedDay(dayId){
   mapSelectedDayId=dayId;
@@ -4096,7 +4507,7 @@ async function fetchWikipediaSummary(wikipediaTag){
   const wikiLang=parts.length>1?parts[0]:'en';
   const title=parts.length>1?parts.slice(1).join(':'):parts[0];
   try{
-    const res=await fetch(`https://${wikiLang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+    const res=await fetchWithTimeout(`https://${wikiLang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
     if(!res.ok)return null;
     const data=await res.json();
     return{
@@ -4303,7 +4714,7 @@ async function doMapSearch(q){
       const d=0.6; // roughly a 60-70km soft-bias box around the trip's hotel/destination
       biasParams=`&viewbox=${anchor.lon-d},${anchor.lat+d},${anchor.lon+d},${anchor.lat-d}&bounded=0`;
     }
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&namedetails=1&limit=8${biasParams}`);
+    const res=await fetchWithTimeout(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&namedetails=1&limit=8${biasParams}`);
     const data=await res.json();
     if(!data||!data.length){ resultsEl.innerHTML=`<div class="map-search-status">${isHe?'לא נמצאו תוצאות':'No results found'}</div>`; return; }
     mapSearchResultsCache=data;
@@ -4335,7 +4746,7 @@ async function onTripMapClick(e){
   const{lat,lng}=e.latlng;
   showTempMarker(lat,lng,lang==='he'?'מיקום חדש':'New place','');
   try{
-    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&namedetails=1`);
+    const res=await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&namedetails=1`);
     const data=await res.json();
     if(data?.display_name){
       tempPlaceAddress=data.display_name;
@@ -4638,7 +5049,7 @@ function getModalContent(type,editData){
     <div class="stb-section-label">${isHe?'כמה ימים?':'How many days?'}</div>
     <div class="stb-stepper">
       <button type="button" class="stb-stepper-btn" onclick="stbStepDays(-1)">−</button>
-      <input class="stb-stepper-input" id="stb-num-days" type="number" min="1" max="30" value="${defaultDays}" oninput="stbClampDays()">
+      <input class="stb-stepper-input" id="stb-num-days" type="number" min="1" max="30" value="${defaultDays}" onblur="stbClampDays()">
       <button type="button" class="stb-stepper-btn" onclick="stbStepDays(1)">+</button>
       <span class="stb-stepper-hint">${dateRangeDays?(isHe?`הטיול שלך: ${dateRangeDays} ימים`:`Your trip: ${dateRangeDays} days`):(isHe?'ללא תאריך קבוע':'no fixed dates yet')}</span>
     </div>
@@ -4660,6 +5071,11 @@ function getModalContent(type,editData){
       </label>`).join('')}
     </div>
     <div class="stb-hint">💡 ${isHe?'נעדיף מקומות שבחרת, אבל עדיין נשלב מגוון — לא יום שלם באותו סוג':'We\u2019ll favor what you pick, but still mix in variety — never a whole day of just one thing'}</div>
+    <label class="stb-chip" style="margin-top:12px;display:inline-flex">
+      <input type="checkbox" id="stb-family-mode">
+      <span>👨‍👩‍👧 ${isHe?'מצב משפחה (עם ילדים קטנים)':'Family mode (with young kids)'}</span>
+    </label>
+    <div class="stb-hint">${isHe?'קצב איטי יותר, זמני מנוחה נוספים, עדיפות למקומות נגישים לעגלות, ורשימת ציוד אוטומטית':'Slower pace, extra rest buffers, priority for stroller/wheelchair-accessible places, and an auto-generated packing checklist'}</div>
     <div id="stb-status" style="min-height:20px;margin:10px 0;font-size:12.5px"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
@@ -4967,27 +5383,44 @@ async function loadTrips(){
 }
 
 async function createTrip(){
+  const isHe=lang==='he';
+  const errEl=document.getElementById('nt-error');
+  const hideErr=()=>{ if(errEl){ errEl.style.display='none'; errEl.textContent=''; } };
+  const showErr=msg=>{ if(errEl){ errEl.textContent=msg; errEl.style.display='block'; } else toast('❌ '+msg); };
+  hideErr();
   const name=document.getElementById('nt-name').value.trim();
   const start=document.getElementById('nt-start').value;
   const end=document.getElementById('nt-end').value;
-  if(!name)return toast('⚠️ '+t('tripName'));
-  if(!start||!end)return toast('⚠️ '+t('startDate'));
+  if(!name)return showErr('⚠️ '+t('tripName'));
+  if(!start||!end)return showErr('⚠️ '+t('startDate'));
+  if(end<start)return showErr('⚠️ '+(isHe?'תאריך הסיום לא יכול להיות לפני תאריך ההתחלה':'End date can\u2019t be before the start date'));
+  // If the session has gone stale (expired token, etc.) the insert will fail with a confusing
+  // RLS error — check for a live user first and give a clear, actionable message instead.
+  if(!currentUser?.id){
+    showErr('⚠️ '+(isHe?'החיבור שלך פג תוקף. רענן את הדף והתחבר שוב.':'Your session has expired. Please refresh the page and sign in again.'));
+    return;
+  }
   const{data,error}=await sb.from('trips').insert({
-    user_id:currentUser.id,name,emoji:selectedEmoji,
+    user_id:currentUser.id,name,emoji:selectedEmoji||'🌴',
     destination:document.getElementById('nt-dest').value.trim(),
     start_date:start,end_date:end,
     travelers:parseInt(document.getElementById('nt-travelers').value)||1,
     currency:document.getElementById('nt-currency').value,
     notes:document.getElementById('nt-notes').value.trim(),data:{}
   }).select().single();
-  if(error)return toast('❌ '+error.message);
-  closeModal('modal-new');clearNewForm();toast('✅ '+name);openTrip(data);
+  if(error){
+    console.error('createTrip failed:',error);
+    showErr('❌ '+(error.message||(isHe?'שמירת הטיול נכשלה':'Couldn\u2019t save the trip'))+(error.hint?' — '+error.hint:''));
+    return;
+  }
+  hideErr();closeModal('modal-new');clearNewForm();toast('✅ '+name);openTrip(data);
 }
 
 function clearNewForm(){
   ['nt-name','nt-dest','nt-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('nt-start').value='';document.getElementById('nt-end').value='';
   document.getElementById('nt-travelers').value='2';document.getElementById('nt-currency').value='USD';
+  const errEl=document.getElementById('nt-error');if(errEl){errEl.style.display='none';errEl.textContent='';}
 }
 
 function askDelete(id){deleteTripId=id;openModal('modal-delete');}
@@ -5356,15 +5789,15 @@ async function searchHotelsByName(query,box,inputId){
     }
     const radiusM=anchor.precise?15000:30000; // wide enough to cover a whole city's worth of hotels
     const safeQ=query.replace(/["\\]/g,'\\$&');
-    const overpassQ=`[out:json][timeout:15];(node["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon});way["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon}););out center 10;`;
+    const overpassQ=`[out:json][timeout:10];(node["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon});way["tourism"~"hotel|hostel|guest_house|apartment"]["name"~"${safeQ}",i](around:${radiusM},${anchor.lat},${anchor.lon}););out center 10;`;
     // Combine two sources: Overpass gives precise hotel-tagged results, but OSM's hotel tagging
     // is spotty for big chains — Nominatim's broader index often finds "Hilton Bangkok..." even
     // when it isn't cleanly tagged tourism=hotel, so we merge both instead of relying on one.
     const d=Math.max(0.15,radiusM/111000);
     const nominatimUrl=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=8&namedetails=1&viewbox=${anchor.lon-d},${anchor.lat+d},${anchor.lon+d},${anchor.lat-d}&bounded=0`;
     const[overpassRes,nominatimRes]=await Promise.all([
-      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:overpassQ}).then(r=>r.json()).catch(()=>null),
-      fetch(nominatimUrl).then(r=>r.json()).catch(()=>null),
+      fetchWithTimeout('https://overpass-api.de/api/interpreter',{method:'POST',body:overpassQ},11000).then(r=>r.json()).catch(()=>null),
+      fetchWithTimeout(nominatimUrl).then(r=>r.json()).catch(()=>null),
     ]);
     const seen=new Set();
     const results=[];
