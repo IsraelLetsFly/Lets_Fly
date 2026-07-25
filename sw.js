@@ -6,7 +6,7 @@
 // the main HTML file). This worker only handles GET requests; it never touches the POST/PATCH
 // calls the app makes to Supabase, so live saves/loads are completely unaffected while online.
 
-const CACHE_NAME = 'letsfly-shell-v1';
+const CACHE_NAME = 'letsfly-shell-v2';
 
 // Precache the page itself. CDN assets (Leaflet, MarkerCluster, the Supabase client library,
 // etc.) are cached opportunistically on first successful fetch instead of listed here by exact
