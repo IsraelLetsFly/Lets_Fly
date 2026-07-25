@@ -31,7 +31,7 @@ html{scroll-behavior:smooth}
   --border:rgba(237,244,242,0.09);--border2:rgba(237,244,242,0.17);
   --accent:#37C6BA;--accent2:#1E8F86;--accentg:linear-gradient(135deg,#37C6BA,#1E8F86);
   --green:#3DD68C;--gold:#F2B33D;--coral:#FF5C5C;--purple:#8b8fe8;--rust:#FF7A52;
-  --text:#EDF4F2;--textm:#93B0AC;--textd:#547371;
+  --text:#EDF4F2;--textm:#93B0AC;--textd:#6C8D89;
   --nav-h:58px;--r:14px;--rsm:9px;--shadow:0 4px 24px rgba(0,0,0,0.4);
   --mono:'JetBrains Mono',monospace;
 }
@@ -185,6 +185,15 @@ textarea.inp{resize:vertical;min-height:80px}
 .trip-card:hover{border-color:rgba(55,198,186,.4);transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.3)}
 .trip-cover{height:92px;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;border-radius:var(--r) var(--r) 0 0;overflow:hidden}
 .trip-cover-bg{position:absolute;inset:0;background:linear-gradient(135deg,var(--c1),var(--c2));opacity:.85}
+.trip-cover-photo{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity .5s ease}
+.trip-cover-photo.on{opacity:1}
+.trip-cover-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,26,24,.18),rgba(10,26,24,.55))}
+.trip-banner{position:relative;border-radius:var(--r);overflow:hidden;margin-bottom:14px;min-height:104px;display:flex;align-items:flex-end;background:linear-gradient(135deg,#1E6F68,#0E3A36)}
+.trip-banner-photo{position:absolute;inset:0;background-size:cover;background-position:center}
+.trip-banner-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,26,24,.1),rgba(10,26,24,.72))}
+.trip-banner-body{position:relative;z-index:1;padding:16px 20px 13px;width:100%}
+.trip-banner .page-title{color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.4)}
+.trip-banner .page-sub{color:rgba(255,255,255,.85);text-shadow:0 1px 4px rgba(0,0,0,.4)}
 .trip-cover-emoji{position:relative;z-index:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,.35))}
 .trip-cover-code{position:absolute;top:9px;left:11px;z-index:1;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.85);text-shadow:0 1px 3px rgba(0,0,0,.4)}
 .trip-stub-divider{position:relative;height:0;border-top:2px dashed var(--border2)}
@@ -689,6 +698,41 @@ body.light #bottom-nav{background:rgba(247,242,231,.88)}
   .nav-trip-name{max-width:80px}
 }
 @media(max-width:400px){.trips-grid{grid-template-columns:1fr}}
+
+/* ── SVG icons ── */
+.ic{display:block;flex:none}
+.snb-icon .ic,.bnav-icon .ic{display:block}
+.snb-icon{display:flex;align-items:center;justify-content:center;width:20px}
+.bnav-icon{display:flex;align-items:center;justify-content:center;height:22px}
+.page-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.pt-ic{display:flex;color:var(--accent)}
+.card-title-left .ic{color:var(--accent)}
+/* ── side nav groups ── */
+.snb-group{font-family:var(--mono);font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--textd);padding:12px 12px 5px;user-select:none}
+.snb-group:first-child{padding-top:4px}
+/* ── typography & contrast pass ── */
+.trip-card-meta{font-size:12px !important;line-height:1.7 !important}
+.bnav-label{font-size:10.5px !important}
+.today-empty,.empty-state-sub{font-size:13px}
+/* ── standardized empty states ── */
+.empty-state{text-align:center;padding:34px 18px;color:var(--textm)}
+.empty-state .ic{margin:0 auto 12px;color:var(--textd);opacity:.8}
+.empty-state-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.empty-state-sub{color:var(--textm);margin-bottom:14px}
+
+
+/* ── landing hero ── */
+#auth-screen{flex-direction:row;flex-wrap:wrap;gap:44px;align-content:center}
+.landing-hero{max-width:430px;padding:10px 6px}
+.landing-hero-badge{font-family:var(--mono);font-size:13px;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:14px}
+.landing-hero-title{font-size:clamp(30px,4.5vw,44px);line-height:1.08;font-weight:900;letter-spacing:-1px;margin-bottom:14px}
+.landing-hero-title span{background:linear-gradient(90deg,var(--accent),#7BE0C8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.landing-hero-sub{font-size:14.5px;color:var(--textm);line-height:1.65;margin-bottom:22px}
+.landing-hero-feats{display:grid;gap:10px}
+.lh-feat{display:flex;align-items:center;gap:11px;font-size:13.5px;color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 14px}
+.lh-feat span{font-size:17px}
+@media(max-width:860px){#auth-screen{flex-direction:column;gap:22px;padding-top:30px}.landing-hero{text-align:center;max-width:480px}.landing-hero-feats{grid-template-columns:1fr 1fr;gap:8px}.lh-feat{font-size:11.5px;padding:8px 10px;text-align:start}}
+@media(max-width:480px){.landing-hero-feats{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -705,6 +749,17 @@ body.light #bottom-nav{background:rgba(247,242,231,.88)}
 
 <!-- AUTH -->
 <div id="auth-screen">
+  <div class="landing-hero">
+    <div class="landing-hero-badge">✈️ LetsFly</div>
+    <h1 class="landing-hero-title">Every trip,<br><span>beautifully planned.</span></h1>
+    <p class="landing-hero-sub">Flights, hotels, day-by-day itineraries, maps, budgets and packing lists — all in one place, in English & עברית, free.</p>
+    <div class="landing-hero-feats">
+      <div class="lh-feat"><span>🗺️</span>Interactive maps & smart trip builder</div>
+      <div class="lh-feat"><span>📅</span>Drag-and-drop itinerary with weather</div>
+      <div class="lh-feat"><span>👥</span>Share & plan together, split expenses</div>
+      <div class="lh-feat"><span>📲</span>Works offline as an app</div>
+    </div>
+  </div>
   <div class="auth-box">
     <div class="auth-logo">✈️ LetsFly</div>
     <div class="auth-tagline" data-t="tagline">Plan smarter. Fly better.</div>
@@ -793,11 +848,11 @@ body.light #bottom-nav{background:rgba(247,242,231,.88)}
 
 <!-- MOBILE BOTTOM NAV -->
 <nav id="bottom-nav">
-  <button class="bnav-btn" data-sec="dashboard" onclick="showSec('dashboard')"><span class="bnav-icon">📊</span><span class="bnav-label" data-t="secDashboard">Dashboard</span></button>
-  <button class="bnav-btn" data-sec="itinerary" onclick="showSec('itinerary')"><span class="bnav-icon">📅</span><span class="bnav-label" data-t="secItinerary">Itinerary</span></button>
-  <button class="bnav-btn" data-sec="map" onclick="showSec('map')"><span class="bnav-icon">🗺️</span><span class="bnav-label" data-t="secMap">Map</span></button>
-  <button class="bnav-btn" data-sec="budget" onclick="showSec('budget')"><span class="bnav-icon">💰</span><span class="bnav-label" data-t="secBudget">Budget</span></button>
-  <button class="bnav-btn" id="bnav-more-btn" onclick="openSideNav()"><span class="bnav-icon">☰</span><span class="bnav-label" data-t="more">More</span></button>
+  <button class="bnav-btn" data-sec="today" onclick="showSec('today')"><span class="bnav-icon" data-ic="sunrise"></span><span class="bnav-label" data-t="secToday">Today</span></button>
+  <button class="bnav-btn" data-sec="itinerary" onclick="showSec('itinerary')"><span class="bnav-icon" data-ic="calendar"></span><span class="bnav-label" data-t="secItinerary">Itinerary</span></button>
+  <button class="bnav-btn" data-sec="map" onclick="showSec('map')"><span class="bnav-icon" data-ic="map"></span><span class="bnav-label" data-t="secMap">Map</span></button>
+  <button class="bnav-btn" data-sec="budget" onclick="showSec('budget')"><span class="bnav-icon" data-ic="wallet"></span><span class="bnav-label" data-t="secBudget">Budget</span></button>
+  <button class="bnav-btn" id="bnav-more-btn" onclick="openSideNav()"><span class="bnav-icon" data-ic="menu"></span><span class="bnav-label" data-t="more">More</span></button>
 </nav>
 
 <div id="app">
@@ -922,7 +977,7 @@ const T={
     planNewTrip:'Plan a New Trip',greeting:'My Trips',
     secToday:'Today',secDashboard:'Dashboard',secTasks:'Tasks',secFlights:'Flights',secHotels:'Hotels',
     secItinerary:'Itinerary',secMap:'Map',secBudget:'Budget',secCurrency:'Currency',
-    secTransport:'Transport',secEmergency:'Emergency',
+    secTransport:'Transport',secEmergency:'Emergency',secPacking:'Packing',secDocuments:'Documents',secJournal:'Journal',
     daysLeft:'days until departure',tripInProgress:'Trip in progress!',tripDone:'Trip completed!',
     tasksDone:'Done',tasksLeft:'Left',tripDays:'Days',budgetItems:'Budget Items',
     addFlight:'+ Add Flight',addHotel:'+ Add Hotel',addDay:'+ Add Day',
@@ -958,7 +1013,7 @@ const T={
     planNewTrip:'תכנן טיול חדש',greeting:'הטיולים שלי',
     secToday:'היום',secDashboard:'דשבורד',secTasks:'משימות',secFlights:'טיסות',secHotels:'מלונות',
     secItinerary:'לו"ז',secMap:'מפה',secBudget:'תקציב',secCurrency:'המרה',
-    secTransport:'תחבורה',secEmergency:'חירום',
+    secTransport:'תחבורה',secEmergency:'חירום',secPacking:'אריזה',secDocuments:'מסמכים',secJournal:'יומן',
     daysLeft:'ימים עד היציאה',tripInProgress:'הטיול מתנהל!',tripDone:'הטיול הסתיים!',
     tasksDone:'הושלמו',tasksLeft:'נשאר',tripDays:'ימים',budgetItems:'פריטי תקציב',
     addFlight:'+ הוסף טיסה',addHotel:'+ הוסף מלון',addDay:'+ הוסף יום',
@@ -983,6 +1038,55 @@ const T={
   }
 };
 const t=k=>(T[lang]&&T[lang][k])||T.en[k]||k;
+
+// ── SVG ICON SYSTEM (Lucide-style, ISC) ──
+const ICONS={
+sunrise:'<path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 6 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>',
+dashboard:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+tasks:'<path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+bed:'<path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M2 17h20"/><path d="M6 8h4"/>',
+calendar:'<path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/>',
+map:'<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+wallet:'<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+car:'<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
+luggage:'<path d="M6 20a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2"/><path d="M8 18V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v12"/><path d="M10 20h4"/><circle cx="16" cy="20" r="2"/><circle cx="8" cy="20" r="2"/>',
+folder:'<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+book:'<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+home:'<path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2h-3a1 1 0 0 1-1-1v-4a2 2 0 0 0-4 0v4a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2z"/>',
+menu:'<path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/>',
+pin:'<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+share:'<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>',
+download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+printer:'<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+sparkles:'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>',
+users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+swap:'<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+route:'<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+globe:'<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>',
+clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+zap:'<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+};
+function hydrateIcons(){
+  document.querySelectorAll('[data-ic]').forEach(el=>{el.innerHTML=ic(el.dataset.ic, el.closest('.bnav-icon,#bottom-nav')?22:18);});
+  const hb=document.getElementById('hamburger-btn');if(hb)hb.innerHTML=ic('menu',20);
+  const homeB=document.getElementById('home-btn');if(homeB)homeB.innerHTML=ic('home',19);
+  const pinB=document.getElementById('navbar-pin-btn');if(pinB)pinB.innerHTML=ic('pin',18);
+  const lockB=document.getElementById('lock-btn');if(lockB)lockB.innerHTML=ic('pin',16);
+  const shareB=document.getElementById('share-btn');if(shareB)shareB.innerHTML=ic('share',13)+' <span data-t="share">Share</span>';
+}
+document.addEventListener('DOMContentLoaded',hydrateIcons);
+function ic(name,size){size=size||18;const p=ICONS[name]||ICONS.globe;
+  return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;}
+
 
 // ── LANG & THEME ──
 function applyLang(){
@@ -1208,25 +1312,35 @@ function openTrip(trip,sec){
 }
 
 const SECTIONS=[
-  {id:'today',icon:'🌅',key:'secToday'},
-  {id:'dashboard',icon:'📊',key:'secDashboard'},
-  {id:'tasks',icon:'✅',key:'secTasks'},
-  {id:'flights',icon:'✈️',key:'secFlights'},
-  {id:'hotels',icon:'🏨',key:'secHotels'},
-  {id:'itinerary',icon:'📅',key:'secItinerary'},
-  {id:'map',icon:'🗺️',key:'secMap'},
-  {id:'budget',icon:'💰',key:'secBudget'},
-  {id:'currency',icon:'💱',key:'secCurrency'},
-  {id:'transport',icon:'🚗',key:'secTransport'},
-  {id:'emergency',icon:'📞',key:'secEmergency'},
+  {id:'today',icon:'sunrise',key:'secToday',group:'overview'},
+  {id:'dashboard',icon:'dashboard',key:'secDashboard',group:'overview'},
+  {id:'itinerary',icon:'calendar',key:'secItinerary',group:'plan'},
+  {id:'flights',icon:'plane',key:'secFlights',group:'plan'},
+  {id:'hotels',icon:'bed',key:'secHotels',group:'plan'},
+  {id:'transport',icon:'car',key:'secTransport',group:'plan'},
+  {id:'map',icon:'map',key:'secMap',group:'plan'},
+  {id:'budget',icon:'wallet',key:'secBudget',group:'money'},
+  {id:'tasks',icon:'tasks',key:'secTasks',group:'essentials'},
+  {id:'packing',icon:'luggage',key:'secPacking',group:'essentials'},
+  {id:'documents',icon:'folder',key:'secDocuments',group:'essentials'},
+  {id:'journal',icon:'book',key:'secJournal',group:'essentials'},
+  {id:'emergency',icon:'phone',key:'secEmergency',group:'essentials'},
 ];
+const SECTION_GROUPS={overview:{en:'Overview',he:'סקירה'},plan:{en:'Plan',he:'תכנון'},money:{en:'Money',he:'כסף'},essentials:{en:'Essentials',he:'חיוני'}};
 
 function buildNavSections(){
   const ns=document.getElementById('nav-sections');
   if(ns) ns.innerHTML=''; // no top nav sections
   // Side nav items
   const si=document.getElementById('side-nav-items');
-  if(si) si.innerHTML=SECTIONS.map(s=>`<button class="snb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}');if(!navLocked)closeSideNav()"><span class="snb-icon">${s.icon}</span>${t(s.key)}</button>`).join('');
+  if(si){
+    let out='',lastGroup=null;
+    SECTIONS.forEach(s=>{
+      if(s.group!==lastGroup){out+=`<div class="snb-group">${(SECTION_GROUPS[s.group]||{})[lang==='he'?'he':'en']||s.group}</div>`;lastGroup=s.group;}
+      out+=`<button class="snb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}');if(!navLocked)closeSideNav()"><span class="snb-icon">${ic(s.icon,17)}</span>${t(s.key)}</button>`;
+    });
+    si.innerHTML=out;
+  }
   const snt=document.getElementById('side-nav-trip-name');
   if(snt&&currentTrip) snt.textContent=currentTrip.emoji+' '+currentTrip.name;
   // Update trip name in top bar too
@@ -1241,10 +1355,20 @@ function buildTripPage(){
     : `<button class="btn btn-ghost btn-sm" onclick="goHome()" style="margin-bottom:8px">${t('back')}</button>`;
   p.innerHTML=`<div class="page-header">
     ${backBtn}
-    <div class="page-title">${esc(currentTrip.emoji)} ${esc(currentTrip.name)}</div>
-    <div class="page-sub">📅 ${fmtDate(currentTrip.start_date)} → ${fmtDate(currentTrip.end_date)} · ${calcNights(currentTrip.start_date,currentTrip.end_date)} ${t('nights')} · ${currentTrip.travelers||1} ${t('travelers2')}</div>
+    <div class="trip-banner">
+      <div class="trip-banner-photo" id="trip-banner-photo"></div>
+      <div class="trip-banner-body">
+        <div class="page-title">${esc(currentTrip.emoji)} ${esc(currentTrip.name)}</div>
+        <div class="page-sub">📅 ${fmtDate(currentTrip.start_date)} → ${fmtDate(currentTrip.end_date)} · ${calcNights(currentTrip.start_date,currentTrip.end_date)} ${t('nights')} · ${currentTrip.travelers||1} ${t('travelers2')}</div>
+      </div>
+    </div>
   </div>
   <div id="sec-content"></div>`;
+  (async()=>{
+    const url=await fetchCoverPhoto(currentTrip.destination||'');
+    const el=document.getElementById('trip-banner-photo');
+    if(el&&url)el.style.backgroundImage=`url("${url}")`;
+  })();
 }
 
 function showSec(sec){
@@ -1278,10 +1402,13 @@ function renderSec(sec){
     case 'hotels':    el.innerHTML=renderHotels();break;
     case 'itinerary': el.innerHTML=renderItinerary();loadItineraryWeather();break;
     case 'map':       el.innerHTML=renderMapPage();tripMapInitPromise=initTripMap();loadSuggestedAttractions();break;
-    case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();break;
+    case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();fetchRates();break;
     case 'currency':  el.innerHTML=renderCurrency();fetchRates();break;
     case 'transport': el.innerHTML=renderTransport();break;
     case 'emergency': el.innerHTML=renderEmergency();break;
+    case 'packing':   el.innerHTML=renderPacking();break;
+    case 'documents': el.innerHTML=renderDocuments();break;
+    case 'journal':   el.innerHTML=renderJournal();break;
   }
 }
 
@@ -1358,6 +1485,47 @@ function renderTripProgressTracker(isHe){
     </div>
   </div>`;
 }
+
+// ── MULTI-DESTINATION STOPS ──
+function getStops(){if(!Array.isArray(tripData.stops))tripData.stops=[];return tripData.stops;}
+function stopAdd(){
+  const city=document.getElementById('stop-city')?.value.trim();
+  const from=document.getElementById('stop-from')?.value;
+  const to=document.getElementById('stop-to')?.value;
+  const isHe=lang==='he';
+  if(!city){toast('⚠️ '+(isHe?'נא להזין עיר':'Enter a city'));return;}
+  getStops().push({id:uid(),city,from:from||'',to:to||''});
+  getStops().sort((a,b)=>(a.from||'').localeCompare(b.from||''));
+  saveData(true);renderSec('dashboard');
+}
+function stopDel(id){
+  tripData.stops=getStops().filter(x=>x.id!==id);
+  saveData(true);renderSec('dashboard');
+}
+function stopForDate(dateStr){
+  if(!dateStr)return null;
+  return getStops().find(x=>x.from&&x.to&&dateStr>=x.from&&dateStr<=x.to)||null;
+}
+function renderStopsCard(){
+  const isHe=lang==='he';
+  const stops=getStops();
+  return`<div class="card" style="margin-bottom:14px">
+    <div class="card-title"><div class="card-title-left">${ic('route',15)} ${isHe?'תחנות בטיול':'Trip stops'} ${stops.length?`<span style="font-size:11px;color:var(--textd);font-weight:500">· ${stops.length}</span>`:''}</div></div>
+    ${stops.length?`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px">
+      ${stops.map((st,i)=>`<span class="tag tag-blue" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 11px">
+        ${i+1}. ${esc(st.city)}${st.from?` <span style="font-family:var(--mono);font-size:10px;opacity:.75">${fmtDate(st.from)}–${fmtDate(st.to)}</span>`:''}
+        <span style="cursor:pointer;opacity:.65" onclick="stopDel('${st.id}')">×</span>
+      </span>`).join('')}
+    </div>`:`<div style="font-size:12px;color:var(--textd);margin-bottom:10px">${isHe?'מטיילים בכמה ערים? הוסף תחנות עם תאריכים — הן יופיעו על כל יום בלו"ז':'Visiting several cities? Add stops with dates — they\\u2019ll show on each itinerary day'}</div>`}
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      <input class="inp" id="stop-city" placeholder="${isHe?'עיר...':'City...'}" style="flex:2;min-width:110px">
+      <input class="inp" id="stop-from" type="date" style="flex:1;min-width:120px" min="${currentTrip?.start_date||''}" max="${currentTrip?.end_date||''}">
+      <input class="inp" id="stop-to" type="date" style="flex:1;min-width:120px" min="${currentTrip?.start_date||''}" max="${currentTrip?.end_date||''}">
+      <button class="btn btn-outline btn-sm" onclick="stopAdd()">+ ${isHe?'הוסף':'Add'}</button>
+    </div>
+  </div>`;
+}
+
 function renderDashboard(){
   const isHe=lang==='he';
   const todos=tripData.todos||[];
@@ -1405,6 +1573,7 @@ function renderDashboard(){
   </div>`:`<div style="margin-bottom:14px">
     <button class="btn btn-outline btn-sm" onclick="openAddModal('smartbuild')">✨ ${isHe?'בניית טיול חכם':'Smart Trip Builder'}</button>
   </div>`}
+  ${renderStopsCard()}
   ${renderTripProgressTracker(isHe)}
   <div class="stats-row">
     <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="st-done">${done}</div><div class="stat-lbl">${t('tasksDone')}</div></div>
@@ -1481,7 +1650,7 @@ function renderTasks(){
   const todos=tripData.todos||[];
   const groups=getGroups();
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div class="page-title" style="font-size:20px">✅ ${t('secTasks')}</div>
+    <div class="page-title" style="font-size:20px">${'<span class="pt-ic">'+ic('tasks',22)+'</span>'} ${t('secTasks')}</div>
     <button class="btn btn-outline btn-sm" onclick="addGroup()">${lang==='he'?'+ קבוצה חדשה':'+ New Group'}</button>
   </div><div id="groups-container">`;
 
@@ -1697,17 +1866,299 @@ function addTodo(groupId){
 // ══════════════════════════════════════════════════════
 
 // ── TODAY VIEW ──
+
+// ── TRAVEL-TIME GAPS ──
+function renderTravelGap(a,b,isHe){
+  if(typeof a?.lat!=='number'||typeof a?.lon!=='number'||typeof b?.lat!=='number'||typeof b?.lon!=='number')return'';
+  const km=haversineKm(a.lat,a.lon,b.lat,b.lon);
+  if(km<0.05)return'';
+  let mins,mode,icon;
+  if(km<=2){mins=Math.max(2,Math.round(km/4.5*60));mode=isHe?'הליכה':'walk';icon='🚶';}
+  else if(km<=25){mins=Math.round(km/20*60+8);mode=isHe?'תחבורה':'transit/taxi';icon='🚕';}
+  else{mins=Math.round(km/60*60+15);mode=isHe?'נסיעה':'drive';icon='🚗';}
+  const dist=km<1?`${Math.round(km*1000)}m`:`${km.toFixed(1)}km`;
+  return`<div style="display:flex;align-items:center;gap:8px;padding:1px 0 1px 26px;margin:-2px 0">
+    <span style="width:2px;height:14px;background:var(--border);border-radius:2px;margin-inline-start:6px"></span>
+    <span style="font-family:var(--mono);font-size:10.5px;color:var(--textd)">${icon} ~${mins} ${isHe?'דק׳':'min'} ${mode} · ${dist}</span>
+  </div>`;
+}
+
+// ── SMART REMINDERS (Today) ──
+function computeReminders(){
+  const isHe=lang==='he';
+  const out=[];
+  const now=new Date();
+  const todayStr=now.toISOString().split('T')[0];
+  const tomorrowStr=new Date(now.getTime()+86400000).toISOString().split('T')[0];
+  (tripData.flights||[]).forEach(f=>{
+    const d=flightDateStr(f);
+    if(d===tomorrowStr)out.push({icon:'✈️',text:isHe?`טיסה מחר — צ׳ק-אין אונליין כנראה כבר פתוח (${esc(flightFrom(f)||'')} → ${esc(flightTo(f)||'')})`:`Flight tomorrow — online check-in is likely open now (${esc(flightFrom(f)||'')} → ${esc(flightTo(f)||'')})`});
+    if(d===todayStr){
+      const dep=flightDepISO(f);
+      if(dep){const hrs=Math.round((new Date(dep)-now)/3600000);
+        if(hrs>0&&hrs<=12)out.push({icon:'⏰',text:isHe?`הטיסה ממריאה בעוד ~${hrs} שעות — צא לשדה בזמן!`:`Your flight departs in ~${hrs}h — leave for the airport on time!`,hot:true});}
+    }
+  });
+  (tripData.hotels||[]).forEach(h=>{
+    if(h.checkOut===todayStr)out.push({icon:'🏨',text:isHe?`צ׳ק-אאוט היום מ-${esc(h.name||'המלון')}`:`Check-out today from ${esc(h.name||'your hotel')}`});
+    if(h.checkIn===todayStr)out.push({icon:'🛎️',text:isHe?`צ׳ק-אין היום ב-${esc(h.name||'המלון')}`:`Check-in today at ${esc(h.name||'your hotel')}`});
+  });
+  if(currentTrip?.start_date){
+    const daysToTrip=Math.ceil((new Date(currentTrip.start_date)-now)/86400000);
+    const packItems=(tripData.packing||[]).flatMap(g=>g.items);
+    const unpacked=packItems.filter(i=>!i.done).length;
+    if(daysToTrip>0&&daysToTrip<=3&&unpacked>0)
+      out.push({icon:'🧳',text:isHe?`${unpacked} פריטים עוד לא נארזו והטיול בעוד ${daysToTrip} ימים`:`${unpacked} items still unpacked and the trip is in ${daysToTrip} day${daysToTrip>1?'s':''}`,action:'packing'});
+    const openTasks=(tripData.todos||[]).filter(t=>!t.done).length;
+    if(daysToTrip>0&&daysToTrip<=7&&openTasks>0)
+      out.push({icon:'✅',text:isHe?`${openTasks} משימות פתוחות לפני היציאה`:`${openTasks} open tasks before departure`,action:'tasks'});
+  }
+  return out;
+}
+function renderRemindersCard(){
+  const isHe=lang==='he';
+  const rem=computeReminders();
+  if(!rem.length)return'';
+  return`<div class="card" style="margin-bottom:14px;border-color:rgba(242,179,61,.3)">
+    <div class="card-title"><div class="card-title-left">${ic('bell',15)} ${isHe?'תזכורות חכמות':'Smart reminders'}</div></div>
+    ${rem.map(r=>`<div style="display:flex;gap:9px;align-items:flex-start;padding:5px 0;font-size:13px;${r.hot?'color:var(--gold);font-weight:600':''}">
+      <span>${r.icon}</span><span style="flex:1">${r.text}</span>
+      ${r.action?`<button class="btn btn-outline btn-sm" style="font-size:10.5px" onclick="showSec('${r.action}')">→</button>`:''}
+    </div>`).join('')}
+  </div>`;
+}
+
+// ── ACTIVITY VOTES & COMMENTS ──
+function myVoterName(){
+  let n=localStorage.getItem('lf-voter-name');
+  if(!n){n=prompt(lang==='he'?'השם שלך (להצבעות ותגובות):':'Your name (for votes & comments):')||'';n=n.trim();
+    if(!n)return null;localStorage.setItem('lf-voter-name',n);}
+  return n;
+}
+function toggleBlockVote(dayId,blockId){
+  const who=myVoterName();if(!who)return;
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  const b=day&&(day.blocks||[]).find(x=>x.id===blockId);if(!b)return;
+  if(!Array.isArray(b.votes))b.votes=[];
+  const i=b.votes.indexOf(who);
+  if(i>=0)b.votes.splice(i,1);else b.votes.push(who);
+  saveData();renderSec('itinerary');
+}
+function openBlockComments(dayId,blockId){
+  const isHe=lang==='he';
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  const b=day&&(day.blocks||[]).find(x=>x.id===blockId);if(!b)return;
+  if(!Array.isArray(b.comments))b.comments=[];
+  const inner=document.getElementById('modal-add-inner');
+  inner.innerHTML=`<div class="modal-title">💬 ${esc(b.text)}</div>
+    <div style="max-height:260px;overflow-y:auto;margin-bottom:12px">
+      ${b.comments.length?b.comments.map(c=>`<div style="background:var(--bg4);border-radius:var(--rsm);padding:8px 12px;margin-bottom:7px">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:2px">${esc(c.who)} <span style="color:var(--textd);font-weight:400">· ${new Date(c.ts).toLocaleDateString(isHe?'he-IL':'en-US',{month:'short',day:'numeric'})}</span></div>
+        <div style="font-size:13px">${esc(c.text)}</div>
+      </div>`).join(''):`<div style="color:var(--textd);font-size:12.5px;text-align:center;padding:14px">${isHe?'אין תגובות עדיין — התחילו את הדיון!':'No comments yet — start the discussion!'}</div>`}
+    </div>
+    <div style="display:flex;gap:8px">
+      <input class="inp" id="bc-inp" placeholder="${isHe?'כתוב תגובה...':'Write a comment...'}" style="flex:1" onkeydown="if(event.key==='Enter')addBlockComment('${dayId}','${blockId}')">
+      <button class="btn btn-primary btn-sm" onclick="addBlockComment('${dayId}','${blockId}')">${isHe?'שלח':'Send'}</button>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button></div>`;
+  openModal('modal-add');
+}
+function addBlockComment(dayId,blockId){
+  const inp=document.getElementById('bc-inp');
+  const txt=inp?.value.trim();if(!txt)return;
+  const who=myVoterName();if(!who)return;
+  const day=(tripData.days||[]).find(d=>d.id===dayId);
+  const b=day&&(day.blocks||[]).find(x=>x.id===blockId);if(!b)return;
+  if(!Array.isArray(b.comments))b.comments=[];
+  b.comments.push({who,text:txt,ts:Date.now()});
+  saveData(true);openBlockComments(dayId,blockId);
+}
+
+// ── COUNTRY ESSENTIALS ──
+const COUNTRY_INFO={
+ 'japan':{flag:'🇯🇵',plug:'A/B · 100V',police:'110',ambulance:'119',tip:'No tipping — it can even offend',water:'Tap water safe',drive:'left'},
+ 'thailand':{flag:'🇹🇭',plug:'A/B/C/O · 230V',police:'191',ambulance:'1669',tip:'Not expected; round up appreciated',water:'Drink bottled',drive:'left'},
+ 'israel':{flag:'🇮🇱',plug:'C/H · 230V',police:'100',ambulance:'101',tip:'10–15% in restaurants',water:'Tap water safe',drive:'right'},
+ 'united states':{flag:'🇺🇸',plug:'A/B · 120V',police:'911',ambulance:'911',tip:'15–20% expected',water:'Tap water safe',drive:'right'},
+ 'usa':{flag:'🇺🇸',plug:'A/B · 120V',police:'911',ambulance:'911',tip:'15–20% expected',water:'Tap water safe',drive:'right'},
+ 'italy':{flag:'🇮🇹',plug:'C/F/L · 230V',police:'112',ambulance:'112',tip:'Not required; coperto often included',water:'Tap water safe',drive:'right'},
+ 'france':{flag:'🇫🇷',plug:'C/E · 230V',police:'112',ambulance:'112',tip:'Service included; small change ok',water:'Tap water safe',drive:'right'},
+ 'spain':{flag:'🇪🇸',plug:'C/F · 230V',police:'112',ambulance:'112',tip:'5–10% for good service',water:'Tap water safe',drive:'right'},
+ 'greece':{flag:'🇬🇷',plug:'C/F · 230V',police:'112',ambulance:'166',tip:'5–10% appreciated',water:'Ask locally (islands: bottled)',drive:'right'},
+ 'united kingdom':{flag:'🇬🇧',plug:'G · 230V',police:'999',ambulance:'999',tip:'10–12.5% if not included',water:'Tap water safe',drive:'left'},
+ 'uk':{flag:'🇬🇧',plug:'G · 230V',police:'999',ambulance:'999',tip:'10–12.5% if not included',water:'Tap water safe',drive:'left'},
+ 'germany':{flag:'🇩🇪',plug:'C/F · 230V',police:'110',ambulance:'112',tip:'5–10%, round up',water:'Tap water safe',drive:'right'},
+ 'netherlands':{flag:'🇳🇱',plug:'C/F · 230V',police:'112',ambulance:'112',tip:'Round up; 5–10% nice',water:'Tap water safe',drive:'right'},
+ 'portugal':{flag:'🇵🇹',plug:'C/F · 230V',police:'112',ambulance:'112',tip:'5–10% appreciated',water:'Tap water safe',drive:'right'},
+ 'switzerland':{flag:'🇨🇭',plug:'C/J · 230V',police:'117',ambulance:'144',tip:'Included; round up',water:'Tap water excellent',drive:'right'},
+ 'austria':{flag:'🇦🇹',plug:'C/F · 230V',police:'133',ambulance:'144',tip:'5–10%',water:'Tap water excellent',drive:'right'},
+ 'czech':{flag:'🇨🇿',plug:'C/E · 230V',police:'158',ambulance:'155',tip:'~10%',water:'Tap water safe',drive:'right'},
+ 'hungary':{flag:'🇭🇺',plug:'C/F · 230V',police:'107',ambulance:'104',tip:'10–15%; check service charge',water:'Tap water safe',drive:'right'},
+ 'poland':{flag:'🇵🇱',plug:'C/E · 230V',police:'112',ambulance:'112',tip:'~10%',water:'Tap water safe',drive:'right'},
+ 'turkey':{flag:'🇹🇷',plug:'C/F · 230V',police:'155',ambulance:'112',tip:'5–10%',water:'Drink bottled',drive:'right'},
+ 'georgia':{flag:'🇬🇪',plug:'C/F · 220V',police:'112',ambulance:'112',tip:'~10%; sometimes included',water:'Generally safe; bottled in rural',drive:'right'},
+ 'vietnam':{flag:'🇻🇳',plug:'A/C/F · 220V',police:'113',ambulance:'115',tip:'Not expected; appreciated',water:'Drink bottled',drive:'right'},
+ 'india':{flag:'🇮🇳',plug:'C/D/M · 230V',police:'112',ambulance:'112',tip:'~10% if no service charge',water:'Drink bottled only',drive:'left'},
+ 'indonesia':{flag:'🇮🇩',plug:'C/F · 230V',police:'110',ambulance:'118',tip:'5–10% if not included',water:'Drink bottled',drive:'left'},
+ 'bali':{flag:'🇮🇩',plug:'C/F · 230V',police:'110',ambulance:'118',tip:'5–10% if not included',water:'Drink bottled',drive:'left'},
+ 'mexico':{flag:'🇲🇽',plug:'A/B · 127V',police:'911',ambulance:'911',tip:'10–15%',water:'Drink bottled',drive:'right'},
+ 'brazil':{flag:'🇧🇷',plug:'C/N · 127/220V',police:'190',ambulance:'192',tip:'10% usually included',water:'Drink bottled/filtered',drive:'right'},
+ 'argentina':{flag:'🇦🇷',plug:'C/I · 220V',police:'911',ambulance:'107',tip:'~10% cash',water:'Tap safe in cities',drive:'right'},
+ 'australia':{flag:'🇦🇺',plug:'I · 230V',police:'000',ambulance:'000',tip:'Not expected',water:'Tap water safe',drive:'left'},
+ 'new zealand':{flag:'🇳🇿',plug:'I · 230V',police:'111',ambulance:'111',tip:'Not expected',water:'Tap water safe',drive:'left'},
+ 'south korea':{flag:'🇰🇷',plug:'C/F · 220V',police:'112',ambulance:'119',tip:'No tipping',water:'Tap water safe',drive:'right'},
+ 'korea':{flag:'🇰🇷',plug:'C/F · 220V',police:'112',ambulance:'119',tip:'No tipping',water:'Tap water safe',drive:'right'},
+ 'china':{flag:'🇨🇳',plug:'A/C/I · 220V',police:'110',ambulance:'120',tip:'No tipping',water:'Drink bottled/boiled',drive:'right'},
+ 'egypt':{flag:'🇪🇬',plug:'C/F · 220V',police:'122',ambulance:'123',tip:'Baksheesh culture — small tips everywhere',water:'Drink bottled',drive:'right'},
+ 'morocco':{flag:'🇲🇦',plug:'C/E · 220V',police:'190',ambulance:'150',tip:'~10%; small tips common',water:'Drink bottled',drive:'right'},
+ 'uae':{flag:'🇦🇪',plug:'G · 230V',police:'999',ambulance:'998',tip:'10–15% if not included',water:'Tap safe (desalinated)',drive:'right'},
+ 'dubai':{flag:'🇦🇪',plug:'G · 230V',police:'999',ambulance:'998',tip:'10–15% if not included',water:'Tap safe (desalinated)',drive:'right'},
+ 'canada':{flag:'🇨🇦',plug:'A/B · 120V',police:'911',ambulance:'911',tip:'15–20%',water:'Tap water safe',drive:'right'},
+ 'cyprus':{flag:'🇨🇾',plug:'G · 230V',police:'112',ambulance:'112',tip:'5–10%',water:'Tap water safe',drive:'left'},
+ 'croatia':{flag:'🇭🇷',plug:'C/F · 230V',police:'112',ambulance:'112',tip:'Round up / ~10%',water:'Tap water safe',drive:'right'},
+ 'romania':{flag:'🇷🇴',plug:'C/F · 230V',police:'112',ambulance:'112',tip:'~10%',water:'Tap water generally safe',drive:'right'},
+ 'sri lanka':{flag:'🇱🇰',plug:'D/G · 230V',police:'119',ambulance:'110',tip:'10% if no service charge',water:'Drink bottled',drive:'left'},
+ 'philippines':{flag:'🇵🇭',plug:'A/B/C · 220V',police:'911',ambulance:'911',tip:'Not required; appreciated',water:'Drink bottled',drive:'right'},
+ 'singapore':{flag:'🇸🇬',plug:'G · 230V',police:'999',ambulance:'995',tip:'No tipping (service charge incl.)',water:'Tap water safe',drive:'left'},
+ 'malaysia':{flag:'🇲🇾',plug:'G · 240V',police:'999',ambulance:'999',tip:'Not expected',water:'Boiled/bottled recommended',drive:'left'},
+};
+function findCountryInfo(){
+  const dest=((currentTrip?.destination||'')+' '+(currentTrip?.name||'')).toLowerCase();
+  for(const k of Object.keys(COUNTRY_INFO)){
+    if(dest.includes(k))return{key:k,...COUNTRY_INFO[k]};
+  }
+  return null;
+}
+function fillEmergencyFromCountry(){
+  const info=findCountryInfo();if(!info)return;
+  if(!tripData.emergency)tripData.emergency={};
+  tripData.emergency.police=info.police;
+  tripData.emergency.ambulance=info.ambulance;
+  saveData(true);renderSec('emergency');
+  toast('✓ '+(lang==='he'?'מספרי חירום מקומיים עודכנו':'Local emergency numbers filled in'));
+}
+function renderCountryEssentials(){
+  const isHe=lang==='he';
+  const info=findCountryInfo();
+  if(!info)return'';
+  const rows=[
+    ['🔌',isHe?'שקע חשמל':'Power plug',info.plug],
+    ['🚓',isHe?'משטרה':'Police',info.police],
+    ['🚑',isHe?'אמבולנס':'Ambulance',info.ambulance],
+    ['💵',isHe?'טיפים':'Tipping',info.tip],
+    ['🚰',isHe?'מי ברז':'Tap water',info.water],
+    ['🚗',isHe?'צד נהיגה':'Driving side',info.drive==='left'?(isHe?'שמאל':'Left'):(isHe?'ימין':'Right')],
+  ];
+  return`<div class="card" style="margin-bottom:14px;border-color:rgba(55,198,186,.3)">
+    <div class="card-title"><div class="card-title-left">${info.flag} ${isHe?'מידע חיוני ליעד':'Destination essentials'}</div>
+      <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="fillEmergencyFromCountry()">${isHe?'מלא מספרי חירום ↓':'Fill emergency numbers ↓'}</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px">
+      ${rows.map(([i,l,v])=>`<div style="background:var(--bg4);border-radius:var(--rsm);padding:9px 12px">
+        <div style="font-size:10.5px;color:var(--textd);font-family:var(--mono);letter-spacing:.5px;margin-bottom:3px">${i} ${l}</div>
+        <div style="font-size:12.5px;font-weight:600">${v}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ── ITINERARY EXPORTS ──
+function icsEsc(x){return String(x||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');}
+function exportItineraryICS(){
+  const days=(tripData.days||[]);
+  const ev=[];
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  days.forEach(day=>{
+    (day.blocks||[]).forEach(b=>{
+      if(!day.date)return;
+      const d=day.date.replace(/-/g,'');
+      let dtStart,dtEnd;
+      if(b.time&&/^\d{2}:\d{2}$/.test(b.time)){
+        const hm=b.time.replace(':','')+'00';
+        dtStart=`DTSTART:${d}T${hm}`;
+        let durMin=60;
+        if(b.dur){const m=String(b.dur).match(/(\d+(?:\.\d+)?)\s*h/);const mm=String(b.dur).match(/(\d+)\s*m/);
+          if(m)durMin=Math.round(parseFloat(m[1])*60);else if(mm)durMin=parseInt(mm[1]);}
+        const st=new Date(`${day.date}T${b.time}:00`);
+        const en=new Date(st.getTime()+durMin*60000);
+        const p=n=>String(n).padStart(2,'0');
+        dtEnd=`DTEND:${en.getFullYear()}${p(en.getMonth()+1)}${p(en.getDate())}T${p(en.getHours())}${p(en.getMinutes())}00`;
+      } else {
+        dtStart=`DTSTART;VALUE=DATE:${d}`;dtEnd=`DTEND;VALUE=DATE:${d}`;
+      }
+      ev.push(['BEGIN:VEVENT',`UID:${b.id}@letsfly`,`DTSTAMP:${stamp}`,dtStart,dtEnd,
+        `SUMMARY:${icsEsc(b.text)}`,
+        b.confirmation?`DESCRIPTION:${icsEsc('Confirmation: '+b.confirmation)}`:'',
+        (typeof b.lat==='number')?`GEO:${b.lat};${b.lon}`:'',
+        'END:VEVENT'].filter(Boolean));
+    });
+  });
+  if(!ev.length){toast('⚠️ '+(lang==='he'?'אין פעילויות לייצוא':'No activities to export'));return;}
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//LetsFly//Itinerary//EN',...ev.flat(),'END:VCALENDAR'].join('\r\n');
+  const blob=new Blob([ics],{type:'text/calendar'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(currentTrip?.name||'trip').replace(/[^\w\u0590-\u05FF -]/g,'')+'-itinerary.ics';
+  a.click();URL.revokeObjectURL(a.href);
+  toast('✓ '+(lang==='he'?'קובץ יומן ירד — פתח אותו ב-Google Calendar':'Calendar file downloaded — open it in Google Calendar'));
+}
+function exportItineraryPrint(){
+  const isHe=lang==='he';
+  const days=(tripData.days||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const cur=currentTrip?.currency||'USD';
+  const w=window.open('','_blank');
+  if(!w){toast('⚠️ Popup blocked');return;}
+  const style=`<style>
+    body{font-family:Georgia,'Times New Roman',serif;color:#1a2b29;max-width:720px;margin:24px auto;padding:0 20px;line-height:1.5}
+    h1{font-size:26px;margin-bottom:2px}
+    .sub{color:#5a7370;font-size:13px;margin-bottom:26px}
+    .day{margin-bottom:22px;page-break-inside:avoid}
+    .day h2{font-size:16px;border-bottom:2px solid #0E7C74;padding-bottom:4px;margin-bottom:8px}
+    .act{display:flex;gap:12px;padding:5px 0;border-bottom:1px dotted #ccc}
+    .time{font-family:monospace;font-size:12px;width:52px;color:#0E7C74;font-weight:bold;flex:none}
+    .meta{color:#777;font-size:11.5px}
+    .fh{background:#f2efe6;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px}
+    @media print{.noprint{display:none}}
+  </style>`;
+  let body=`<h1>${esc(currentTrip?.emoji||'')} ${esc(currentTrip?.name||'Trip')}</h1>
+  <div class="sub">${esc(currentTrip?.destination||'')} · ${fmtDate(currentTrip?.start_date)} → ${fmtDate(currentTrip?.end_date)} · ${currentTrip?.travelers||1} ${isHe?'מטיילים':'travelers'}</div>`;
+  const fl=(tripData.flights||[]);
+  if(fl.length)body+=`<div class="fh"><b>✈ ${isHe?'טיסות':'Flights'}:</b> ${fl.map(f=>`${esc(flightFrom(f)||'?')}→${esc(flightTo(f)||'?')} ${esc(flightDateStr(f)||'')}`).join(' · ')}</div>`;
+  const ho=(tripData.hotels||[]);
+  if(ho.length)body+=`<div class="fh"><b>🏨 ${isHe?'מלונות':'Hotels'}:</b> ${ho.map(h=>`${esc(h.name||'')} (${fmtDate(h.checkIn)}–${fmtDate(h.checkOut)})`).join(' · ')}</div>`;
+  days.forEach((day,i)=>{
+    const dl=day.date?new Date(day.date+'T12:00').toLocaleDateString(isHe?'he-IL':'en-US',{weekday:'long',month:'long',day:'numeric'}):'';
+    body+=`<div class="day"><h2>${isHe?'יום':'Day'} ${i+1}${dl?' — '+dl:''}</h2>`;
+    const blocks=(day.blocks||[]);
+    if(!blocks.length)body+=`<div class="meta">${isHe?'יום חופשי':'Free day'}</div>`;
+    blocks.forEach(b=>{
+      body+=`<div class="act"><div class="time">${esc(b.time||'—')}</div><div><div>${esc(b.text)}</div>
+        <div class="meta">${[b.dur,b.cost?parseFloat(b.cost).toLocaleString()+' '+cur:'',b.confirmation?'#'+b.confirmation:''].filter(Boolean).join(' · ')}</div></div></div>`;
+    });
+    if(day.note)body+=`<div class="meta" style="margin-top:5px">📝 ${esc(day.note)}</div>`;
+    body+=`</div>`;
+  });
+  body+=`<button class="noprint" onclick="window.print()" style="position:fixed;top:14px;right:14px;padding:9px 18px;background:#0E7C74;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨 ${isHe?'הדפס / PDF':'Print / Save as PDF'}</button>`;
+  w.document.write(`<!DOCTYPE html><html dir="${isHe?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(currentTrip?.name||'Itinerary')}</title>${style}</head><body>${body}</body></html>`);
+  w.document.close();
+  setTimeout(()=>{try{w.print()}catch(e){}},600);
+}
+
 function renderToday(){
   const isHe=lang==='he';
   const today=new Date();
   const todayStr=today.toISOString().split('T')[0];
   const cur=currentTrip?.currency||'USD';
 
-  let html=`<div class="page-title" style="font-size:20px;margin-bottom:6px">🌅 ${t('secToday')}</div>
+  let html=`<div class="page-title" style="font-size:20px;margin-bottom:6px">${'<span class="pt-ic">'+ic('sunrise',22)+'</span>'} ${t('secToday')}</div>
   <div style="font-size:13px;color:var(--textm);margin-bottom:18px">${today.toLocaleDateString(lang==='he'?'he-IL':'en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>`;
 
   // Trip timeline bar
   html += renderTimelineBar();
+
+  // Smart reminders
+  html += renderRemindersCard();
 
   // Check if within trip dates
   const tripStart=currentTrip.start_date;
@@ -2014,13 +2465,22 @@ function renderFlights(){
     return ka<kb?-1:ka>kb?1:0;
   });
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:8px;flex-wrap:wrap">
-    <div class="page-title" style="font-size:20px">✈️ ${t('secFlights')}</div>
+    <div class="page-title" style="font-size:20px">${'<span class="pt-ic">'+ic('plane',22)+'</span>'} ${t('secFlights')}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${flights.length>1?`<button class="btn btn-outline btn-sm" onclick="downloadAllFlightsICS()">📅 ${isHe?'ייצא הכל ליומן':'Export all to calendar'}</button>`:''}
+      <button class="btn btn-outline btn-sm" onclick="openPasteImport('flight')" title="${isHe?'הדבק אישור הזמנה ותן ל-AI למלא':'Paste a booking confirmation, AI fills the form'}">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
       <button class="btn btn-outline btn-sm" onclick="openAddModal('flight')">${t('addFlight')}</button>
     </div>
   </div>`;
-  if(!flights.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noFlights')}</div>`;
+  if(!flights.length)return html+`<div class="card empty-state">
+    ${ic('plane',34)}
+    <div class="empty-state-title">${isHe?'אין טיסות עדיין':'No flights yet'}</div>
+    <div class="empty-state-sub">${isHe?'הוסף את הטיסה הראשונה — או הדבק אישור הזמנה ותן ל-AI למלא הכל':'Add your first flight — or paste a booking confirmation and let AI fill it in'}</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="openAddModal('flight')">+ ${isHe?'הוסף טיסה':'Add flight'}</button>
+      <button class="btn btn-outline btn-sm" onclick="openPasteImport('flight')">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
+    </div>
+  </div>`;
   const today=new Date().toISOString().split('T')[0];
   flights.forEach(f=>{
     const legs=flightLegs(f);
@@ -2123,10 +2583,20 @@ function renderHotels(){
   const isHe=lang==='he';
   const cur=currentTrip?.currency||'USD';
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div class="page-title" style="font-size:20px">🏨 ${t('secHotels')}</div>
+    <div class="page-title" style="font-size:20px">${'<span class="pt-ic">'+ic('bed',22)+'</span>'} ${t('secHotels')}</div>
+    <span style="flex:1"></span>
+    <button class="btn btn-outline btn-sm" style="margin-inline-end:8px" onclick="openPasteImport('hotel')" title="${isHe?'הדבק אישור הזמנה ותן ל-AI למלא':'Paste a booking confirmation, AI fills the form'}">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
     <button class="btn btn-outline btn-sm" onclick="openAddModal('hotel')">${t('addHotel')}</button>
   </div>`;
-  if(!hotels.length)return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noHotels')}</div>`;
+  if(!hotels.length)return html+`<div class="card empty-state">
+    ${ic('bed',34)}
+    <div class="empty-state-title">${isHe?'אין מלונות עדיין':'No hotels yet'}</div>
+    <div class="empty-state-sub">${isHe?'הוסף את הלינה שלך — או הדבק אישור הזמנה ותן ל-AI למלא הכל':'Add your accommodation — or paste a booking confirmation and let AI fill it in'}</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="openAddModal('hotel')">+ ${isHe?'הוסף מלון':'Add hotel'}</button>
+      <button class="btn btn-outline btn-sm" onclick="openPasteImport('hotel')">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
+    </div>
+  </div>`;
   hotels.forEach(h=>{
     // Calculate nights
     const nights=(h.checkIn&&h.checkOut)?Math.round((new Date(h.checkOut)-new Date(h.checkIn))/86400000):null;
@@ -2183,7 +2653,7 @@ function renderItinerary(){
   const cur=currentTrip?.currency||'USD';
   const days=(tripData.days||[]).sort((a,b)=>(a.num||0)-(b.num||0));
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:8px;flex-wrap:wrap">
-    <div class="page-title" style="font-size:20px">📅 ${t('secItinerary')}</div>
+    <div class="page-title" style="font-size:20px">${'<span class="pt-ic">'+ic('calendar',22)+'</span>'} ${t('secItinerary')}</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <div class="itin-view-toggle">
         <button class="${itinViewMode==='list'?'active':''}" onclick="setItinViewMode('list')">📋 ${isHe?'רשימה':'List'}</button>
@@ -2195,6 +2665,8 @@ function renderItinerary(){
         <button class="${itinCalLayout==='month'?'active':''}" onclick="setItinCalLayout('month')">${isHe?'חודש':'Month'}</button>
       </div>`:''}
       <button class="btn btn-outline btn-sm" onclick="openAddModal('smartbuild')">✨ ${isHe?'בניית טיול חכם':'Smart Build'}</button>
+      ${days.length?`<button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:5px" onclick="exportItineraryICS()" title="${isHe?'ייצוא ל-Google Calendar / Outlook':'Export to Google Calendar / Outlook'}">${ic('download',13)} .ics</button>
+      <button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:5px" onclick="exportItineraryPrint()" title="${isHe?'הדפסה / PDF':'Print / PDF'}">${ic('printer',13)} PDF</button>`:''}
       <button class="btn btn-outline btn-sm" onclick="openAddModal('day')">${t('addDay')}</button>
     </div>
   </div>`;
@@ -2202,7 +2674,7 @@ function renderItinerary(){
   // Places to Visit now lives on the Map page (merged with Suggested Attractions there)
   html+=`<div style="font-size:12px;color:var(--textm);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:8px">
     💡 ${isHe?'רוצה למצוא ולתזמן מקומות לביקור? זה עבר לעמוד המפה':'Looking for places to visit? That now lives on the Map page'}
-    <button class="btn btn-outline btn-sm" style="font-size:11px;margin-inline-start:auto" onclick="showSec('map')">🗺️ ${t('secMap')}</button>
+    <button class="btn btn-outline btn-sm" style="font-size:11px;margin-inline-start:auto;display:inline-flex;align-items:center;gap:5px" onclick="showSec('map')">${ic('map',13)} ${t('secMap')}</button>
   </div>`;
 
   if(itinViewMode==='calendar'&&itinCalLayout==='week'){
@@ -2260,7 +2732,7 @@ function renderItinerary(){
       <div class="itin-header" onclick="document.getElementById('iday-${day.id}').classList.toggle('open')">
         <div class="itin-day-num">${isHe?'יום':'Day'} ${day.num}</div>
         <div class="itin-day-title">${esc(day.title||'')}</div>
-        <div class="itin-day-meta">${esc(day.date?fmtDate(day.date):'')} ${day.city?'· '+esc(day.city):''}</div>
+        <div class="itin-day-meta">${esc(day.date?fmtDate(day.date):'')} ${day.city?'· '+esc(day.city):(()=>{const st=stopForDate(day.date);return st?`· <span style="color:var(--accent);font-weight:600">📍 ${esc(st.city)}</span>`:'';})()}</div>
         <div class="itin-day-actions">
           <button class="edit-btn" onclick="event.stopPropagation();openAddModal('day','${day.id}')" title="${isHe?'ערוך':'Edit'}">✏️</button>
           <button class="del-btn" onclick="event.stopPropagation();delDay('${day.id}')">×</button>
@@ -2283,10 +2755,11 @@ function renderItinerary(){
         ${itinViewMode==='calendar' ? renderDayCalendarGrid(day,blocks,cur,isHe) : blocks.map((b,i)=>{
           const cat=actCategoryInfo(b.category);
           const prevText=i>0?blocks[i-1].text:'';
+          const travelGap=i>0?renderTravelGap(blocks[i-1],b,isHe):'';
           const checklist=b.checklist||[];
           if(b.linked){
             const linkIcon=b.source==='flight'?'✈️':'🏨';
-            return`<div class="itin-block itin-block-linked${conflictIds.has(b.id)?' conflict':''}" onclick="openAddModal('${b.source}','${b.sourceId}')" title="${isHe?'לחץ לצפייה במקור':'Click to view source'}">
+            return travelGap+`<div class="itin-block itin-block-linked${conflictIds.has(b.id)?' conflict':''}" onclick="openAddModal('${b.source}','${b.sourceId}')" title="${isHe?'לחץ לצפייה במקור':'Click to view source'}">
               <span class="itin-block-cat">${linkIcon}</span>
               <div class="itin-block-body">
                 <div class="itin-block-row">
@@ -2297,7 +2770,7 @@ function renderItinerary(){
               </div>
             </div>`;
           }
-          return`<div class="itin-block${conflictIds.has(b.id)?' conflict':''}" draggable="true" id="iblock-${b.id}"
+          return travelGap+`<div class="itin-block${conflictIds.has(b.id)?' conflict':''}" draggable="true" id="iblock-${b.id}"
             ondragstart="blockDragStart(event,'${b.id}','${day.id}')" ondragend="blockDragEnd()"
             ondragover="blockDragOver(event)" ondrop="blockDrop(event,'${day.id}','${b.id}')">
             <span class="itin-block-handle">⠿</span>
@@ -2316,6 +2789,8 @@ function renderItinerary(){
             </div>
             <div class="itin-block-actions">
               ${(b.website||b.wikipedia||b.phone||b.openingHours)?`<button onclick="showItinBlockDetails('${day.id}','${b.id}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;opacity:.8" title="${isHe?'מידע נוסף':'More info'}">ℹ️</button>`:''}
+              <button onclick="event.stopPropagation();toggleBlockVote('${day.id}','${b.id}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;opacity:.8${(b.votes&&b.votes.length)?';color:var(--green);border-color:rgba(61,214,140,.4)':''}" title="${(b.votes||[]).join(', ')||(isHe?'הצבע בעד':'Vote for this')}">👍${(b.votes&&b.votes.length)?' '+b.votes.length:''}</button>
+              <button onclick="event.stopPropagation();openBlockComments('${day.id}','${b.id}')" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;opacity:.8" title="${isHe?'תגובות':'Comments'}">💬${(b.comments&&b.comments.length)?' '+b.comments.length:''}</button>
               <button onclick="openRouteChoice('${escJS(prevText)}','${escJS(b.text)}', this)" class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;opacity:.8" title="${isHe?'כיוונים':'Directions'}">📍</button>
               <button class="del-btn" style="font-size:15px" onclick="delItinBlock('${day.id}','${b.id}')">×</button>
             </div>
@@ -3481,7 +3956,7 @@ function renderBudget(){
   const remaining=target>0?target-grandSpent:0;
   const base=target>0?target:grandSpent;
 
-  let html=`<div class="page-title" style="font-size:20px;margin-bottom:14px">💰 ${t('secBudget')}</div>
+  let html=`<div class="page-title" style="font-size:20px;margin-bottom:14px">${'<span class="pt-ic">'+ic('wallet',22)+'</span>'} ${t('secBudget')}</div>
 
   <!-- Summary cards -->
   <div class="bsum" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
@@ -3512,7 +3987,16 @@ function renderBudget(){
     <div style="background:var(--bg4);border-radius:100px;height:10px;overflow:hidden">
       <div id="bs-bar-fill" style="width:${Math.min(100,Math.round(grandSpent/(target||1)*100))}%;height:10px;border-radius:100px;background:${grandSpent/target>0.9?'var(--coral)':grandSpent/target>0.7?'var(--gold)':'var(--accent)'};transition:width .5s ease"></div>
     </div>
-  </div>`:''}
+  </div>`:`<div class="card" style="padding:16px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:2px">${lang==='he'?'עוד לא הגדרת יעד תקציב':'No budget target set yet'}</div>
+      <div style="font-size:12px;color:var(--textm)">${lang==='he'?'הגדר יעד כדי לעקוב אחרי הניצול והיתרה':'Set a target to track usage and what\u2019s left'}</div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="editBudgetTarget()" style="white-space:nowrap">${lang==='he'?'הגדר יעד':'Set budget'} →</button>
+  </div>`}
+
+  ${renderSplitCard(items,cur)}
+  ${renderConverterCard()}
 
   <!-- Cross-feature cost sync -->
   ${(()=>{
@@ -3938,8 +4422,141 @@ function bitemDrop(e,targetGroupId){
 }
 
 // ── CURRENCY ──
+function renderConverterCard(){
+  const isHe=lang==='he';
+  return`<details class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
+    <summary style="list-style:none;cursor:pointer;padding:13px 18px;display:flex;align-items:center;gap:9px;font-weight:700;font-size:13.5px">
+      <span style="color:var(--accent);display:flex">${ic('swap',16)}</span>${isHe?'המרת מטבע':'Currency converter'}
+      <span style="margin-inline-start:auto;font-size:11px;color:var(--textd);font-weight:500" id="cv-live-tag">${isHe?'שערים חיים':'live rates'}</span>
+    </summary>
+    <div style="padding:4px 18px 16px">
+    <div class="conv-wrap">
+      <div><div class="field-label">${isHe?'סכום':'Amount'}</div><input class="inp" id="cv-amt" type="number" placeholder="100" oninput="doConvert()" style="font-size:20px;font-weight:700"></div>
+      <div style="padding-bottom:2px"><button class="swap-btn" onclick="swapCurr()">⇄</button></div>
+      <div><div class="field-label">${isHe?'תוצאה':'Result'}</div><div class="conv-result" id="cv-res">—</div></div>
+    </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><div class="field-label">${t('from')}</div>
+        <select class="inp" id="cv-from" onchange="doConvert()">
+          <option value="USD">🇺🇸 USD</option><option value="EUR">🇪🇺 EUR</option><option value="ILS">🇮🇱 ILS</option>
+          <option value="GBP">🇬🇧 GBP</option><option value="THB">🇹🇭 THB</option><option value="JPY">🇯🇵 JPY</option>
+          <option value="AUD">🇦🇺 AUD</option><option value="CAD">🇨🇦 CAD</option><option value="CHF">🇨🇭 CHF</option>
+        </select>
+      </div>
+      <div><div class="field-label">${t('to')}</div>
+        <select class="inp" id="cv-to" onchange="doConvert()">
+          <option value="ILS">🇮🇱 ILS</option><option value="USD">🇺🇸 USD</option><option value="EUR">🇪🇺 EUR</option>
+          <option value="GBP">🇬🇧 GBP</option><option value="THB">🇹🇭 THB</option><option value="JPY">🇯🇵 JPY</option>
+          <option value="AUD">🇦🇺 AUD</option><option value="CAD">🇨🇦 CAD</option><option value="CHF">🇨🇭 CHF</option>
+        </select>
+      </div>
+    </div>
+    <div id="cv-rate" style="font-size:12px;color:var(--textd)">Loading rates...</div>
+    </div>
+  </details>`;
+}
+
+// ── EXPENSE SPLITTING ──
+function getTravelerNames(){
+  if(!Array.isArray(tripData.travelerNames))tripData.travelerNames=[];
+  return tripData.travelerNames;
+}
+function addTravelerName(){
+  const inp=document.getElementById('split-name-inp');if(!inp)return;
+  const v=inp.value.trim();if(!v)return;
+  const names=getTravelerNames();
+  if(names.includes(v)){inp.value='';return;}
+  names.push(v);inp.value='';saveData(true);renderSec('budget');
+}
+function removeTravelerName(i){
+  getTravelerNames().splice(i,1);
+  (tripData.budget||[]).forEach(b=>{if(b.paidBy&&!getTravelerNames().includes(b.paidBy))delete b.paidBy;});
+  saveData(true);renderSec('budget');
+}
+function setItemPaidBy(id,who){
+  const it=(tripData.budget||[]).find(b=>b.id===id);if(!it)return;
+  if(who)it.paidBy=who;else delete it.paidBy;
+  saveData();updateSplitBalances();
+}
+function computeSplit(items){
+  const names=getTravelerNames();if(names.length<2)return null;
+  const paid={};names.forEach(n=>paid[n]=0);
+  let splitTotal=0;
+  items.forEach(it=>{const amt=parseFloat(it.amount||0);
+    if(it.paidBy&&paid.hasOwnProperty(it.paidBy)){paid[it.paidBy]+=amt;splitTotal+=amt;}});
+  const share=splitTotal/names.length;
+  const bal=names.map(n=>({name:n,paid:paid[n],delta:paid[n]-share}));
+  // settle-up: creditors vs debtors
+  const cred=bal.filter(b=>b.delta>0.005).map(b=>({...b})).sort((a,b)=>b.delta-a.delta);
+  const debt=bal.filter(b=>b.delta<-0.005).map(b=>({...b})).sort((a,b)=>a.delta-b.delta);
+  const tx=[];
+  let i=0,j=0;
+  while(i<debt.length&&j<cred.length){
+    const amt=Math.min(-debt[i].delta,cred[j].delta);
+    tx.push({from:debt[i].name,to:cred[j].name,amt});
+    debt[i].delta+=amt;cred[j].delta-=amt;
+    if(debt[i].delta>-0.005)i++;
+    if(cred[j].delta<0.005)j++;
+  }
+  return{names,share,splitTotal,bal,tx};
+}
+function updateSplitBalances(){
+  const el=document.getElementById('split-balances');if(!el)return;
+  el.innerHTML=splitBalancesHTML((tripData.budget||[]),currentTrip?.currency||'USD');
+}
+function splitBalancesHTML(items,cur){
+  const isHe=lang==='he';
+  const r=computeSplit(items);
+  if(!r)return'';
+  if(!r.splitTotal)return`<div style="font-size:12px;color:var(--textd);padding:6px 0">${isHe?'סמן "שולם על ידי" בהוצאות כדי לחשב חלוקה':'Tag expenses with who paid to calculate the split'}</div>`;
+  return`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0">
+      ${r.bal.map(b=>`<div style="background:var(--bg4);border-radius:var(--rsm);padding:9px 11px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px">${esc(b.name)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--textm)">${isHe?'שילם':'paid'} ${cur} ${Math.round(b.paid).toLocaleString()}</div>
+        <div style="font-family:var(--mono);font-size:11.5px;font-weight:700;color:${b.delta>=0?'var(--green)':'var(--coral)'}">${b.delta>=0?'+':''}${cur} ${Math.round(b.delta).toLocaleString()}</div>
+      </div>`).join('')}
+    </div>
+    ${r.tx.length?`<div style="font-size:11.5px;font-weight:700;color:var(--textm);margin-bottom:5px">${isHe?'התחשבנות':'Settle up'}:</div>
+      ${r.tx.map(x=>`<div style="font-size:12.5px;padding:3px 0">💸 <b>${esc(x.from)}</b> → <b>${esc(x.to)}</b>: <span style="font-family:var(--mono);color:var(--gold)">${cur} ${Math.round(x.amt).toLocaleString()}</span></div>`).join('')}`
+    :`<div style="font-size:12px;color:var(--green)">✓ ${isHe?'הכל מאוזן!':'All settled!'}</div>`}`;
+}
+function renderSplitCard(items,cur){
+  const isHe=lang==='he';
+  const names=getTravelerNames();
+  return`<details class="card" style="margin-bottom:12px;padding:0;overflow:hidden" ${names.length?'open':''}>
+    <summary style="list-style:none;cursor:pointer;padding:13px 18px;display:flex;align-items:center;gap:9px;font-weight:700;font-size:13.5px">
+      <span style="color:var(--accent);display:flex">${ic('users',16)}</span>${isHe?'חלוקת הוצאות':'Split expenses'}
+      ${names.length?`<span style="font-size:11px;color:var(--textd);font-weight:500">· ${names.length} ${isHe?'משתתפים':'people'}</span>`:''}
+    </summary>
+    <div style="padding:4px 18px 16px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${names.map((n,i)=>`<span class="tag tag-blue" style="display:inline-flex;align-items:center;gap:5px">${esc(n)}<span style="cursor:pointer;opacity:.7" onclick="removeTravelerName(${i})">×</span></span>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <input class="inp" id="split-name-inp" placeholder="${isHe?'שם משתתף...':'Traveler name...'}" style="flex:1" onkeydown="if(event.key==='Enter')addTravelerName()">
+        <button class="btn btn-outline btn-sm" onclick="addTravelerName()">+ ${isHe?'הוסף':'Add'}</button>
+      </div>
+      ${names.length>=2?`
+        <div style="font-size:11.5px;color:var(--textd);margin:8px 0 6px">${isHe?'מי שילם על מה:':'Who paid for what:'}</div>
+        <div style="max-height:220px;overflow-y:auto">
+        ${items.map(it=>`<div class="item-row" style="align-items:center">
+          <span class="item-val" style="flex:1;font-size:12.5px">${esc(it.desc||it.label||'—')}</span>
+          <span class="item-val-mono" style="margin-inline-end:8px;font-size:11.5px">${parseFloat(it.amount||0).toLocaleString()}</span>
+          <select class="inp" style="width:auto;padding:4px 8px;font-size:12px" onchange="setItemPaidBy('${it.id}',this.value)">
+            <option value="">${isHe?'— מי שילם —':'— paid by —'}</option>
+            ${names.map(n=>`<option ${it.paidBy===n?'selected':''}>${esc(n)}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+        </div>
+        <div id="split-balances">${splitBalancesHTML(items,cur)}</div>`
+      :`<div style="font-size:12px;color:var(--textd)">${isHe?'הוסף לפחות שני משתתפים כדי לחלק הוצאות':'Add at least two travelers to split expenses'}</div>`}
+    </div>
+  </details>`;
+}
+
 function renderCurrency(){
-  return`<div class="page-title" style="font-size:20px;margin-bottom:16px">💱 ${t('secCurrency')}</div>
+  return`<div class="page-title" style="font-size:20px;margin-bottom:16px">${'<span class="pt-ic">'+ic('swap',22)+'</span>'} ${t('secCurrency')}</div>
   <div class="card">
     <div class="conv-wrap">
       <div><div class="field-label">${lang==='he'?'סכום':'Amount'}</div><input class="inp" id="cv-amt" type="number" placeholder="100" oninput="doConvert()" style="font-size:20px;font-weight:700"></div>
@@ -3984,15 +4601,406 @@ function swapCurr(){
   if(!f||!t)return;const v=f.value;f.value=t.value;t.value=v;doConvert();
 }
 
+
+
+// ══════════════ AI PASTE-TO-IMPORT ══════════════
+function getAICfg(){
+  try{return JSON.parse(localStorage.getItem('lf-ai-cfg')||'{}');}catch(e){return{};}
+}
+function saveAICfg(cfg){localStorage.setItem('lf-ai-cfg',JSON.stringify(cfg));}
+function openPasteImport(kind){
+  const isHe=lang==='he';
+  const cfg=getAICfg();
+  const inner=document.getElementById('modal-add-inner');
+  inner.innerHTML=`<div class="modal-title">✨ ${isHe?'ייבוא חכם מאישור הזמנה':'Smart import from a booking confirmation'}</div>
+    <div style="font-size:12.5px;color:var(--textm);margin-bottom:12px">${isHe?'הדבק את טקסט האימייל של אישור ההזמנה — ה-AI יחלץ את הפרטים וימלא הכל בשבילך. המפתח נשמר רק בדפדפן שלך.':'Paste the confirmation email text — AI extracts the details and fills everything for you. Your key is stored only in your browser.'}</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><div class="field-label">${isHe?'ספק AI':'AI provider'}</div>
+        <select class="inp" id="ai-provider">
+          <option value="gemini" ${cfg.provider!=='openai'&&cfg.provider!=='anthropic'?'selected':''}>Google Gemini (${isHe?'חינם':'free'})</option>
+          <option value="anthropic" ${cfg.provider==='anthropic'?'selected':''}>Anthropic Claude</option>
+          <option value="openai" ${cfg.provider==='openai'?'selected':''}>OpenAI GPT</option>
+        </select>
+      </div>
+      <div><div class="field-label">API Key <a href="#" onclick="event.preventDefault();aiKeyHelp()" style="color:var(--accent);font-size:10.5px">${isHe?'איך משיגים?':'how to get one?'}</a></div>
+        <input class="inp" id="ai-key" type="password" placeholder="${isHe?'הדבק מפתח...':'Paste key...'}" value="${esc(cfg.key||'')}">
+      </div>
+    </div>
+    <div class="field"><div class="field-label">${isHe?'טקסט האישור':'Confirmation text'}</div>
+      <textarea class="inp" id="ai-paste-text" style="min-height:150px;font-size:12.5px" placeholder="${isHe?'הדבק כאן את כל תוכן האימייל...':'Paste the full email content here...'}"></textarea>
+    </div>
+    <div id="ai-import-status" style="font-size:12px;color:var(--textm);min-height:18px;margin-bottom:6px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" id="ai-import-btn" onclick="runPasteImport('${kind}')">✨ ${isHe?'חלץ ומלא':'Extract & fill'}</button>
+    </div>`;
+  openModal('modal-add');
+}
+function aiKeyHelp(){
+  const isHe=lang==='he';
+  alert(isHe
+    ?'Gemini (חינם): aistudio.google.com → Get API key\nClaude: console.anthropic.com → API Keys\nOpenAI: platform.openai.com → API Keys'
+    :'Gemini (free): aistudio.google.com → Get API key\nClaude: console.anthropic.com → API Keys\nOpenAI: platform.openai.com → API Keys');
+}
+async function callAIJson(prompt){
+  const provider=document.getElementById('ai-provider')?.value||'gemini';
+  const key=(document.getElementById('ai-key')?.value||'').trim();
+  if(!key)throw new Error(lang==='he'?'נדרש מפתח API':'API key required');
+  saveAICfg({provider,key});
+  let text='';
+  if(provider==='gemini'){
+    const r=await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0}})},30000);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error.message||'Gemini error');
+    text=d.candidates?.[0]?.content?.parts?.[0]?.text||'';
+  } else if(provider==='anthropic'){
+    const r=await fetchWithTimeout('https://api.anthropic.com/v1/messages',
+      {method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+       body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1024,messages:[{role:'user',content:prompt}]})},30000);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error.message||'Claude error');
+    text=(d.content||[]).map(c=>c.text||'').join('');
+  } else {
+    const r=await fetchWithTimeout('https://api.openai.com/v1/chat/completions',
+      {method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+       body:JSON.stringify({model:'gpt-4o-mini',temperature:0,messages:[{role:'user',content:prompt}]})},30000);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error.message||'OpenAI error');
+    text=d.choices?.[0]?.message?.content||'';
+  }
+  const clean=text.replace(/```json|```/g,'').trim();
+  const m=clean.match(/\{[\s\S]*\}/);
+  return JSON.parse(m?m[0]:clean);
+}
+async function runPasteImport(kind){
+  const isHe=lang==='he';
+  const status=document.getElementById('ai-import-status');
+  const btn=document.getElementById('ai-import-btn');
+  const raw=(document.getElementById('ai-paste-text')?.value||'').trim();
+  if(!raw){status.textContent='⚠️ '+(isHe?'הדבק טקסט קודם':'Paste some text first');return;}
+  btn.disabled=true;status.textContent='⏳ '+(isHe?'מחלץ פרטים...':'Extracting details...');
+  const schema=kind==='flight'
+    ?`{"airline":"","flightNo":"e.g. LY81","from":"IATA or city","to":"IATA or city","date":"YYYY-MM-DD","depTime":"HH:MM","arrTime":"HH:MM","cost":number-or-null,"confirmation":""}`
+    :`{"name":"hotel name","address":"","checkIn":"YYYY-MM-DD","checkOut":"YYYY-MM-DD","cost":number-or-null,"confirmation":""}`;
+  const prompt=`Extract the ${kind} booking details from the text below. Respond with ONLY a JSON object, no markdown, no explanation, in exactly this shape (use null for unknown fields):\n${schema}\n\nTEXT:\n${raw.slice(0,6000)}`;
+  try{
+    const j=await callAIJson(prompt);
+    if(kind==='flight'){
+      if(!Array.isArray(tripData.flights))tripData.flights=[];
+      tripData.flights.push({id:uid(),airline:j.airline||'',flightNo:j.flightNo||'',
+        from:j.from||'',to:j.to||'',date:j.date||'',depTime:j.depTime||'',arrTime:j.arrTime||'',
+        cost:j.cost||'',confirmation:j.confirmation||''});
+    } else {
+      if(!Array.isArray(tripData.hotels))tripData.hotels=[];
+      tripData.hotels.push({id:uid(),name:j.name||'',address:j.address||'',
+        checkIn:j.checkIn||'',checkOut:j.checkOut||'',cost:j.cost||'',confirmation:j.confirmation||''});
+    }
+    saveData(true);
+    closeModal('modal-add');
+    renderSec(kind==='flight'?'flights':'hotels');
+    toast('✓ '+(isHe?'יובא בהצלחה! בדוק את הפרטים':'Imported! Double-check the details'));
+  }catch(e){
+    status.textContent='❌ '+(e.message||'Import failed');
+    btn.disabled=false;
+  }
+}
+
+// ══════════════ PACKING LIST ══════════════
+const PACK_TEMPLATES={
+  essentials:{en:'Essentials',he:'חיוני',icon:'🎒',items:['Passport','Wallet + cards','Phone + charger','Travel insurance info','Medication','Sunglasses','Water bottle']},
+  clothing:{en:'Clothing',he:'ביגוד',icon:'👕',items:['T-shirts','Pants / shorts','Underwear','Socks','Comfortable shoes','Light jacket','Sleepwear','Swimwear']},
+  toiletries:{en:'Toiletries',he:'טיפוח',icon:'🧴',items:['Toothbrush + paste','Deodorant','Shampoo (travel size)','Sunscreen','Razor','Hairbrush','First-aid basics']},
+  tech:{en:'Tech',he:'טכנולוגיה',icon:'🔌',items:['Power bank','Travel adapter','Headphones','Camera','Cables']},
+  beach:{en:'Beach',he:'ים',icon:'🏖️',items:['Beach towel','Flip flops','Snorkel gear','After-sun lotion','Waterproof bag']},
+  winter:{en:'Winter',he:'חורף',icon:'🧣',items:['Warm coat','Gloves','Beanie','Scarf','Thermal layers','Lip balm']},
+  hiking:{en:'Hiking',he:'טרקים',icon:'🥾',items:['Hiking boots','Daypack','Rain jacket','Hat','Trail snacks','Blister plasters']},
+};
+function getPackGroups(){
+  if(!Array.isArray(tripData.packing))tripData.packing=[];
+  return tripData.packing; // [{id,name,icon,items:[{id,text,qty,done}]}]
+}
+function packAddTemplate(key){
+  const tpl=PACK_TEMPLATES[key];if(!tpl)return;
+  const groups=getPackGroups();
+  let g=groups.find(x=>x.tpl===key);
+  if(!g){g={id:uid(),tpl:key,name:lang==='he'?tpl.he:tpl.en,icon:tpl.icon,items:[]};groups.push(g);}
+  const existing=new Set(g.items.map(i=>i.text.toLowerCase()));
+  tpl.items.forEach(txt=>{if(!existing.has(txt.toLowerCase()))g.items.push({id:uid(),text:txt,qty:1,done:false});});
+  saveData(true);renderSec('packing');
+}
+function packAddGroup(){
+  const name=prompt(lang==='he'?'שם קבוצה:':'Group name:');if(!name)return;
+  getPackGroups().push({id:uid(),name:name.trim(),icon:'📦',items:[]});
+  saveData(true);renderSec('packing');
+}
+function packDelGroup(gid){
+  tripData.packing=getPackGroups().filter(g=>g.id!==gid);
+  saveData(true);renderSec('packing');
+}
+function packAddItem(gid){
+  const inp=document.getElementById('pk-inp-'+gid);if(!inp||!inp.value.trim())return;
+  const g=getPackGroups().find(x=>x.id===gid);if(!g)return;
+  g.items.push({id:uid(),text:inp.value.trim(),qty:1,done:false});
+  inp.value='';saveData(true);renderSec('packing');
+}
+function packToggle(gid,iid){
+  const g=getPackGroups().find(x=>x.id===gid);const it=g&&g.items.find(i=>i.id===iid);
+  if(!it)return;it.done=!it.done;saveData();
+  const row=document.getElementById('pk-row-'+iid);if(row)row.classList.toggle('done',it.done);
+  packUpdateBars();
+}
+function packQty(gid,iid,d){
+  const g=getPackGroups().find(x=>x.id===gid);const it=g&&g.items.find(i=>i.id===iid);
+  if(!it)return;it.qty=Math.max(1,(parseInt(it.qty)||1)+d);saveData();
+  const q=document.getElementById('pk-qty-'+iid);if(q)q.textContent='×'+it.qty;
+}
+function packDelItem(gid,iid){
+  const g=getPackGroups().find(x=>x.id===gid);if(!g)return;
+  g.items=g.items.filter(i=>i.id!==iid);
+  saveData(true);renderSec('packing');
+}
+function packSeasonTip(){
+  const isHe=lang==='he';
+  if(!currentTrip?.start_date)return'';
+  const m=new Date(currentTrip.start_date).getMonth()+1;
+  const nights=calcNights(currentTrip.start_date,currentTrip.end_date)||3;
+  let tip;
+  if([12,1,2].includes(m))tip=isHe?'טיול חורף — שקול להוסיף את תבנית ה"חורף" ושכבות חמות':'Winter trip — consider adding the Winter template and warm layers';
+  else if([6,7,8].includes(m))tip=isHe?'טיול קיץ — קרם הגנה, כובע ובגדים קלים הם חובה':'Summer trip — sunscreen, a hat and light clothing are must-haves';
+  else tip=isHe?'עונת מעבר — שכבות! ז\'קט קל שימושי גם בערבים':'Shoulder season — layers! A light jacket helps in the evenings';
+  return`<div class="card" style="padding:11px 16px;margin-bottom:12px;display:flex;gap:10px;align-items:center;border-color:rgba(242,179,61,.25)">
+    <span style="color:var(--gold);display:flex">${ic('sun',17)}</span>
+    <div style="font-size:12.5px;color:var(--textm)">${tip} · ${isHe?`${nights} לילות`:`${nights} nights`}</div>
+  </div>`;
+}
+function renderPacking(){
+  const isHe=lang==='he';
+  const groups=getPackGroups();
+  const all=groups.flatMap(g=>g.items);
+  const done=all.filter(i=>i.done).length;
+  const pct=all.length?Math.round(done/all.length*100):0;
+  let html=`<div class="page-title" style="font-size:20px;margin-bottom:14px">${'<span class="pt-ic">'+ic('luggage',22)+'</span>'} ${t('secPacking')}
+    <button class="btn btn-outline btn-sm" style="margin-inline-start:auto" onclick="packAddGroup()">+ ${isHe?'קבוצה':'Group'}</button>
+  </div>`;
+  html+=packSeasonTip();
+  if(all.length){
+    html+=`<div class="card" style="padding:13px 18px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--textm);margin-bottom:6px">
+        <span style="font-weight:700">${isHe?'התקדמות אריזה':'Packing progress'}</span>
+        <span id="pk-pct">${done}/${all.length} · ${pct}%</span>
+      </div>
+      <div style="background:var(--bg4);border-radius:100px;height:9px;overflow:hidden">
+        <div id="pk-bar" style="width:${pct}%;height:9px;border-radius:100px;background:var(--accentg);transition:width .4s"></div>
+      </div>
+    </div>`;
+  }
+  // template chips
+  html+=`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">
+    ${Object.entries(PACK_TEMPLATES).map(([k,v])=>`<button class="btn btn-outline btn-sm" style="font-size:11.5px" onclick="packAddTemplate('${k}')">${v.icon} ${isHe?v.he:v.en}</button>`).join('')}
+  </div>`;
+  if(!groups.length){
+    html+=`<div class="card empty-state">
+      ${ic('luggage',34)}
+      <div class="empty-state-title">${isHe?'רשימת האריזה ריקה':'Your packing list is empty'}</div>
+      <div class="empty-state-sub">${isHe?'התחל מתבנית מוכנה למעלה או צור קבוצה משלך':'Start from a template above or create your own group'}</div>
+      <button class="btn btn-primary btn-sm" onclick="packAddTemplate('essentials')">${isHe?'הוסף פריטים חיוניים':'Add the Essentials'}</button>
+    </div>`;
+  }
+  groups.forEach(g=>{
+    const gd=g.items.filter(i=>i.done).length;
+    html+=`<div class="card" style="margin-bottom:12px">
+      <div class="card-title"><div class="card-title-left">${g.icon} ${esc(g.name)} <span style="font-size:11px;color:var(--textd);font-weight:500">${gd}/${g.items.length}</span></div>
+        <button class="del-btn" onclick="packDelGroup('${g.id}')">×</button></div>
+      ${g.items.map(i=>`<div class="item-row${i.done?' done':''}" id="pk-row-${i.id}" style="align-items:center;gap:9px">
+        <input type="checkbox" ${i.done?'checked':''} onchange="packToggle('${g.id}','${i.id}')" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer">
+        <span class="item-val" style="flex:1;font-size:13px">${esc(i.text)}</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--textm)">
+          <button class="btn btn-ghost btn-sm" style="padding:1px 7px" onclick="packQty('${g.id}','${i.id}',-1)">−</button>
+          <span id="pk-qty-${i.id}">×${i.qty||1}</span>
+          <button class="btn btn-ghost btn-sm" style="padding:1px 7px" onclick="packQty('${g.id}','${i.id}',1)">+</button>
+        </span>
+        <button class="del-btn" onclick="packDelItem('${g.id}','${i.id}')">×</button>
+      </div>`).join('')}
+      <div style="display:flex;gap:8px;margin-top:9px">
+        <input class="inp" id="pk-inp-${g.id}" placeholder="${isHe?'הוסף פריט...':'Add item...'}" style="flex:1" onkeydown="if(event.key==='Enter')packAddItem('${g.id}')">
+        <button class="btn btn-outline btn-sm" onclick="packAddItem('${g.id}')">+</button>
+      </div>
+    </div>`;
+  });
+  return html;
+}
+function packUpdateBars(){
+  const all=getPackGroups().flatMap(g=>g.items);
+  const done=all.filter(i=>i.done).length;
+  const pct=all.length?Math.round(done/all.length*100):0;
+  const bar=document.getElementById('pk-bar');if(bar)bar.style.width=pct+'%';
+  const lbl=document.getElementById('pk-pct');if(lbl)lbl.textContent=done+'/'+all.length+' · '+pct+'%';
+}
+
+// ══════════════ DOCUMENTS WALLET ══════════════
+const DOC_MAX_FILE=400*1024, DOC_MAX_TOTAL=3*1024*1024;
+function getDocs(){if(!Array.isArray(tripData.documents))tripData.documents=[];return tripData.documents;}
+function docsTotalSize(){return getDocs().reduce((s,d)=>s+(d.size||0),0);}
+function docAddLink(){
+  const name=document.getElementById('doc-link-name')?.value.trim();
+  const url=document.getElementById('doc-link-url')?.value.trim();
+  const isHe=lang==='he';
+  if(!name||!url){toast('⚠️ '+(isHe?'נא למלא שם וקישור':'Please fill both name and link'));return;}
+  getDocs().push({id:uid(),name,kind:'link',url,ts:Date.now()});
+  saveData(true);renderSec('documents');
+}
+function docPickFile(){document.getElementById('doc-file-inp')?.click();}
+function docFileChosen(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  const isHe=lang==='he';
+  if(f.size>DOC_MAX_FILE){toast('⚠️ '+(isHe?'קובץ גדול מדי (מקס׳ 400KB) — לקבצים גדולים השתמש בקישור':'File too large (max 400KB) — use a link for bigger files'));inp.value='';return;}
+  if(docsTotalSize()+f.size>DOC_MAX_TOTAL){toast('⚠️ '+(isHe?'הארנק מלא (3MB) — מחק מסמכים ישנים':'Wallet is full (3MB) — remove old documents'));inp.value='';return;}
+  const r=new FileReader();
+  r.onload=()=>{
+    getDocs().push({id:uid(),name:f.name,kind:'file',mime:f.type||'application/octet-stream',size:f.size,data:r.result,ts:Date.now()});
+    saveData(true);renderSec('documents');
+  };
+  r.readAsDataURL(f);
+  inp.value='';
+}
+function docOpen(id){
+  const d=getDocs().find(x=>x.id===id);if(!d)return;
+  if(d.kind==='link'){window.open(d.url,'_blank','noopener');return;}
+  const w=window.open('','_blank');
+  if(d.mime&&d.mime.startsWith('image/'))w.document.write(`<img src="${d.data}" style="max-width:100%">`);
+  else{const a=document.createElement('a');a.href=d.data;a.download=d.name;a.click();w.close();}
+}
+function docDel(id){
+  tripData.documents=getDocs().filter(d=>d.id!==id);
+  saveData(true);renderSec('documents');
+}
+function docIcon(d){
+  if(d.kind==='link')return'🔗';
+  if(d.mime?.startsWith('image/'))return'🖼️';
+  if(d.mime==='application/pdf')return'📄';
+  return'📎';
+}
+function renderDocuments(){
+  const isHe=lang==='he';
+  const docs=getDocs().slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const used=docsTotalSize();
+  let html=`<div class="page-title" style="font-size:20px;margin-bottom:6px">${'<span class="pt-ic">'+ic('folder',22)+'</span>'} ${t('secDocuments')}</div>
+  <div style="font-size:12.5px;color:var(--textm);margin-bottom:16px">${isHe?'כרטיסים, אישורי הזמנה, ביטוח — הכל במקום אחד, זמין גם אופליין':'Tickets, booking confirmations, insurance — all in one place, available offline too'}</div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title"><div class="card-title-left">${ic('plus',15)} ${isHe?'הוסף מסמך':'Add a document'}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-primary btn-sm" onclick="docPickFile()">${isHe?'העלה קובץ':'Upload file'} (≤400KB)</button>
+      <input type="file" id="doc-file-inp" style="display:none" accept="image/*,.pdf" onchange="docFileChosen(this)">
+    </div>
+    <div style="font-size:11px;color:var(--textd);margin-bottom:8px">${isHe?'או שמור קישור (Google Drive, אימייל, אתר ההזמנה):':'Or save a link (Google Drive, email, booking site):'}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input class="inp" id="doc-link-name" placeholder="${isHe?'שם (למשל: כרטיס טיסה)':'Name (e.g. Flight ticket)'}" style="flex:1;min-width:130px">
+      <input class="inp" id="doc-link-url" placeholder="https://..." style="flex:2;min-width:160px">
+      <button class="btn btn-outline btn-sm" onclick="docAddLink()">+ ${isHe?'שמור':'Save'}</button>
+    </div>
+  </div>`;
+  if(!docs.length){
+    html+=`<div class="card empty-state">
+      ${ic('folder',34)}
+      <div class="empty-state-title">${isHe?'אין מסמכים עדיין':'No documents yet'}</div>
+      <div class="empty-state-sub">${isHe?'העלה את כרטיס הטיסה או אישור המלון כדי שיהיו זמינים גם בלי אינטרנט':'Upload your flight ticket or hotel confirmation so it\\u2019s there even without internet'}</div>
+    </div>`;
+  } else {
+    html+=`<div class="card">
+      <div class="card-title"><div class="card-title-left">${ic('folder',15)} ${isHe?'המסמכים שלי':'My documents'} <span style="font-size:11px;color:var(--textd);font-weight:500">${(used/1024).toFixed(0)}KB / 3MB</span></div></div>
+      ${docs.map(d=>`<div class="item-row" style="align-items:center;gap:10px;cursor:pointer" onclick="docOpen('${d.id}')">
+        <span style="font-size:17px">${docIcon(d)}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</div>
+          <div style="font-family:var(--mono);font-size:10.5px;color:var(--textd)">${d.kind==='link'?(isHe?'קישור':'link'):((d.size/1024).toFixed(0)+'KB')} · ${new Date(d.ts).toLocaleDateString(isHe?'he-IL':'en-US')}</div>
+        </div>
+        <button class="del-btn" onclick="event.stopPropagation();docDel('${d.id}')">×</button>
+      </div>`).join('')}
+    </div>`;
+  }
+  return html;
+}
+
+// ══════════════ TRIP JOURNAL ══════════════
+function getJournal(){if(!tripData.journal)tripData.journal={};return tripData.journal;}
+function journalDates(){
+  const out=[];
+  if(currentTrip?.start_date&&currentTrip?.end_date){
+    let d=new Date(currentTrip.start_date);const end=new Date(currentTrip.end_date);
+    while(d<=end){out.push(d.toISOString().split('T')[0]);d=new Date(d.getTime()+86400000);}
+  }
+  Object.keys(getJournal()).forEach(k=>{if(!out.includes(k))out.push(k);});
+  return out.sort();
+}
+function journalSave(date,text){
+  const j=getJournal();
+  if(!j[date])j[date]={};
+  j[date].text=text;
+  saveData();
+}
+function journalAddPhoto(date){
+  const isHe=lang==='he';
+  const url=prompt(isHe?'קישור לתמונה (URL):':'Photo link (URL):');
+  if(!url||!url.trim())return;
+  const j=getJournal();if(!j[date])j[date]={};
+  if(!Array.isArray(j[date].photos))j[date].photos=[];
+  j[date].photos.push(url.trim());
+  saveData(true);renderSec('journal');
+}
+function journalDelPhoto(date,idx){
+  const j=getJournal();if(!j[date]||!j[date].photos)return;
+  j[date].photos.splice(idx,1);
+  saveData(true);renderSec('journal');
+}
+function renderJournal(){
+  const isHe=lang==='he';
+  const dates=journalDates();
+  const todayStr=new Date().toISOString().split('T')[0];
+  let html=`<div class="page-title" style="font-size:20px;margin-bottom:6px">${'<span class="pt-ic">'+ic('book',22)+'</span>'} ${t('secJournal')}</div>
+  <div style="font-size:12.5px;color:var(--textm);margin-bottom:16px">${isHe?'רגעים, מחשבות ותמונות מכל יום בטיול':'Moments, thoughts and photos from every day of your trip'}</div>`;
+  if(!dates.length){
+    html+=`<div class="card empty-state">
+      ${ic('book',34)}
+      <div class="empty-state-title">${isHe?'אין ימי טיול עדיין':'No trip days yet'}</div>
+      <div class="empty-state-sub">${isHe?'הגדר תאריכי טיול כדי להתחיל לכתוב יומן':'Set trip dates to start journaling'}</div>
+    </div>`;
+    return html;
+  }
+  dates.forEach((date,i)=>{
+    const e=getJournal()[date]||{};
+    const isToday=date===todayStr;
+    const dLabel=new Date(date+'T12:00').toLocaleDateString(isHe?'he-IL':'en-US',{weekday:'long',month:'short',day:'numeric'});
+    html+=`<div class="card" style="margin-bottom:12px${isToday?';border-color:rgba(55,198,186,.4)':''}">
+      <div class="card-title"><div class="card-title-left">${isHe?'יום':'Day'} ${i+1} · ${dLabel} ${isToday?`<span class="tag tag-green" style="font-size:10px">${isHe?'היום':'Today'}</span>`:''}</div>
+        <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="journalAddPhoto('${date}')">${ic('camera',13)} ${isHe?'תמונה':'Photo'}</button>
+      </div>
+      ${(e.photos&&e.photos.length)?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        ${e.photos.map((p,pi)=>`<div style="position:relative">
+          <img src="${esc(p)}" loading="lazy" style="width:86px;height:86px;object-fit:cover;border-radius:var(--rsm);border:1px solid var(--border)" onerror="this.style.opacity=.3">
+          <button class="del-btn" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.55);border-radius:50%;width:19px;height:19px;line-height:1;font-size:12px" onclick="journalDelPhoto('${date}',${pi})">×</button>
+        </div>`).join('')}
+      </div>`:''}
+      <textarea class="itin-note" style="min-height:64px" placeholder="${isHe?'מה קרה היום? איפה אכלתם? מה הפתיע אתכם?':'What happened today? Where did you eat? What surprised you?'}" onchange="journalSave('${date}',this.value)">${esc(e.text||'')}</textarea>
+    </div>`;
+  });
+  return html;
+}
+
 // ── TRANSPORT ──
 function renderTransport(){
   const items=tripData.transport||[];
   const cur=currentTrip?.currency||'USD';
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div class="page-title" style="font-size:20px">🚗 ${t('secTransport')}</div>
+    <div class="page-title" style="font-size:20px">${'<span class="pt-ic">'+ic('car',22)+'</span>'} ${t('secTransport')}</div>
     <button class="btn btn-outline btn-sm" onclick="openAddModal('transport')">${t('addTransport')}</button>
   </div><div class="card">`;
-  if(!items.length)return html+`<div style="text-align:center;padding:30px;color:var(--textm)">${t('noTransport')}</div></div>`;
+  if(!items.length)return html+`<div class="empty-state" style="padding:26px 14px">
+    ${ic('car',30)}
+    <div class="empty-state-title" style="font-size:14px">${lang==='he'?'אין תחבורה עדיין':'No transport yet'}</div>
+    <div class="empty-state-sub" style="font-size:12px">${lang==='he'?'רכב שכור, רכבות, העברות משדה התעופה':'Rental car, trains, airport transfers'}</div>
+  </div></div>`;
   items.forEach(item=>{
     html+=`<div class="transport-item">
       <div class="transport-icon">${esc(item.type?.split(' ')[0]||'🚗')}</div>
@@ -4171,7 +5179,7 @@ async function resolveTripAnchor(force){
 function renderMapPage(){
   const isHe=lang==='he';
   const places=tripData.savedPlaces||[];
-  return`<div class="page-title" style="font-size:20px;margin-bottom:14px">🗺️ ${t('secMap')}</div>
+  return`<div class="page-title" style="font-size:20px;margin-bottom:14px">${'<span class="pt-ic">'+ic('map',22)+'</span>'} ${t('secMap')}</div>
   <div class="card" style="padding:14px;margin-bottom:14px;position:relative">
     <div style="position:relative">
       <input class="inp" id="map-search-input" placeholder="${isHe?'חפש מקום, כתובת או אטרקציה...':'Search for a place, address, or attraction...'}" oninput="onMapSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();doMapSearch(this.value.trim())}">
@@ -4831,7 +5839,8 @@ function renderEmergency(){
   const isHe=lang==='he';
   const field=(key,lbl,ph)=>`<div class="em-row"><div style="flex:1"><div class="em-lbl">${lbl}</div><input class="em-inp" value="${esc(em[key]||'')}" placeholder="${esc(ph||'')}" onchange="saveEm('${key}',this.value)"></div></div>`;
   const fieldWithMap=(key,lbl,ph)=>`<div class="em-row"><div style="flex:1"><div class="em-lbl">${lbl}</div><input class="em-inp" id="em-inp-${key}" value="${esc(em[key]||'')}" placeholder="${esc(ph||'')}" onchange="saveEm('${key}',this.value)"></div><button onclick="openMapsChoice(document.getElementById('em-inp-${key}').value, this)" class="btn btn-outline btn-sm" style="font-size:11px;flex-shrink:0">📍 ${isHe?'מפה':'Map'}</button></div>`;
-  return`<div class="page-title" style="font-size:20px;margin-bottom:16px">📞 ${t('secEmergency')}</div>
+  return`<div class="page-title" style="font-size:20px;margin-bottom:16px">${'<span class="pt-ic">'+ic('phone',22)+'</span>'} ${t('secEmergency')}</div>
+  ${renderCountryEssentials()}
   <div class="em-card"><div class="em-title">${t('emMedical')}</div>
     ${field('insurance',lang==='he'?'פוליסת ביטוח':'Insurance Policy','Policy #')}
     ${field('insuranceTel',lang==='he'?'קו חירום ביטוח':'Insurance Emergency Line','+1-800-...')}
@@ -5367,7 +6376,7 @@ async function loadTrips(){
     const code=(trip.destination||trip.name||'TRP').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'TRP';
     const card=document.createElement('div');card.className='trip-card';
     card.innerHTML=`
-      <div class="trip-cover"><div class="trip-cover-bg" style="--c1:${c1};--c2:${c2}"></div><div class="trip-cover-code">${code}</div><div class="trip-cover-emoji">${trip.emoji||'🌍'}</div></div>
+      <div class="trip-cover"><div class="trip-cover-bg" style="--c1:${c1};--c2:${c2}"></div><div class="trip-cover-photo" data-cover-dest="${esc(trip.destination||'')}"></div><div class="trip-cover-code">${code}</div><div class="trip-cover-emoji">${trip.emoji||'🌍'}</div></div>
       <div class="trip-card-actions">
         <button class="tc-btn-dup" onclick="event.stopPropagation();duplicateTrip('${trip.id}')" title="Duplicate">⧉</button>
         <button class="tc-btn" onclick="event.stopPropagation();askDelete('${trip.id}')">🗑️</button>
@@ -5388,6 +6397,29 @@ async function loadTrips(){
   nc.innerHTML=`<div class="new-card-icon">＋</div><div class="new-card-label">${t('planNewTrip')}</div>`;
   nc.addEventListener('click',()=>{initEmojiPicker();openModal('modal-new');});
   grid.appendChild(nc);
+  hydrateCoverPhotos();
+}
+
+// ── DESTINATION COVER PHOTOS (Wikipedia, free, cached) ──
+async function fetchCoverPhoto(dest){
+  if(!dest)return null;
+  const key='lf-cover-'+dest.toLowerCase().trim();
+  const cached=localStorage.getItem(key);
+  if(cached!==null)return cached||null; // '' means known-miss
+  try{
+    const title=encodeURIComponent(dest.trim().split(',')[0]);
+    const r=await fetchWithTimeout(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`,{},8000);
+    const d=await r.json();
+    const url=d.thumbnail?.source?d.thumbnail.source.replace(/\/\d+px-/,'/640px-'):null;
+    localStorage.setItem(key,url||'');
+    return url;
+  }catch(e){return null;}
+}
+function hydrateCoverPhotos(){
+  document.querySelectorAll('.trip-cover-photo[data-cover-dest]').forEach(async el=>{
+    const url=await fetchCoverPhoto(el.dataset.coverDest);
+    if(url){el.style.backgroundImage=`url("${url}")`;el.classList.add('on');}
+  });
 }
 
 async function createTrip(){
