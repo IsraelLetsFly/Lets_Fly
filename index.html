@@ -194,6 +194,9 @@ textarea.inp{resize:vertical;min-height:80px}
 .trip-banner-body{position:relative;z-index:1;padding:16px 20px 13px;width:100%}
 .trip-banner .page-title{color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.4)}
 .trip-banner .page-sub{color:rgba(255,255,255,.85);text-shadow:0 1px 4px rgba(0,0,0,.4)}
+.trip-banner-edit{position:absolute;top:11px;inset-inline-end:11px;z-index:2;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.25);color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.trip-banner-edit:hover{background:rgba(0,0,0,.6)}
+.date-mismatch-card{background:linear-gradient(135deg,rgba(242,179,61,.14),rgba(242,179,61,.05));border:1px solid rgba(242,179,61,.35);border-radius:var(--r);padding:13px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .trip-cover-emoji{position:relative;z-index:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,.35))}
 .trip-cover-code{position:absolute;top:9px;left:11px;z-index:1;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.85);text-shadow:0 1px 3px rgba(0,0,0,.4)}
 .trip-stub-divider{position:relative;height:0;border-top:2px dashed var(--border2)}
@@ -419,6 +422,10 @@ textarea.inp{resize:vertical;min-height:80px}
 /* WISHLIST */
 .wish-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
 .wish-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--rsm);margin-bottom:6px}
+.place-thumb{width:44px;height:44px;border-radius:var(--rsm);flex-shrink:0;background-size:cover;background-position:center;background-color:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;transition:background-image .25s}
+.place-thumb .thumb-fallback{transition:opacity .2s}
+.place-thumb.on .thumb-fallback{opacity:0}
+.place-dist-chip{font-family:var(--mono);font-size:10px;color:var(--textd);white-space:nowrap}
 .wish-item-body{flex:1;min-width:0}
 .wish-item-text{font-size:13px;font-weight:600}
 .wish-item-meta{font-size:11px;color:var(--textm);margin-top:1px}
@@ -1108,6 +1115,7 @@ function applyTheme(){
   const isL=theme==='light';document.body.classList.toggle('light',isL);
   localStorage.setItem('lf-theme',theme);
   updateSideNavTheme();
+  if(tripMapTileLayer&&tripMapInstance)tripMapTileLayer.setUrl(currentMapTileUrl());
 }
 function toggleTheme(){theme=theme==='dark'?'light':'dark';applyTheme();}
 
@@ -1361,6 +1369,7 @@ function buildTripPage(){
         <div class="page-title">${esc(currentTrip.emoji)} ${esc(currentTrip.name)}</div>
         <div class="page-sub">📅 ${fmtDate(currentTrip.start_date)} → ${fmtDate(currentTrip.end_date)} · ${calcNights(currentTrip.start_date,currentTrip.end_date)} ${t('nights')} · ${currentTrip.travelers||1} ${t('travelers2')}</div>
       </div>
+      ${isViewOnly?'':`<button class="trip-banner-edit" onclick="openEditTripModal()" title="${lang==='he'?'ערוך פרטי טיול':'Edit trip details'}">✏️</button>`}
     </div>
   </div>
   <div id="sec-content"></div>`;
@@ -1401,7 +1410,7 @@ function renderSec(sec){
     case 'flights':   el.innerHTML=renderFlights();break;
     case 'hotels':    el.innerHTML=renderHotels();break;
     case 'itinerary': el.innerHTML=renderItinerary();loadItineraryWeather();break;
-    case 'map':       el.innerHTML=renderMapPage();tripMapInitPromise=initTripMap();loadSuggestedAttractions();break;
+    case 'map':       el.innerHTML=renderMapPage();tripMapInitPromise=initTripMap();loadSuggestedAttractions();hydrateSavedPlacesThumbs();break;
     case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();fetchRates();break;
     case 'currency':  el.innerHTML=renderCurrency();fetchRates();break;
     case 'transport': el.innerHTML=renderTransport();break;
@@ -1526,6 +1535,104 @@ function renderStopsCard(){
   </div>`;
 }
 
+
+// ── EDIT TRIP DETAILS (name/emoji/destination/dates/travelers/currency) ──
+// These fields live on the `trips` row itself (not tripData), and until now there was no
+// UI to change them after creation — only the initial create-trip modal touched them.
+let editTripSelectedEmoji=null;
+function openEditTripModal(){
+  const isHe=lang==='he';
+  editTripSelectedEmoji=currentTrip.emoji||'🌴';
+  const emojis=[...'🌴🏝️🗺️🏔️🌊🏙️🌍🇯🇵🇹🇭🇬🇷🇮🇹🇫🇷🇺🇸🇬🇧🇪🇸🇵🇹🇲🇽🇧🇷🇦🇺🏕️⛷️🤿🚢✈️🧳🎌🌺🏖️🦁🐘🗼🗽🕌'];
+  const inner=document.getElementById('modal-add-inner');
+  inner.innerHTML=`<div class="modal-title">✏️ ${isHe?'עריכת פרטי הטיול':'Edit trip details'}</div>
+    <div class="field"><div class="field-label">${t('tripName')}</div><input class="inp" id="et-name" value="${esc(currentTrip.name||'')}"></div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('startDate')}</div><input class="inp" id="et-start" type="date" value="${currentTrip.start_date||''}"></div>
+      <div class="field"><div class="field-label">${t('endDate')}</div><input class="inp" id="et-end" type="date" value="${currentTrip.end_date||''}"></div>
+    </div>
+    <div class="field"><div class="field-label">${t('destinations')}</div><input class="inp" id="et-dest" value="${esc(currentTrip.destination||'')}"></div>
+    <div class="grid2">
+      <div class="field"><div class="field-label">${t('travelers')}</div><input class="inp" id="et-travelers" type="number" min="1" value="${currentTrip.travelers||1}"></div>
+      <div class="field"><div class="field-label">${t('currency')}</div>
+        <select class="inp" id="et-currency">
+          ${['USD','EUR','ILS','GBP','THB','JPY','AUD','CAD','CHF'].map(c=>`<option value="${c}" ${currentTrip.currency===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field"><div class="field-label">${t('tripIcon')}</div>
+      <div class="emoji-row" id="et-emoji-picker">${emojis.map(em=>`<button type="button" class="ep${em===editTripSelectedEmoji?' sel':''}" onclick="editTripSelectedEmoji='${em}';document.querySelectorAll('#et-emoji-picker .ep').forEach(x=>x.classList.remove('sel'));this.classList.add('sel')">${em}</button>`).join('')}</div>
+    </div>
+    <div id="et-error" style="display:none;font-size:12.5px;color:var(--coral);background:rgba(255,92,92,.1);border:1px solid rgba(255,92,92,.25);border-radius:var(--rsm);padding:9px 12px;margin-bottom:4px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="saveTripMeta()">${t('save')}</button>
+    </div>`;
+  openModal('modal-add');
+}
+async function saveTripMeta(newDatesOverride){
+  const isHe=lang==='he';
+  const errEl=document.getElementById('et-error');
+  const showErr=msg=>{ if(errEl){errEl.textContent=msg;errEl.style.display='block';} else toast('❌ '+msg); };
+  const patch=newDatesOverride || {
+    name:document.getElementById('et-name')?.value.trim(),
+    start_date:document.getElementById('et-start')?.value,
+    end_date:document.getElementById('et-end')?.value,
+    destination:document.getElementById('et-dest')?.value.trim(),
+    travelers:parseInt(document.getElementById('et-travelers')?.value)||1,
+    currency:document.getElementById('et-currency')?.value,
+    emoji:editTripSelectedEmoji||currentTrip.emoji,
+  };
+  if(!newDatesOverride){
+    if(!patch.name){showErr('⚠️ '+t('tripName'));return;}
+    if(!patch.start_date||!patch.end_date){showErr('⚠️ '+t('startDate'));return;}
+    if(patch.end_date<patch.start_date){showErr('⚠️ '+(isHe?'תאריך הסיום לא יכול להיות לפני תאריך ההתחלה':'End date can\\u2019t be before the start date'));return;}
+  }
+  const query=currentUser
+    ? sb.from('trips').update(patch).eq('id',currentTrip.id).eq('user_id',currentUser.id)
+    : sb.from('trips').update(patch).eq('id',currentTrip.id);
+  const{error}=await query;
+  if(error){showErr('⚠️ '+(error.message||'Save failed'));return;}
+  Object.assign(currentTrip,patch);
+  closeModal('modal-add');
+  buildTripPage();
+  buildNavSections();
+  renderSec(currentSec);
+  toast('✓ '+(isHe?'פרטי הטיול עודכנו':'Trip details updated'));
+}
+
+// ── TRIP-DATES MISMATCH DETECTION ──
+// Flight/hotel dates live in tripData and are fully independent from the trip's own
+// start_date/end_date (set once at creation). If someone edits a flight or hotel and the
+// booking dates no longer match the trip's date range, nights/countdowns/etc quietly keep
+// showing the old range. Detect that and offer a one-click fix.
+function detectTripDateRange(){
+  const dates=[];
+  (tripData.flights||[]).forEach(f=>{const d=flightDateStr(f);if(d)dates.push(d);});
+  (tripData.hotels||[]).forEach(h=>{if(h.checkIn)dates.push(h.checkIn);if(h.checkOut)dates.push(h.checkOut);});
+  if(!dates.length)return null;
+  dates.sort();
+  return{start:dates[0],end:dates[dates.length-1]};
+}
+function renderDateMismatchBanner(){
+  const isHe=lang==='he';
+  const detected=detectTripDateRange();
+  if(!detected)return'';
+  if(detected.start===currentTrip.start_date&&detected.end===currentTrip.end_date)return'';
+  const detNights=calcNights(detected.start,detected.end);
+  const curNights=calcNights(currentTrip.start_date,currentTrip.end_date);
+  return`<div class="date-mismatch-card">
+    <span style="font-size:22px">📆</span>
+    <div style="flex:1;min-width:220px">
+      <div style="font-weight:700;font-size:13.5px">${isHe?'תאריכי הטיול לא תואמים את ההזמנות':'Trip dates don\\u2019t match your bookings'}</div>
+      <div style="font-size:12px;color:var(--textm)">${isHe
+        ?`הטיסות/מלונות שלך מציעים ${detNights} לילות (${fmtDate(detected.start)} → ${fmtDate(detected.end)}), אבל הטיול מוגדר ל-${curNights} לילות`
+        :`Your flights/hotels suggest ${detNights} nights (${fmtDate(detected.start)} → ${fmtDate(detected.end)}), but the trip is set to ${curNights} nights`}</div>
+    </div>
+    <button class="btn btn-primary btn-sm" style="white-space:nowrap" onclick="saveTripMeta({start_date:'${detected.start}',end_date:'${detected.end}'})">${isHe?'עדכן תאריכי טיול':'Update trip dates'} →</button>
+  </div>`;
+}
+
 function renderDashboard(){
   const isHe=lang==='he';
   const todos=tripData.todos||[];
@@ -1561,6 +1668,7 @@ function renderDashboard(){
       <div class="bp-stub-item"><div class="bp-stub-lbl">${isHe?'לילות':'NIGHTS'}</div><div class="bp-stub-val">${nights}</div></div>
     </div>
   </div>
+  ${renderDateMismatchBanner()}
   ${(tripData.days||[]).length<2?`<div class="card" style="background:linear-gradient(135deg,rgba(55,198,186,.12),rgba(139,143,232,.08));border-color:rgba(55,198,186,.3);margin-bottom:14px;cursor:pointer" onclick="openAddModal('smartbuild')">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div style="font-size:28px;flex-shrink:0">✨</div>
@@ -3675,12 +3783,17 @@ function renderWeatherInto(el,data){
 // ── PLACE SUGGESTIONS (OpenStreetMap Overpass API — free, no key required) ──
 const OSM_TOURISM_TO_CATEGORY={attraction:'sightseeing',museum:'sightseeing',gallery:'sightseeing',
   viewpoint:'outdoor',zoo:'outdoor',theme_park:'outdoor',artwork:'sightseeing',historic:'sightseeing'};
-const OSM_AMENITY_TO_CATEGORY={restaurant:'food',cafe:'food',fast_food:'food',bar:'nightlife',pub:'nightlife'};
-function osmPlaceCategory(osmType){ return OSM_TOURISM_TO_CATEGORY[osmType]||OSM_AMENITY_TO_CATEGORY[osmType]||'sightseeing'; }
+const OSM_AMENITY_TO_CATEGORY={restaurant:'food',cafe:'food',fast_food:'food',bar:'nightlife',pub:'nightlife',night_club:'nightlife'};
+const OSM_LEISURE_TO_CATEGORY={park:'outdoor',garden:'outdoor',nature_reserve:'outdoor',water_park:'outdoor',beach_resort:'outdoor'};
+const OSM_NATURAL_TO_CATEGORY={beach:'outdoor'};
+const OSM_SHOP_TO_CATEGORY={mall:'shopping',department_store:'shopping'};
+function osmPlaceCategory(osmType){
+  return OSM_TOURISM_TO_CATEGORY[osmType]||OSM_AMENITY_TO_CATEGORY[osmType]||OSM_LEISURE_TO_CATEGORY[osmType]||OSM_NATURAL_TO_CATEGORY[osmType]||OSM_SHOP_TO_CATEGORY[osmType]||'sightseeing';
+}
 // Same shape/pattern as fetchNearbyAttractions, but for restaurants/cafes/bars — needed so the
 // Smart Trip Builder can place meals, not just sightseeing, into a generated day.
 async function fetchNearbyFood(lat,lon,radiusM){
-  const q=`[out:json][timeout:10];(node["amenity"~"restaurant|cafe|fast_food|bar|pub"]["name"](around:${radiusM},${lat},${lon});way["amenity"~"restaurant|cafe|fast_food|bar|pub"]["name"](around:${radiusM},${lat},${lon}););out center 35;`;
+  const q=`[out:json][timeout:10];(node["amenity"~"restaurant|cafe|fast_food|bar|pub|night_club"]["name"](around:${radiusM},${lat},${lon});way["amenity"~"restaurant|cafe|fast_food|bar|pub|night_club"]["name"](around:${radiusM},${lat},${lon}););out center 35;`;
   const res=await fetchWithTimeout('https://overpass-api.de/api/interpreter',{method:'POST',body:q},11000);
   const data=await res.json();
   const seen=new Set();
@@ -3721,8 +3834,17 @@ function enumerateDatesInRange(startStr,endStr){
 // Captures lat/lon (node coords, or the "center" Overpass computes for way/area results) so callers
 // can plot results on a map, not just list them.
 async function fetchNearbyAttractions(lat,lon,radiusM){
-  const q=`[out:json][timeout:10];(node["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});way["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});node["historic"](around:${radiusM},${lat},${lon}););out center 35;`;
-  const res=await fetchWithTimeout('https://overpass-api.de/api/interpreter',{method:'POST',body:q},11000);
+  const q=`[out:json][timeout:12];(
+node["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});
+way["tourism"~"attraction|museum|viewpoint|gallery|zoo|theme_park|artwork"](around:${radiusM},${lat},${lon});
+node["historic"](around:${radiusM},${lat},${lon});
+node["leisure"~"park|garden|nature_reserve|water_park|beach_resort"]["name"](around:${radiusM},${lat},${lon});
+way["leisure"~"park|garden|nature_reserve|water_park|beach_resort"]["name"](around:${radiusM},${lat},${lon});
+node["natural"="beach"](around:${radiusM},${lat},${lon});
+node["shop"~"mall|department_store"]["name"](around:${radiusM},${lat},${lon});
+way["shop"~"mall|department_store"]["name"](around:${radiusM},${lat},${lon});
+);out center 45;`;
+  const res=await fetchWithTimeout('https://overpass-api.de/api/interpreter',{method:'POST',body:q},12000);
   const data=await res.json();
   const seen=new Set();
   const places=[];
@@ -3730,7 +3852,7 @@ async function fetchNearbyAttractions(lat,lon,radiusM){
     const name=el.tags?.name;
     if(!name||seen.has(name))return;
     seen.add(name);
-    const osmType=el.tags?.tourism||(el.tags?.historic?'historic':'attraction');
+    const osmType=el.tags?.tourism||(el.tags?.historic?'historic':null)||el.tags?.leisure||el.tags?.natural||el.tags?.shop||'attraction';
     const plat=el.lat??el.center?.lat??null;
     const plon=el.lon??el.center?.lon??null;
     places.push(extractPlaceExtras({name,osmType,lat:plat,lon:plon},el.tags));
@@ -5238,6 +5360,7 @@ function renderMapPage(){
     <div id="saved-places-list">${renderSavedPlacesListHTML(places,isHe)}</div>
   </div>`;
 }
+function hydrateSavedPlacesThumbs(){ hydratePlaceThumbs(document.getElementById('saved-places-list')); }
 function renderSavedPlacesListFiltered(){
   const isHe=lang==='he';
   const q=(document.getElementById('sp-filter-text')?.value||'').trim().toLowerCase();
@@ -5247,6 +5370,7 @@ function renderSavedPlacesListFiltered(){
   if(cat)places=places.filter(p=>(p.category||'')===cat);
   const listEl=document.getElementById('saved-places-list');
   if(listEl)listEl.innerHTML=places.length?renderSavedPlacesListHTML(places,isHe):`<div style="font-size:12px;color:var(--textd);text-align:center;padding:20px">${isHe?'אין תוצאות תואמות':'No matching places'}</div>`;
+  hydrateSavedPlacesThumbs();
 }
 
 function renderSavedPlacesListHTML(places,isHe,days){
@@ -5261,6 +5385,7 @@ function renderSavedPlacesListHTML(places,isHe,days){
         <button class="sp-move-btn" onclick="event.stopPropagation();movePlaceDown('${p.id}')" ${i===places.length-1?'disabled':''} title="${isHe?'הזז למטה':'Move down'}">▼</button>
       </div>
       <button class="sp-visited-check" onclick="event.stopPropagation();toggleSavedPlaceVisited('${p.id}')" title="${isHe?'סמן כביקרתי':'Mark as visited'}">${p.visited?'✅':cat.icon}</button>
+      ${placeThumbHTML(p,cat)}
       <div class="wish-item-body">
         <div class="wish-item-text">${esc(p.name)}</div>
         ${p.address?`<div class="wish-item-meta">${esc(p.address)}</div>`:''}
@@ -5280,6 +5405,23 @@ function renderSavedPlacesListHTML(places,isHe,days){
   }).join('');
 }
 
+function currentMapTileUrl(){
+  return theme==='light'
+    ?'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+    :'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+}
+// Colorful round "bubble" marker (category emoji or a number) instead of a flat dot or the
+// generic default Leaflet pin — much livelier, and lets the map communicate category at a glance.
+function bubbleIcon(color,label,opts){
+  opts=opts||{};
+  const size=opts.size||28;
+  const fontSize=opts.fontSize||Math.round(size*0.5);
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;font-weight:700;color:#fff;border:2.5px solid ${opts.ring||'#fff'};box-shadow:0 2px 10px rgba(0,0,0,.4);opacity:${opts.opacity!=null?opts.opacity:1}">${label}</div>`,
+    iconSize:[size,size],iconAnchor:[size/2,size/2],popupAnchor:[0,-(size/2)-2]
+  });
+}
 async function initTripMap(){
   const container=document.getElementById('trip-map');
   if(!container||typeof L==='undefined')return;
@@ -5288,9 +5430,9 @@ async function initTripMap(){
   if(anchor){ center=[anchor.lat,anchor.lon]; zoom=anchor.precise?14:12; }
   if(tripMapInstance){ tripMapInstance.remove(); tripMapInstance=null; }
   tripMapInstance=L.map(container).setView(center,zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
-    maxZoom:19
+  tripMapTileLayer=L.tileLayer(currentMapTileUrl(),{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+    maxZoom:20, subdomains:'abcd', detectRetina:true
   }).addTo(tripMapInstance);
   dayRouteLayer=L.layerGroup().addTo(tripMapInstance);
   tripMapMarkerLayer=(typeof L.markerClusterGroup==='function')
@@ -5318,6 +5460,7 @@ function getScheduledPlaceDayMap(){
 }
 
 let dayRouteLayer=null;
+let tripMapTileLayer=null;
 let mapSelectedDayId='all';
 let savedPlaceMarkers={};
 function renderSavedPlaceMarkers(){
@@ -5342,7 +5485,7 @@ function renderSavedPlaceMarkers(){
       L.polyline(located.map(b=>[b.lat,b.lon]),{color,weight:highlight?4:3,opacity:highlight?0.9:0.6,dashArray:highlight?null:'6,5'}).addTo(dayRouteLayer);
     }
     located.forEach((b,i)=>{
-      const marker=L.circleMarker([b.lat,b.lon],{radius:highlight?9:7,color:'#fff',weight:2,fillColor:color,fillOpacity:1}).addTo(tripMapMarkerLayer);
+      const marker=L.marker([b.lat,b.lon],{icon:bubbleIcon(color,String(i+1),{size:highlight?30:24,fontSize:highlight?13:11})}).addTo(tripMapMarkerLayer);
       marker.bindPopup(`<div class="map-popup"><strong>${isHe?'יום':'Day'} ${day.num} · #${i+1}: ${esc(b.text)}</strong>${b.start?`<div style="font-size:11px;color:#666;margin-top:3px">${esc(b.start)}${b.end?'–'+esc(b.end):''}</div>`:''}</div>`);
       const srcPlace=placeByName[(b.text||'').trim().toLowerCase()];
       if(srcPlace)savedPlaceMarkers[srcPlace.id]=marker;
@@ -5363,7 +5506,7 @@ function renderSavedPlaceMarkers(){
     const key=(p.name||'').trim().toLowerCase();
     if(scheduledMap[key])return; // already drawn as part of a day's route above
     const cat=actCategoryInfo(p.category);
-    const marker=L.marker([p.lat,p.lon],{opacity:mapSelectedDayId==='all'?0.8:0.4}).addTo(tripMapMarkerLayer);
+    const marker=L.marker([p.lat,p.lon],{icon:bubbleIcon(cat.color,cat.icon,{size:27,fontSize:13,opacity:mapSelectedDayId==='all'?0.95:0.45})}).addTo(tripMapMarkerLayer);
     marker.bindPopup(`<div class="map-popup"><strong>${cat.icon} ${esc(p.name)}</strong>${p.address?`<div style="font-size:11px;color:#666;margin-top:3px">${esc(p.address)}</div>`:''}</div>`);
     savedPlaceMarkers[p.id]=marker;
   });
@@ -5607,15 +5750,67 @@ function renderPlaceResultsGrouped(places,isHe){
     </div>`;
   }).join('');
 }
+
+// ── PLACE THUMBNAILS (lazy, cached per session) ──
+// Uses the OSM wikipedia tag when present (exact match); otherwise falls back to a plain
+// Wikipedia summary lookup by place name. Only fetched for rows actually scrolled into view,
+// so a 30-result discovery list doesn't fire 30 requests at once.
+const placeThumbCache=new Map();
+async function fetchPlaceThumb(name,wikipediaTag){
+  const cacheKey=(wikipediaTag||name||'').toLowerCase();
+  if(!cacheKey)return null;
+  if(placeThumbCache.has(cacheKey))return placeThumbCache.get(cacheKey);
+  let url=null;
+  try{
+    if(wikipediaTag){
+      const parts=wikipediaTag.split(':');
+      const wikiLang=parts.length>1?parts[0]:'en';
+      const title=parts.length>1?parts.slice(1).join(':'):parts[0];
+      const r=await fetchWithTimeout(`https://${wikiLang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,{},6000);
+      if(r.ok){const d=await r.json();url=d.thumbnail?.source||null;}
+    }
+    if(!url&&name){
+      const r=await fetchWithTimeout(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`,{},6000);
+      if(r.ok){const d=await r.json();url=d.thumbnail?.source||null;}
+    }
+  }catch(e){/* no image available — fine, icon fallback stays */}
+  placeThumbCache.set(cacheKey,url);
+  return url;
+}
+let placeThumbObserver=null;
+function hydratePlaceThumbs(root){
+  const scope=root||document;
+  const els=scope.querySelectorAll('.place-thumb[data-pending]');
+  if(!els.length)return;
+  if(!placeThumbObserver){
+    placeThumbObserver=new IntersectionObserver((entries,obs)=>{
+      entries.forEach(entry=>{
+        if(!entry.isIntersecting)return;
+        const el=entry.target;
+        obs.unobserve(el);
+        el.removeAttribute('data-pending');
+        fetchPlaceThumb(el.dataset.name,el.dataset.wiki).then(url=>{
+          if(url){el.style.backgroundImage=`url("${url}")`;el.classList.add('on');}
+        });
+      });
+    },{rootMargin:'200px'});
+  }
+  els.forEach(el=>placeThumbObserver.observe(el));
+}
+function placeThumbHTML(p,cat){
+  return`<div class="place-thumb" data-pending data-name="${escJS(p.name||'')}" data-wiki="${escJS(p.wikipedia||'')}"><span class="thumb-fallback">${cat.icon}</span></div>`;
+}
+
 function renderSuggestionRow(p,i,isHe){
   const cat=actCategoryInfo(p.category);
   const clickable=p.lat!=null&&p.lon!=null;
   const hasExtras=p.website||p.wikipedia||p.phone||p.openingHours;
+  const distLabel=(typeof p.distKm==='number')?(p.distKm<1?`${Math.round(p.distKm*1000)}m`:`${p.distKm.toFixed(1)}km`):null;
   return`<div class="wish-item" style="cursor:pointer" onclick="showPlaceDetails(lastSuggestedAttractions[${i}])">
-    <span>${cat.icon}</span>
+    ${placeThumbHTML(p,cat)}
     <div class="wish-item-body">
       <div class="wish-item-text">${esc(p.name)}</div>
-      ${hasExtras?`<div class="wish-item-meta">ℹ️ ${isHe?'לחץ למידע נוסף':'Tap for more info'}</div>`:''}
+      <div class="wish-item-meta">${distLabel?`📍 ${distLabel}${isHe?' מכאן':' away'}`:''}${hasExtras?(distLabel?' · ':'')+'ℹ️ '+(isHe?'לחץ למידע נוסף':'Tap for more info'):''}</div>
     </div>
     <div style="display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
       ${clickable?`<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="flyToSuggestedAttraction(${i})" title="${isHe?'הצג במפה':'Show on map'}">🗺️</button>`:''}
@@ -5660,7 +5855,9 @@ async function loadSuggestedAttractions(manualQuery){
       if(seen.has(key))return false;
       seen.add(key);
       return true;
-    }).map(p=>({...p,category:osmPlaceCategory(p.osmType)}));
+    }).map(p=>({...p,category:osmPlaceCategory(p.osmType),
+      distKm:(typeof p.lat==='number'&&typeof p.lon==='number')?haversineKm(anchor.lat,anchor.lon,p.lat,p.lon):null}));
+    places.sort((a,b)=>(a.distKm??999)-(b.distKm??999));
     if(!places.length){
       container.innerHTML=`<div style="font-size:12px;color:var(--textd)">${isHe?'לא נמצאו אטרקציות בקרבת':'No attractions found near'} ${esc(anchor.label)}</div>`;
       return;
@@ -5669,6 +5866,7 @@ async function loadSuggestedAttractions(manualQuery){
     container.innerHTML=`<div style="font-size:11px;color:var(--textm);margin-bottom:8px">📍 ${isHe?'בקרבת':'Near'} ${esc(anchor.label)}</div>`+
       renderPlaceResultsGrouped(lastSuggestedAttractions,isHe)+
       `<div style="font-size:10px;color:var(--textd);margin-top:8px">${isHe?'נתונים מ-':'Data from'} OpenStreetMap</div>`;
+    hydratePlaceThumbs(container);
     plotSuggestedAttractionsOnMap();
   }catch(e){
     if(myRequestId!==suggestedAttractionsRequestId)return; // stale — don't clobber a newer, successful result
@@ -5683,7 +5881,7 @@ function plotSuggestedAttractionsOnMap(){
   lastSuggestedAttractions.forEach((p,i)=>{
     if(p.lat==null||p.lon==null)return;
     const cat=actCategoryInfo(OSM_TOURISM_TO_CATEGORY[p.osmType]||'sightseeing');
-    const marker=L.circleMarker([p.lat,p.lon],{radius:7,color:cat.color,fillColor:cat.color,fillOpacity:.75,weight:2}).addTo(suggestedAttractionsLayer);
+    const marker=L.marker([p.lat,p.lon],{icon:bubbleIcon(cat.color,cat.icon,{size:29,fontSize:14})}).addTo(suggestedAttractionsLayer);
     marker.bindPopup(`<div class="map-popup"><strong>${cat.icon} ${esc(p.name)}</strong></div>`);
     suggestedAttractionMarkers[i]=marker;
   });
@@ -5705,6 +5903,7 @@ function saveSuggestedAttraction(i){
   renderSavedPlaceMarkers();
   const listEl=document.getElementById('saved-places-list');
   if(listEl)listEl.innerHTML=renderSavedPlacesListHTML(tripData.savedPlaces,lang==='he');
+  hydrateSavedPlacesThumbs();
   toast('✅ '+(lang==='he'?'נשמר לרשימת המקומות':'Saved to your places'));
 }
 
