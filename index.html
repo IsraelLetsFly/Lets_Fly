@@ -351,6 +351,12 @@ textarea.inp{resize:vertical;min-height:80px}
 .itin-block-linked{background:rgba(139,143,232,.06);border:1px dashed rgba(139,143,232,.3);cursor:pointer}
 .itin-block-linked:hover{background:rgba(139,143,232,.12)}
 .itin-cal-event.linked{border-style:dashed}
+.cal-now-line{position:absolute;inset-inline-start:0;right:0;left:0;height:0;border-top:2px solid var(--coral);
+  z-index:3;pointer-events:none}
+.cal-now-line::before{content:'';position:absolute;inset-inline-start:-5px;top:-5px;width:8px;height:8px;
+  border-radius:50%;background:var(--coral);box-shadow:0 0 6px rgba(255,92,92,.7)}
+.cal-now-label{position:absolute;inset-inline-start:-48px;top:-8px;font-family:var(--mono);font-size:9.5px;
+  font-weight:700;color:var(--coral);background:var(--bg2);padding:1px 4px;border-radius:3px;z-index:4;pointer-events:none}
 .itin-block-handle{color:var(--textd);cursor:grab;flex-shrink:0;padding-top:2px}
 .itin-block-cat{flex-shrink:0;font-size:15px;padding-top:1px}
 .itin-block-body{flex:1;min-width:0}
@@ -740,10 +746,42 @@ body.light #bottom-nav{background:rgba(247,242,231,.88)}
 .lh-feat span{font-size:17px}
 @media(max-width:860px){#auth-screen{flex-direction:column;gap:22px;padding-top:30px}.landing-hero{text-align:center;max-width:480px}.landing-hero-feats{grid-template-columns:1fr 1fr;gap:8px}.lh-feat{font-size:11.5px;padding:8px 10px;text-align:start}}
 @media(max-width:480px){.landing-hero-feats{grid-template-columns:1fr}}
+
+/* ══════════ ACCESSIBILITY ══════════ */
+/* Visible keyboard focus everywhere. :focus-visible keeps mouse clicks ring-free. */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+button:focus-visible,a:focus-visible,select:focus-visible,textarea:focus-visible,
+input:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px}
+.inp:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+/* Screen-reader-only text (labels for icon-only controls) */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Skip link */
+.skip-link{position:absolute;inset-inline-start:-9999px;top:8px;z-index:2000;background:var(--accent);
+  color:#04211F;padding:10px 18px;border-radius:var(--rsm);font-weight:700;font-size:13px;text-decoration:none}
+.skip-link:focus{inset-inline-start:8px}
+/* Comfortable touch targets on small screens (WCAG 2.5.5) */
+@media(max-width:768px){
+  .del-btn{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center}
+  .sp-move-btn{min-width:34px;min-height:26px;display:inline-flex;align-items:center;justify-content:center}
+  .btn-sm{min-height:40px;display:inline-flex;align-items:center;justify-content:center}
+  .sp-visited-check{min-width:40px;min-height:40px}
+  .bnav-btn{min-height:52px}
+}
+/* Desktop still deserves a reasonable hit area */
+.del-btn{min-width:28px;min-height:28px;display:inline-flex;align-items:center;justify-content:center}
+/* Respect reduced-motion preferences */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important}
+}
+
 </style>
 </head>
 <body>
 
+<a href="#" class="skip-link" data-t="skipToContent" onclick="skipToMain(event)">Skip to main content</a>
 <div id="loading"><div class="loading-logo">✈️ LetsFly</div><div class="spinner"></div></div>
 <div class="toast" id="toast"></div>
 
@@ -873,9 +911,9 @@ body.light #bottom-nav{background:rgba(247,242,231,.88)}
   </div>
 
   <!-- TRIP -->
-  <div class="page" id="page-trip">
+  <main class="page" id="page-trip" role="main">
     <!-- sections injected by JS -->
-  </div>
+  </main>
 </div>
 
 <!-- MODALS -->
@@ -984,7 +1022,7 @@ const T={
     planNewTrip:'Plan a New Trip',greeting:'My Trips',
     secToday:'Today',secDashboard:'Dashboard',secTasks:'Tasks',secFlights:'Flights',secHotels:'Hotels',
     secItinerary:'Itinerary',secMap:'Map',secBudget:'Budget',secCurrency:'Currency',
-    secTransport:'Transport',secEmergency:'Emergency',secPacking:'Packing',secDocuments:'Documents',secJournal:'Journal',
+    secTransport:'Transport',secEmergency:'Emergency',skipToContent:'Skip to main content',secPacking:'Packing',secDocuments:'Documents',secJournal:'Journal',
     daysLeft:'days until departure',tripInProgress:'Trip in progress!',tripDone:'Trip completed!',
     tasksDone:'Done',tasksLeft:'Left',tripDays:'Days',budgetItems:'Budget Items',
     addFlight:'+ Add Flight',addHotel:'+ Add Hotel',addDay:'+ Add Day',
@@ -1020,7 +1058,7 @@ const T={
     planNewTrip:'תכנן טיול חדש',greeting:'הטיולים שלי',
     secToday:'היום',secDashboard:'דשבורד',secTasks:'משימות',secFlights:'טיסות',secHotels:'מלונות',
     secItinerary:'לו"ז',secMap:'מפה',secBudget:'תקציב',secCurrency:'המרה',
-    secTransport:'תחבורה',secEmergency:'חירום',secPacking:'אריזה',secDocuments:'מסמכים',secJournal:'יומן',
+    secTransport:'תחבורה',secEmergency:'חירום',skipToContent:'דלג לתוכן הראשי',secPacking:'אריזה',secDocuments:'מסמכים',secJournal:'יומן',
     daysLeft:'ימים עד היציאה',tripInProgress:'הטיול מתנהל!',tripDone:'הטיול הסתיים!',
     tasksDone:'הושלמו',tasksLeft:'נשאר',tripDays:'ימים',budgetItems:'פריטי תקציב',
     addFlight:'+ הוסף טיסה',addHotel:'+ הוסף מלון',addDay:'+ הוסף יום',
@@ -1372,7 +1410,7 @@ function buildTripPage(){
       ${isViewOnly?'':`<button class="trip-banner-edit" onclick="openEditTripModal()" title="${lang==='he'?'ערוך פרטי טיול':'Edit trip details'}">✏️</button>`}
     </div>
   </div>
-  <div id="sec-content"></div>`;
+  <div id="sec-content" tabindex="-1"></div>`;
   (async()=>{
     const url=await fetchCoverPhoto(currentTrip.destination||'');
     const el=document.getElementById('trip-banner-photo');
@@ -1409,7 +1447,7 @@ function renderSec(sec){
     case 'tasks':     el.innerHTML=renderTasks();break;
     case 'flights':   el.innerHTML=renderFlights();break;
     case 'hotels':    el.innerHTML=renderHotels();break;
-    case 'itinerary': el.innerHTML=renderItinerary();loadItineraryWeather();break;
+    case 'itinerary': el.innerHTML=renderItinerary();loadItineraryWeather();hydrateTravelGaps();startCalNowTicker();break;
     case 'map':       el.innerHTML=renderMapPage();tripMapInitPromise=initTripMap();loadSuggestedAttractions();hydrateSavedPlacesThumbs();break;
     case 'budget':    el.innerHTML=renderBudget();updateBudgetSums();fetchRates();break;
     case 'currency':  el.innerHTML=renderCurrency();fetchRates();break;
@@ -1419,7 +1457,79 @@ function renderSec(sec){
     case 'documents': el.innerHTML=renderDocuments();break;
     case 'journal':   el.innerHTML=renderJournal();break;
   }
+  applyA11yLabels(el);
 }
+
+
+// ══════════════ ACCESSIBILITY ══════════════
+// Icon-only controls carry no accessible name on their own. Rather than hand-editing every
+// generated template, label them centrally after each render.
+const A11Y_LABELS=()=>({
+  he:{del:'מחק',up:'הזז למעלה',down:'הזז למטה',visited:'סמן כביקרתי',close:'סגור',menu:'תפריט',
+      home:'הטיולים שלי',share:'שתף',pin:'נעץ תפריט',edit:'ערוך פרטי טיול',prev:'הקודם',next:'הבא'},
+  en:{del:'Delete',up:'Move up',down:'Move down',visited:'Mark as visited',close:'Close',menu:'Menu',
+      home:'My trips',share:'Share',pin:'Pin navigation',edit:'Edit trip details',prev:'Previous',next:'Next'}
+})[lang==='he'?'he':'en'];
+function applyA11yLabels(root){
+  const L=A11Y_LABELS();
+  const scope=root||document;
+  const label=(sel,text)=>scope.querySelectorAll(sel).forEach(el=>{
+    if(!el.getAttribute('aria-label'))el.setAttribute('aria-label',text);
+  });
+  label('.del-btn:not([aria-label])',L.del);
+  label('.sp-move-btn[onclick*="movePlaceUp"]',L.up);
+  label('.sp-move-btn[onclick*="movePlaceDown"]',L.down);
+  label('.sp-visited-check',L.visited);
+  label('.trip-banner-edit',L.edit);
+  // Buttons whose entire content is a single emoji/glyph get a name from their title, if any
+  scope.querySelectorAll('button:not([aria-label])').forEach(b=>{
+    const txt=(b.textContent||'').trim();
+    if(txt.length<=2&&b.title)b.setAttribute('aria-label',b.title);
+  });
+  // Decorative emoji shouldn't be announced when the button is already labelled
+  scope.querySelectorAll('button[aria-label] > .ic').forEach(i=>i.setAttribute('aria-hidden','true'));
+}
+// Skip link: jump focus to whichever page container is currently visible
+function skipToMain(e){
+  if(e)e.preventDefault();
+  const target=document.querySelector('.page.active')||document.getElementById('page-trip');
+  if(!target)return;
+  const inner=target.querySelector('#sec-content')||target;
+  inner.setAttribute('tabindex','-1');
+  inner.focus();
+  inner.scrollIntoView({block:'start'});
+}
+// ── Modal keyboard support: Escape to close, focus trap, focus restore ──
+let a11yLastFocus=null;
+function openModalA11y(id){
+  const ov=document.getElementById(id);
+  if(!ov)return;
+  ov.setAttribute('role','dialog');
+  ov.setAttribute('aria-modal','true');
+  applyA11yLabels(ov);
+  const focusables=modalFocusables(ov);
+  if(focusables.length)setTimeout(()=>focusables[0].focus(),40);
+}
+function modalFocusables(ov){
+  return[...ov.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')]
+    .filter(el=>!el.disabled&&el.offsetParent!==null);
+}
+function topmostOpenOverlay(){
+  const open=[...document.querySelectorAll('.overlay.show')];
+  return open.length?open[open.length-1]:null;
+}
+document.addEventListener('keydown',e=>{
+  const ov=topmostOpenOverlay();
+  if(!ov)return;
+  if(e.key==='Escape'){ e.preventDefault(); closeModal(ov.id); return; }
+  if(e.key==='Tab'){
+    const f=modalFocusables(ov);
+    if(!f.length)return;
+    const first=f[0],last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+  }
+});
 
 // ── SAVE ──
 function saveData(immediate){
@@ -1459,7 +1569,9 @@ window.addEventListener('beforeunload',(e)=>{
 function nextUpcomingFlight(){
   const flights=tripData.flights||[];
   const now=new Date();
-  const upcoming=flights.filter(f=>flightDepISO(f)&&new Date(flightDepISO(f))>=now).sort((a,b)=>flightDepISO(a)<flightDepISO(b)?-1:1);
+  const nowMs=now.getTime();
+  const upcoming=flights.filter(f=>{const e=flightDepEpoch(f);return e!==null&&e>=nowMs;})
+    .sort((a,b)=>(flightDepEpoch(a)||0)-(flightDepEpoch(b)||0));
   return upcoming[0]||null;
 }
 // Trip planning progress — a quick visual nudge (à la Wanderlog) showing which core sections
@@ -1976,19 +2088,109 @@ function addTodo(groupId){
 // ── TODAY VIEW ──
 
 // ── TRAVEL-TIME GAPS ──
+// ── TRAVEL GAPS ──
+// Renders a straight-line ESTIMATE synchronously (so the itinerary never waits on network),
+// then upgrades each visible gap to a real routed time from OSRM. Routed values lose the "~".
+const travelGapCache=new Map();
+const TRAVEL_CACHE_KEY='lf-travel-cache';
+(function loadTravelCache(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(TRAVEL_CACHE_KEY)||'{}');
+    Object.entries(raw).forEach(([k,v])=>travelGapCache.set(k,v));
+  }catch(e){/* corrupt or unavailable cache is not worth failing over */}
+})();
+function persistTravelCache(){
+  try{
+    const obj={};
+    // keep the cache bounded — most recent 300 legs is plenty for any trip
+    [...travelGapCache.entries()].slice(-300).forEach(([k,v])=>{obj[k]=v;});
+    localStorage.setItem(TRAVEL_CACHE_KEY,JSON.stringify(obj));
+  }catch(e){/* quota or private mode — cache stays in-memory only */}
+}
+function travelProfileFor(km){ return km<=2?'foot':'driving'; }
+function travelGapKey(a,b,profile){
+  const r=n=>Number(n).toFixed(4);
+  return `${profile}:${r(a.lat)},${r(a.lon)}>${r(b.lat)},${r(b.lon)}`;
+}
+function travelGapLabel(mins,km,profile,isHe,routed){
+  const icon=profile==='foot'?'🚶':(km<=25?'🚕':'🚗');
+  const mode=profile==='foot'?(isHe?'הליכה':'walk'):(km<=25?(isHe?'נסיעה':'drive'):(isHe?'נסיעה':'drive'));
+  const dist=km<1?`${Math.round(km*1000)}m`:`${km.toFixed(1)}km`;
+  return`${icon} ${routed?'':'~'}${mins} ${isHe?'דק׳':'min'} ${mode} · ${dist}`;
+}
 function renderTravelGap(a,b,isHe){
   if(typeof a?.lat!=='number'||typeof a?.lon!=='number'||typeof b?.lat!=='number'||typeof b?.lon!=='number')return'';
   const km=haversineKm(a.lat,a.lon,b.lat,b.lon);
   if(km<0.05)return'';
-  let mins,mode,icon;
-  if(km<=2){mins=Math.max(2,Math.round(km/4.5*60));mode=isHe?'הליכה':'walk';icon='🚶';}
-  else if(km<=25){mins=Math.round(km/20*60+8);mode=isHe?'תחבורה':'transit/taxi';icon='🚕';}
-  else{mins=Math.round(km/60*60+15);mode=isHe?'נסיעה':'drive';icon='🚗';}
-  const dist=km<1?`${Math.round(km*1000)}m`:`${km.toFixed(1)}km`;
-  return`<div style="display:flex;align-items:center;gap:8px;padding:1px 0 1px 26px;margin:-2px 0">
+  const profile=travelProfileFor(km);
+  const key=travelGapKey(a,b,profile);
+  const cached=travelGapCache.get(key);
+  let mins,routed=false;
+  if(typeof cached==='number'){ mins=cached; routed=true; }
+  else if(profile==='foot'){ mins=Math.max(2,Math.round(km/4.5*60)); }
+  else if(km<=25){ mins=Math.round(km/20*60+8); }
+  else { mins=Math.round(km/60*60+15); }
+  const pending=routed?'':' data-gap-pending';
+  return`<div class="travel-gap" style="display:flex;align-items:center;gap:8px;padding:1px 0 1px 26px;margin:-2px 0">
     <span style="width:2px;height:14px;background:var(--border);border-radius:2px;margin-inline-start:6px"></span>
-    <span style="font-family:var(--mono);font-size:10.5px;color:var(--textd)">${icon} ~${mins} ${isHe?'דק׳':'min'} ${mode} · ${dist}</span>
+    <span class="travel-gap-label" style="font-family:var(--mono);font-size:10.5px;color:var(--textd)"${pending}
+      data-gap-key="${key}" data-gap-profile="${profile}" data-gap-km="${km.toFixed(4)}"
+      data-a="${a.lat},${a.lon}" data-b="${b.lat},${b.lon}"
+      title="${routed?(isHe?'זמן נסיעה אמיתי':'Routed travel time'):(isHe?'הערכה לפי קו אווירי':'Straight-line estimate')}">${travelGapLabel(mins,km,profile,isHe,routed)}</span>
   </div>`;
+}
+// Hydrate visible gaps from OSRM, one at a time so we stay gentle on the public demo server.
+let travelGapObserver=null,travelGapQueue=[],travelGapWorking=false;
+async function processTravelGapQueue(){
+  if(travelGapWorking)return;
+  travelGapWorking=true;
+  const isHe=lang==='he';
+  while(travelGapQueue.length){
+    const el=travelGapQueue.shift();
+    if(!el||!el.isConnected)continue;
+    const key=el.dataset.gapKey;
+    const profile=el.dataset.gapProfile;
+    const km=parseFloat(el.dataset.gapKm);
+    if(travelGapCache.has(key)){
+      el.textContent=travelGapLabel(travelGapCache.get(key),km,profile,isHe,true);
+      el.removeAttribute('data-gap-pending');
+      continue;
+    }
+    const[alat,alon]=el.dataset.a.split(',');
+    const[blat,blon]=el.dataset.b.split(',');
+    try{
+      const res=await fetchWithTimeout(`https://router.project-osrm.org/route/v1/${profile}/${alon},${alat};${blon},${blat}?overview=false`,{},8000);
+      const data=await res.json();
+      const route=data?.routes?.[0];
+      if(route){
+        const mins=Math.max(1,Math.round(route.duration/60));
+        travelGapCache.set(key,mins);
+        if(el.isConnected){
+          el.textContent=travelGapLabel(mins,km,profile,isHe,true);
+          el.title=isHe?'זמן נסיעה אמיתי':'Routed travel time';
+          el.removeAttribute('data-gap-pending');
+        }
+      }
+    }catch(e){/* keep the estimate — a failed lookup should never blank the chip */}
+    await new Promise(r=>setTimeout(r,320)); // throttle: public OSRM demo server
+  }
+  travelGapWorking=false;
+  persistTravelCache();
+}
+function hydrateTravelGaps(){
+  const els=document.querySelectorAll('.travel-gap-label[data-gap-pending]');
+  if(!els.length)return;
+  if(!travelGapObserver){
+    travelGapObserver=new IntersectionObserver((entries,obs)=>{
+      entries.forEach(en=>{
+        if(!en.isIntersecting)return;
+        obs.unobserve(en.target);
+        travelGapQueue.push(en.target);
+      });
+      processTravelGapQueue();
+    },{rootMargin:'150px'});
+  }
+  els.forEach(el=>travelGapObserver.observe(el));
 }
 
 // ── SMART REMINDERS (Today) ──
@@ -2003,7 +2205,7 @@ function computeReminders(){
     if(d===tomorrowStr)out.push({icon:'✈️',text:isHe?`טיסה מחר — צ׳ק-אין אונליין כנראה כבר פתוח (${esc(flightFrom(f)||'')} → ${esc(flightTo(f)||'')})`:`Flight tomorrow — online check-in is likely open now (${esc(flightFrom(f)||'')} → ${esc(flightTo(f)||'')})`});
     if(d===todayStr){
       const dep=flightDepISO(f);
-      if(dep){const hrs=Math.round((new Date(dep)-now)/3600000);
+      if(dep){const depMs=flightDepEpoch(f);const hrs=depMs===null?-1:Math.round((depMs-now.getTime())/3600000);
         if(hrs>0&&hrs<=12)out.push({icon:'⏰',text:isHe?`הטיסה ממריאה בעוד ~${hrs} שעות — צא לשדה בזמן!`:`Your flight departs in ~${hrs}h — leave for the airport on time!`,hot:true});}
     }
   });
@@ -2576,7 +2778,7 @@ function renderFlights(){
     <div class="page-title" style="font-size:20px">${'<span class="pt-ic">'+ic('plane',22)+'</span>'} ${t('secFlights')}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${flights.length>1?`<button class="btn btn-outline btn-sm" onclick="downloadAllFlightsICS()">📅 ${isHe?'ייצא הכל ליומן':'Export all to calendar'}</button>`:''}
-      <button class="btn btn-outline btn-sm" onclick="openPasteImport('flight')" title="${isHe?'הדבק אישור הזמנה ותן ל-AI למלא':'Paste a booking confirmation, AI fills the form'}">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
+      <button class="btn btn-outline btn-sm" onclick="openAIImport('flight')" title="${isHe?'הדבק אישור הזמנה ותן ל-AI למלא':'Paste a booking confirmation, AI fills the form'}">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
       <button class="btn btn-outline btn-sm" onclick="openAddModal('flight')">${t('addFlight')}</button>
     </div>
   </div>`;
@@ -2586,7 +2788,7 @@ function renderFlights(){
     <div class="empty-state-sub">${isHe?'הוסף את הטיסה הראשונה — או הדבק אישור הזמנה ותן ל-AI למלא הכל':'Add your first flight — or paste a booking confirmation and let AI fill it in'}</div>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="openAddModal('flight')">+ ${isHe?'הוסף טיסה':'Add flight'}</button>
-      <button class="btn btn-outline btn-sm" onclick="openPasteImport('flight')">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
+      <button class="btn btn-outline btn-sm" onclick="openAIImport('flight')">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
     </div>
   </div>`;
   const today=new Date().toISOString().split('T')[0];
@@ -2693,7 +2895,7 @@ function renderHotels(){
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div class="page-title" style="font-size:20px">${'<span class="pt-ic">'+ic('bed',22)+'</span>'} ${t('secHotels')}</div>
     <span style="flex:1"></span>
-    <button class="btn btn-outline btn-sm" style="margin-inline-end:8px" onclick="openPasteImport('hotel')" title="${isHe?'הדבק אישור הזמנה ותן ל-AI למלא':'Paste a booking confirmation, AI fills the form'}">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
+    <button class="btn btn-outline btn-sm" style="margin-inline-end:8px" onclick="openAIImport('hotel')" title="${isHe?'הדבק אישור הזמנה ותן ל-AI למלא':'Paste a booking confirmation, AI fills the form'}">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
     <button class="btn btn-outline btn-sm" onclick="openAddModal('hotel')">${t('addHotel')}</button>
   </div>`;
   if(!hotels.length)return html+`<div class="card empty-state">
@@ -2702,7 +2904,7 @@ function renderHotels(){
     <div class="empty-state-sub">${isHe?'הוסף את הלינה שלך — או הדבק אישור הזמנה ותן ל-AI למלא הכל':'Add your accommodation — or paste a booking confirmation and let AI fill it in'}</div>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="openAddModal('hotel')">+ ${isHe?'הוסף מלון':'Add hotel'}</button>
-      <button class="btn btn-outline btn-sm" onclick="openPasteImport('hotel')">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
+      <button class="btn btn-outline btn-sm" onclick="openAIImport('hotel')">✨ ${isHe?'הדבק אישור':'Paste booking'}</button>
     </div>
   </div>`;
   hotels.forEach(h=>{
@@ -2772,6 +2974,7 @@ function renderItinerary(){
         <button class="${itinCalLayout==='week'?'active':''}" onclick="setItinCalLayout('week')">${isHe?'שבוע':'Week'}</button>
         <button class="${itinCalLayout==='month'?'active':''}" onclick="setItinCalLayout('month')">${isHe?'חודש':'Month'}</button>
       </div>`:''}
+      <button class="btn btn-outline btn-sm" onclick="openAIImport('places')" title="${isHe?'הדבק רשימת מקומות וה-AI יסדר אותם לימים':'Paste a list of places and AI arranges them into days'}">✨ ${isHe?'סדר מקומות לימים':'Plan my places'}</button>
       <button class="btn btn-outline btn-sm" onclick="openAddModal('smartbuild')">✨ ${isHe?'בניית טיול חכם':'Smart Build'}</button>
       ${days.length?`<button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:5px" onclick="exportItineraryICS()" title="${isHe?'ייצוא ל-Google Calendar / Outlook':'Export to Google Calendar / Outlook'}">${ic('download',13)} .ics</button>
       <button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:5px" onclick="exportItineraryPrint()" title="${isHe?'הדפסה / PDF':'Print / PDF'}">${ic('printer',13)} PDF</button>`:''}
@@ -2807,7 +3010,15 @@ function renderItinerary(){
         </div>
       </div>`;
     }
-    return html+`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${t('noItinerary')}</div>`;
+    return html+`<div class="card empty-state">
+      ${ic('calendar',34)}
+      <div class="empty-state-title">${isHe?'הלו"ז עדיין ריק':'Your itinerary is empty'}</div>
+      <div class="empty-state-sub">${isHe?'הוסף יום ראשון, או תן ל-Smart Build לבנות לך לו"ז מלא ממקומות אמיתיים בקרבת מקום':'Add your first day \u2014 or let Smart Build create a full schedule from real places nearby'}</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="openAddModal('day')">+ ${isHe?'הוסף יום':'Add a day'}</button>
+        <button class="btn btn-outline btn-sm" onclick="openAddModal('smartbuild')">\u2728 ${isHe?'בניית טיול חכם':'Smart Build'}</button>
+      </div>
+    </div>`;
   }
 
   days.forEach(day=>{
@@ -3407,6 +3618,27 @@ function calRenderEvents(timed,gridStart,dayId,compact){
     </div>`;
   }).join('');
 }
+// Live "now" indicator. Returns '' unless the grid being drawn is for today AND the current
+// time falls inside the visible hour range, so past/future days stay clean.
+function calNowLineHTML(dateStr,gridStartMin,endHour,withLabel){
+  const now=new Date();
+  if(dateStr!==dateToStr(now))return'';
+  const nowMin=now.getHours()*60+now.getMinutes();
+  if(nowMin<gridStartMin||nowMin>endHour*60)return'';
+  const top=(nowMin-gridStartMin)*CAL_PX_PER_MIN;
+  const hh=String(now.getHours()).padStart(2,'0'),mm=String(now.getMinutes()).padStart(2,'0');
+  return`<div class="cal-now-line" data-cal-now style="top:${top}px">${withLabel?`<span class="cal-now-label">${hh}:${mm}</span>`:''}</div>`;
+}
+// Re-render the itinerary once a minute so the line tracks real time while the tab is open.
+let calNowTimer=null;
+function startCalNowTicker(){
+  if(calNowTimer)clearInterval(calNowTimer);
+  calNowTimer=setInterval(()=>{
+    if(currentSec!=='itinerary'||itinViewMode!=='calendar'){clearInterval(calNowTimer);calNowTimer=null;return;}
+    if(!document.querySelector('[data-cal-now]'))return;
+    renderSec('itinerary');
+  },60000);
+}
 function renderDayCalendarGrid(day,blocks,cur,isHe){
   const{timed,untimed,startHour,endHour}=calPrepareBlocks(blocks,8,22);
   const gridStart=startHour*60;
@@ -3418,8 +3650,9 @@ function renderDayCalendarGrid(day,blocks,cur,isHe){
   }
   const events=calRenderEvents(timed,gridStart,day.id,false);
   const hint=!timed.length?`<div style="font-size:11.5px;color:var(--textd);margin-bottom:6px">${isHe?'💡 לחץ בכל מקום על הלוח כדי להוסיף פעילות':'💡 Click anywhere on the calendar to add an activity'}</div>`:'';
+  const nowLine=calNowLineHTML(day.date,gridStart,endHour,true);
   return`${hint}<div class="itin-cal" style="height:${gridHeight}px">
-      <div class="itin-cal-grid" style="height:${gridHeight}px" onclick="calGridClick(event,'${day.id}',${gridStart})">${hourLines}${events}</div>
+      <div class="itin-cal-grid" style="height:${gridHeight}px" onclick="calGridClick(event,'${day.id}',${gridStart})">${hourLines}${events}${nowLine}</div>
     </div>${renderUnscheduledList(untimed,day,cur,isHe)}`;
 }
 // Click on empty calendar space -> open the day editor with the activity form pre-filled
@@ -3462,7 +3695,12 @@ function renderWeekView(days,cur,isHe){
     if(!rangeEnd||last>rangeEnd)rangeEnd=last;
   }
   if(!rangeStart||!rangeEnd){
-    return`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${isHe?'הוסף תאריכים לימים כדי לראות תצוגת שבוע':'Add dates to your days to see the week view'}</div>`;
+    return`<div class="card empty-state">
+      ${ic('calendar',30)}
+      <div class="empty-state-title">${isHe?'אין תאריכים להצגה':'No dates to show yet'}</div>
+      <div class="empty-state-sub">${isHe?'תצוגת השבוע מסתמכת על תאריכי הימים \u2014 הוסף תאריך לכל יום בלו"ז':'The week view needs dated days \u2014 add a date to each day in your itinerary'}</div>
+      <button class="btn btn-outline btn-sm" onclick="setItinViewMode('list')">${isHe?'חזור לתצוגת רשימה':'Back to list view'}</button>
+    </div>`;
   }
   const weekStart=new Date(rangeStart); weekStart.setDate(weekStart.getDate()-weekStart.getDay());
   const weekEnd=new Date(rangeEnd); weekEnd.setDate(weekEnd.getDate()+(6-weekEnd.getDay()));
@@ -3502,7 +3740,7 @@ function renderOneWeek(weekDates,byDate,dayAbbr,cur,isHe){
     const events=calRenderEvents(timed,gridStart,primaryDayId,true);
     const isToday=dstr===today;
     return`<div class="itin-week-col${isToday?' today':''}" style="height:${gridHeight}px" onclick="weekColClick(event,'${primaryDayId}','${dstr}',${gridStart})">
-      ${events}
+      ${events}${calNowLineHTML(dstr,gridStart,endHour,false)}
     </div>`;
   }).join('');
   const headers=weekDates.map((d,i)=>{
@@ -3549,7 +3787,12 @@ function renderMonthView(days,cur,isHe){
     if(!rangeEnd||last>rangeEnd)rangeEnd=last;
   }
   if(!rangeStart||!rangeEnd){
-    return`<div class="card" style="text-align:center;padding:40px;color:var(--textm)">${isHe?'הוסף תאריכים לימים כדי לראות תצוגת חודש':'Add dates to your days to see the month view'}</div>`;
+    return`<div class="card empty-state">
+      ${ic('calendar',30)}
+      <div class="empty-state-title">${isHe?'אין תאריכים להצגה':'No dates to show yet'}</div>
+      <div class="empty-state-sub">${isHe?'תצוגת החודש מסתמכת על תאריכי הימים \u2014 הוסף תאריך לכל יום בלו"ז':'The month view needs dated days \u2014 add a date to each day in your itinerary'}</div>
+      <button class="btn btn-outline btn-sm" onclick="setItinViewMode('list')">${isHe?'חזור לתצוגת רשימה':'Back to list view'}</button>
+    </div>`;
   }
   const dayAbbr=isHe?['א','ב','ג','ד','ה','ו','ש']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const today=dateToStr(new Date());
@@ -4730,34 +4973,6 @@ function getAICfg(){
   try{return JSON.parse(localStorage.getItem('lf-ai-cfg')||'{}');}catch(e){return{};}
 }
 function saveAICfg(cfg){localStorage.setItem('lf-ai-cfg',JSON.stringify(cfg));}
-function openPasteImport(kind){
-  const isHe=lang==='he';
-  const cfg=getAICfg();
-  const inner=document.getElementById('modal-add-inner');
-  inner.innerHTML=`<div class="modal-title">✨ ${isHe?'ייבוא חכם מאישור הזמנה':'Smart import from a booking confirmation'}</div>
-    <div style="font-size:12.5px;color:var(--textm);margin-bottom:12px">${isHe?'הדבק את טקסט האימייל של אישור ההזמנה — ה-AI יחלץ את הפרטים וימלא הכל בשבילך. המפתח נשמר רק בדפדפן שלך.':'Paste the confirmation email text — AI extracts the details and fills everything for you. Your key is stored only in your browser.'}</div>
-    <div class="grid2" style="margin-bottom:10px">
-      <div><div class="field-label">${isHe?'ספק AI':'AI provider'}</div>
-        <select class="inp" id="ai-provider">
-          <option value="gemini" ${cfg.provider!=='openai'&&cfg.provider!=='anthropic'?'selected':''}>Google Gemini (${isHe?'חינם':'free'})</option>
-          <option value="anthropic" ${cfg.provider==='anthropic'?'selected':''}>Anthropic Claude</option>
-          <option value="openai" ${cfg.provider==='openai'?'selected':''}>OpenAI GPT</option>
-        </select>
-      </div>
-      <div><div class="field-label">API Key <a href="#" onclick="event.preventDefault();aiKeyHelp()" style="color:var(--accent);font-size:10.5px">${isHe?'איך משיגים?':'how to get one?'}</a></div>
-        <input class="inp" id="ai-key" type="password" placeholder="${isHe?'הדבק מפתח...':'Paste key...'}" value="${esc(cfg.key||'')}">
-      </div>
-    </div>
-    <div class="field"><div class="field-label">${isHe?'טקסט האישור':'Confirmation text'}</div>
-      <textarea class="inp" id="ai-paste-text" style="min-height:150px;font-size:12.5px" placeholder="${isHe?'הדבק כאן את כל תוכן האימייל...':'Paste the full email content here...'}"></textarea>
-    </div>
-    <div id="ai-import-status" style="font-size:12px;color:var(--textm);min-height:18px;margin-bottom:6px"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
-      <button class="btn btn-primary" id="ai-import-btn" onclick="runPasteImport('${kind}')">✨ ${isHe?'חלץ ומלא':'Extract & fill'}</button>
-    </div>`;
-  openModal('modal-add');
-}
 function aiKeyHelp(){
   const isHe=lang==='he';
   alert(isHe
@@ -4796,37 +5011,384 @@ async function callAIJson(prompt){
   const m=clean.match(/\{[\s\S]*\}/);
   return JSON.parse(m?m[0]:clean);
 }
-async function runPasteImport(kind){
+
+
+// ══════════════════════════════════════════════════════════════
+// AI ASSISTANT — import & planning skills
+// Every skill funnels through callAIJson(), so switching to a
+// server-side proxy later is a one-line change in that function.
+// ══════════════════════════════════════════════════════════════
+const AI_MODES={
+  flight:{icon:'\u2708\uFE0F',en:'Flights',he:'טיסות'},
+  hotel:{icon:'\u{1F3E8}',en:'Hotels',he:'מלונות'},
+  places:{icon:'\u{1F5FA}\uFE0F',en:'Places \u2192 Days',he:'מקומות \u2190 ימים'},
+};
+let aiImportMode='flight';
+let aiExtracted=null; // last parsed payload, awaiting user confirmation
+
+function openAIImport(mode){
+  aiImportMode=mode||'flight';
+  aiExtracted=null;
+  renderAIImportModal();
+  openModal('modal-add');
+}
+function setAIImportMode(m){
+  aiImportMode=m;
+  aiExtracted=null;
+  renderAIImportModal();
+}
+function aiPlaceholderFor(mode,isHe){
+  if(mode==='flight')return isHe?'הדבק את אישור הטיסה / המסלול המלא — כולל טיסות הלוך ושוב וקונקשנים...':'Paste your flight confirmation or full itinerary \u2014 including return flights and connections...';
+  if(mode==='hotel')return isHe?'הדבק את אישור המלון (או כמה אישורים ביחד)...':'Paste your hotel confirmation (or several at once)...';
+  return isHe?'הדבק רשימת מקומות שאתה רוצה לבקר — שורה לכל מקום:\n\nמקדש סנסו-ג\u05f3י\nשוק צוקיג\u05f3י\nטוקיו סקייטרי\nשינג\u05f3וקו גיוֹאֶן':'Paste the places you want to visit \u2014 one per line:\n\nSenso-ji Temple\nTsukiji Market\nTokyo Skytree\nShinjuku Gyoen\nteamLab Planets';
+}
+function renderAIImportModal(){
+  const isHe=lang==='he';
+  const cfg=getAICfg();
+  const inner=document.getElementById('modal-add-inner');
+  if(!inner)return;
+  inner.innerHTML=`<div class="modal-title">\u2728 ${isHe?'עוזר ה-AI':'AI Assistant'}</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      ${Object.entries(AI_MODES).map(([k,v])=>`<button class="btn btn-sm ${aiImportMode===k?'btn-primary':'btn-outline'}" onclick="setAIImportMode('${k}')">${v.icon} ${isHe?v.he:v.en}</button>`).join('')}
+    </div>
+    <div style="font-size:12.5px;color:var(--textm);margin-bottom:12px">${
+      aiImportMode==='places'
+        ?(isHe?'ה-AI יזהה כמה זמן דורש כל מקום, יאתר אותו על המפה, ויסדר את הכל לימים לפי קרבה גיאוגרפית והגיון של שעות היום.':'AI works out how long each place needs, locates it on the map, then arranges everything into days by geography and sensible time-of-day.')
+        :(isHe?'הדבק את הטקסט — ה-AI יחלץ את הפרטים ותוכל לאשר לפני ההוספה.':'Paste the text \u2014 AI extracts the details and you confirm before anything is added.')
+    }</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><div class="field-label">${isHe?'ספק AI':'AI provider'}</div>
+        <select class="inp" id="ai-provider">
+          <option value="gemini" ${cfg.provider!=='openai'&&cfg.provider!=='anthropic'?'selected':''}>Google Gemini (${isHe?'חינם':'free'})</option>
+          <option value="anthropic" ${cfg.provider==='anthropic'?'selected':''}>Anthropic Claude</option>
+          <option value="openai" ${cfg.provider==='openai'?'selected':''}>OpenAI GPT</option>
+        </select>
+      </div>
+      <div><div class="field-label">API Key <a href="#" onclick="event.preventDefault();aiKeyHelp()" style="color:var(--accent);font-size:10.5px">${isHe?'איך משיגים?':'how to get one?'}</a></div>
+        <input class="inp" id="ai-key" type="password" placeholder="${isHe?'הדבק מפתח...':'Paste key...'}" value="${esc(cfg.key||'')}">
+      </div>
+    </div>
+    <div class="field"><textarea class="inp" id="ai-paste-text" style="min-height:140px;font-size:12.5px" placeholder="${esc(aiPlaceholderFor(aiImportMode,isHe))}"></textarea></div>
+    <div id="ai-import-status" style="font-size:12px;color:var(--textm);min-height:18px;margin-bottom:6px"></div>
+    <div id="ai-preview"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">${t('cancel')}</button>
+      <button class="btn btn-primary" id="ai-import-btn" onclick="runAIImport()">\u2728 ${isHe?'נתח':'Analyze'}</button>
+    </div>`;
+  applyA11yLabels(inner);
+}
+
+// ── Extraction prompts, one per skill ──
+function aiPromptFor(mode,raw){
+  const today=new Date().toISOString().split('T')[0];
+  const tripCtx=`Trip context: destination "${currentTrip?.destination||'unknown'}", dates ${currentTrip?.start_date||'?'} to ${currentTrip?.end_date||'?'}. Today is ${today}.`;
+  if(mode==='flight'){
+    return`${tripCtx}
+Extract EVERY flight in the text below, including return flights and each connecting leg.
+Respond with ONLY a JSON object, no markdown:
+{"flights":[{"conf":"booking reference or empty","cabin":"Economy|Premium|Business|First or empty","cost":number or null,"legs":[{"from":"3-letter IATA","to":"3-letter IATA","depTimeISO":"YYYY-MM-DDTHH:mm","arrTimeISO":"YYYY-MM-DDTHH:mm","flightNum":"e.g. LY381","airline":"airline name"}]}]}
+Rules:
+- Times are LOCAL wall-clock at each airport. Do NOT convert between timezones.
+- A journey with a connection is ONE flight object with multiple legs, in order.
+- Outbound and return are SEPARATE flight objects.
+- Convert city names to IATA codes where you are confident; otherwise leave the city name.
+- If a year is missing, infer it from the trip context.
+TEXT:
+${raw.slice(0,8000)}`;
+  }
+  if(mode==='hotel'){
+    return`${tripCtx}
+Extract EVERY hotel/accommodation booking in the text below.
+Respond with ONLY a JSON object, no markdown:
+{"hotels":[{"name":"","dest":"city or full address","checkIn":"YYYY-MM-DD","checkOut":"YYYY-MM-DD","conf":"booking reference or empty","cost":number or null,"notes":"room type / board / special requests, or empty"}]}
+If a year is missing, infer it from the trip context.
+TEXT:
+${raw.slice(0,8000)}`;
+  }
+  return`${tripCtx}
+The text below is a list of places the traveller wants to visit. For EACH place, judge realistically how long a visit takes and when it is best done.
+Respond with ONLY a JSON object, no markdown:
+{"places":[{"name":"cleaned-up place name","searchName":"name + city, best string for a map search","category":"sightseeing|food|outdoor|shopping|nightlife|transport|hotel","visitMinutes":number,"bestTime":"morning|afternoon|evening|night|any","note":"one short practical tip, max 12 words"}]}
+Guidance on visitMinutes \u2014 be realistic, not uniform:
+- quick viewpoint / landmark photo stop: 30-45
+- temple, shrine, small gallery: 60-90
+- market, neighbourhood walk: 90-120
+- major museum, aquarium, large park: 150-210
+- theme park, day-trip site: 300-480
+- sit-down meal: 90, casual food stop: 45
+bestTime guidance: markets and museums morning, parks afternoon, viewpoints/observation decks evening for sunset, bars and night districts night.
+Keep the traveller's original ordering only as a tiebreaker; do not invent places that are not listed.
+TEXT:
+${raw.slice(0,8000)}`;
+}
+
+async function runAIImport(){
   const isHe=lang==='he';
   const status=document.getElementById('ai-import-status');
   const btn=document.getElementById('ai-import-btn');
   const raw=(document.getElementById('ai-paste-text')?.value||'').trim();
-  if(!raw){status.textContent='⚠️ '+(isHe?'הדבק טקסט קודם':'Paste some text first');return;}
-  btn.disabled=true;status.textContent='⏳ '+(isHe?'מחלץ פרטים...':'Extracting details...');
-  const schema=kind==='flight'
-    ?`{"airline":"","flightNo":"e.g. LY81","from":"IATA or city","to":"IATA or city","date":"YYYY-MM-DD","depTime":"HH:MM","arrTime":"HH:MM","cost":number-or-null,"confirmation":""}`
-    :`{"name":"hotel name","address":"","checkIn":"YYYY-MM-DD","checkOut":"YYYY-MM-DD","cost":number-or-null,"confirmation":""}`;
-  const prompt=`Extract the ${kind} booking details from the text below. Respond with ONLY a JSON object, no markdown, no explanation, in exactly this shape (use null for unknown fields):\n${schema}\n\nTEXT:\n${raw.slice(0,6000)}`;
+  if(!raw){status.textContent='\u26A0\uFE0F '+(isHe?'הדבק טקסט קודם':'Paste some text first');return;}
+  btn.disabled=true;
+  status.textContent='\u23F3 '+(isHe?'מנתח...':'Analyzing...');
   try{
-    const j=await callAIJson(prompt);
-    if(kind==='flight'){
-      if(!Array.isArray(tripData.flights))tripData.flights=[];
-      tripData.flights.push({id:uid(),airline:j.airline||'',flightNo:j.flightNo||'',
-        from:j.from||'',to:j.to||'',date:j.date||'',depTime:j.depTime||'',arrTime:j.arrTime||'',
-        cost:j.cost||'',confirmation:j.confirmation||''});
+    const j=await callAIJson(aiPromptFor(aiImportMode,raw));
+    if(aiImportMode==='places'){
+      const places=Array.isArray(j.places)?j.places:[];
+      if(!places.length)throw new Error(isHe?'לא זוהו מקומות בטקסט':'No places found in that text');
+      status.textContent='\u{1F4CD} '+(isHe?'מאתר מקומות על המפה...':'Locating places on the map...');
+      aiExtracted=await locateAIPlaces(places,status);
     } else {
-      if(!Array.isArray(tripData.hotels))tripData.hotels=[];
-      tripData.hotels.push({id:uid(),name:j.name||'',address:j.address||'',
-        checkIn:j.checkIn||'',checkOut:j.checkOut||'',cost:j.cost||'',confirmation:j.confirmation||''});
+      const items=aiImportMode==='flight'?(j.flights||[]):(j.hotels||[]);
+      if(!items.length)throw new Error(isHe?'לא זוהו פריטים בטקסט':'Nothing found in that text');
+      aiExtracted=items;
     }
-    saveData(true);
-    closeModal('modal-add');
-    renderSec(kind==='flight'?'flights':'hotels');
-    toast('✓ '+(isHe?'יובא בהצלחה! בדוק את הפרטים':'Imported! Double-check the details'));
+    status.textContent='';
+    renderAIPreview();
   }catch(e){
-    status.textContent='❌ '+(e.message||'Import failed');
+    status.textContent='\u274C '+(e.message||'Failed');
     btn.disabled=false;
   }
+}
+
+
+// ── Locate each AI-identified place on the map ──
+// Nominatim asks for <=1 request/second, so this is deliberately sequential with a delay
+// rather than Promise.all. geocodeQuery() memoises, so repeats are free.
+async function locateAIPlaces(places,statusEl){
+  const isHe=lang==='he';
+  const anchor=await resolveTripAnchor();
+  const out=[];
+  for(let i=0;i<places.length;i++){
+    const p=places[i];
+    if(statusEl)statusEl.textContent=`\u{1F4CD} ${isHe?'מאתר':'Locating'} ${i+1}/${places.length}: ${p.name||''}`;
+    const q=p.searchName||`${p.name}${currentTrip?.destination?', '+currentTrip.destination:''}`;
+    let loc=null;
+    try{ loc=await geocodeQuery(q); }catch(e){/* unlocatable is survivable — kept without coords */}
+    if(!loc&&p.name)try{ loc=await geocodeQuery(p.name); }catch(e){}
+    out.push({
+      name:p.name||'',
+      category:ACTIVITY_CATEGORIES.some(c=>c.key===p.category)?p.category:'sightseeing',
+      visitMinutes:Math.max(15,Math.min(600,parseInt(p.visitMinutes)||SMART_BUILD_DURATIONS[p.category]||90)),
+      bestTime:['morning','afternoon','evening','night','any'].includes(p.bestTime)?p.bestTime:'any',
+      note:(p.note||'').slice(0,80),
+      lat:loc?loc.lat:null, lon:loc?loc.lon:null,
+      located:!!loc,
+      include:true,
+    });
+    if(i<places.length-1)await new Promise(r=>setTimeout(r,1100));
+  }
+  // Keep unlocated places at the end so they never distort the geographic chain
+  const anchored=out.filter(p=>p.located);
+  const orphans=out.filter(p=>!p.located);
+  if(anchored.length&&anchor){
+    // Start the chain from whichever place is closest to the hotel/destination
+    anchored.sort((a,b)=>haversineKm(anchor.lat,anchor.lon,a.lat,a.lon)-haversineKm(anchor.lat,anchor.lon,b.lat,b.lon));
+  }
+  const chained=anchored.length?nearestNeighborOrder(anchored):[];
+  return[...chained,...orphans];
+}
+
+const BEST_TIME_RANK={morning:0,afternoon:1,any:2,evening:3,night:4};
+// A rooftop bar at 16:30 is not a plan. Anchor each slot to the earliest hour that actually
+// makes sense for its time-of-day, letting the day run past the nominal end if needed.
+const BEST_TIME_EARLIEST={morning:9*60,afternoon:12*60,evening:17*60,night:19*60,any:0};
+const AI_DAY_START_MIN=9*60;      // days begin at 09:00
+const AI_DAY_END_MIN=21*60;       // and are considered full at 21:00
+const AI_TRAVEL_BUFFER_MIN=20;    // rough hop between stops
+
+// Slice the geographically-chained pool into days by TIME BUDGET rather than a fixed count,
+// so a day of three big museums doesn't get the same treatment as six quick stops.
+function planPlacesIntoDays(pool,numDays){
+  const days=[];
+  let current=[],used=0;
+  const budget=AI_DAY_END_MIN-AI_DAY_START_MIN;
+  for(const p of pool.filter(x=>x.include)){
+    const cost=p.visitMinutes+AI_TRAVEL_BUFFER_MIN;
+    if(current.length&&used+cost>budget){
+      if(days.length<numDays-1){ days.push(current);current=[];used=0; }
+      // On the final available day, stop rather than stretching it to midnight — the
+      // remainder is reported in the preview and saved to Places instead.
+      else break;
+    }
+    current.push(p);used+=cost;
+  }
+  if(current.length)days.push(current);
+  // Within each day, respect time-of-day sense (markets早, rooftop bars late) while the
+  // geographic chain still governs which places share a day.
+  return days.slice(0,numDays).map(d=>d.slice().sort((a,b)=>
+    (BEST_TIME_RANK[a.bestTime]??2)-(BEST_TIME_RANK[b.bestTime]??2)));
+}
+
+// Lays out one day's places on the clock. Used by BOTH the preview and the apply step so
+// what the traveller confirms is exactly what gets written.
+function schedulePlacesForDay(dayPlaces,startCursor){
+  let cursor=startCursor??AI_DAY_START_MIN;
+  return dayPlaces.map(p=>{
+    const earliest=BEST_TIME_EARLIEST[p.bestTime]??0;
+    const startMin=Math.max(cursor,earliest);
+    const endMin=startMin+p.visitMinutes;
+    cursor=endMin+AI_TRAVEL_BUFFER_MIN;
+    return{place:p,startMin,endMin};
+  });
+}
+function aiFmtMin(m){return`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;}
+function aiPlannedDayCount(){
+  const existing=(tripData.days||[]).length;
+  if(existing)return existing;
+  const n=calcNights(currentTrip?.start_date,currentTrip?.end_date);
+  return Math.max(1,n||1);
+}
+
+// ── Preview ──
+function renderAIPreview(){
+  const isHe=lang==='he';
+  const el=document.getElementById('ai-preview');
+  const btn=document.getElementById('ai-import-btn');
+  if(!el)return;
+  if(aiImportMode==='places'){
+    const numDays=aiPlannedDayCount();
+    const planned=planPlacesIntoDays(aiExtracted,numDays);
+    const includedCount=aiExtracted.filter(p=>p.include).length;
+    const placedCount=planned.flat().length;
+    const unlocated=aiExtracted.filter(p=>p.include&&!p.located).length;
+    el.innerHTML=`
+      <div style="font-size:12.5px;font-weight:700;margin-bottom:6px">${isHe?`${includedCount} מקומות \u2190 ${planned.length} ימים`:`${includedCount} places \u2192 ${planned.length} day${planned.length>1?'s':''}`}</div>
+      ${includedCount>placedCount?`<div style="font-size:11.5px;color:var(--gold);margin-bottom:8px">\u26A0\uFE0F ${isHe?`${includedCount-placedCount} מקומות לא נכנסו למספר הימים הקיים — הם יישמרו ברשימת המקומות`:`${includedCount-placedCount} place(s) won\u2019t fit in ${numDays} day(s) \u2014 they\u2019ll be saved to your Places list`}</div>`:''}
+      ${unlocated?`<div style="font-size:11.5px;color:var(--textd);margin-bottom:8px">\u{1F4CD} ${isHe?`${unlocated} מקומות לא אותרו על המפה — יתווספו ללא מיקום`:`${unlocated} place(s) couldn\u2019t be located \u2014 added without coordinates`}</div>`:''}
+      <div style="max-height:280px;overflow-y:auto;margin-bottom:10px">
+        ${planned.map((day,di)=>`
+          <div style="font-size:10.5px;font-weight:700;color:var(--textd);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">
+            ${isHe?'יום':'Day'} ${di+1} \u00b7 ${Math.round(day.reduce((s,p)=>s+p.visitMinutes,0)/60*10)/10}h
+          </div>
+          ${schedulePlacesForDay(day).map(({place:p,startMin,endMin})=>{
+            const cat=actCategoryInfo(p.category);
+            const gi=aiExtracted.indexOf(p);
+            return`<div class="item-row" style="align-items:center;gap:9px">
+              <input type="checkbox" checked onchange="aiTogglePlace(${gi})" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer">
+              <span style="font-family:var(--mono);font-size:10.5px;color:var(--accent);white-space:nowrap">${aiFmtMin(startMin)}</span>
+              <span>${cat.icon}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12.5px;font-weight:600">${esc(p.name)}${p.located?'':' <span style="color:var(--textd);font-weight:400">\u00b7 '+(isHe?'ללא מיקום':'no location')+'</span>'}</div>
+                ${p.note?`<div style="font-size:10.5px;color:var(--textd)">${esc(p.note)}</div>`:''}
+              </div>
+              <span style="font-family:var(--mono);font-size:10.5px;color:var(--textm);white-space:nowrap">${Math.floor(p.visitMinutes/60)?Math.floor(p.visitMinutes/60)+'h':''}${p.visitMinutes%60?(p.visitMinutes%60)+'m':''}</span>
+            </div>`;}).join('')}
+        `).join('')}
+        ${aiExtracted.filter(p=>!p.include).length?`<div style="font-size:10.5px;color:var(--textd);margin-top:10px">${isHe?'לא ייכללו':'Excluded'}: ${aiExtracted.filter(p=>!p.include).map(p=>esc(p.name)).join(', ')}</div>`:''}
+      </div>`;
+    if(btn){btn.textContent=`\u2705 ${isHe?'הוסף ללו"ז':'Add to itinerary'}`;btn.disabled=false;btn.setAttribute('onclick','applyAIPlaces()');}
+  } else {
+    const isFlight=aiImportMode==='flight';
+    el.innerHTML=`
+      <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">${isHe?'נמצאו':'Found'} ${aiExtracted.length} ${isFlight?(isHe?'טיסות':'flight(s)'):(isHe?'מלונות':'hotel(s)')}</div>
+      <div style="max-height:260px;overflow-y:auto;margin-bottom:10px">
+        ${aiExtracted.map((it,i)=>{
+          if(isFlight){
+            const legs=it.legs||[];
+            const first=legs[0]||{},last=legs[legs.length-1]||{};
+            return`<div class="item-row" style="align-items:flex-start;gap:9px">
+              <input type="checkbox" checked onchange="aiToggleItem(${i})" style="accent-color:var(--accent);width:15px;height:15px;margin-top:3px;cursor:pointer">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12.5px;font-weight:700">\u2708\uFE0F ${esc(first.from||'?')} \u2192 ${esc(last.to||'?')}${legs.length>1?` <span style="font-size:10.5px;color:var(--textd);font-weight:500">(${legs.length} ${isHe?'קטעים':'legs'})</span>`:''}</div>
+                ${legs.map(l=>`<div style="font-family:var(--mono);font-size:10.5px;color:var(--textm)">${esc(l.flightNum||'')} ${esc(l.from||'')}\u2192${esc(l.to||'')} ${esc((l.depTimeISO||'').replace('T',' '))}${l.arrTimeISO?' \u2192 '+esc(l.arrTimeISO.replace('T',' ')):''}</div>`).join('')}
+                ${it.conf?`<div style="font-size:10.5px;color:var(--textd)">#${esc(it.conf)}</div>`:''}
+              </div>
+            </div>`;
+          }
+          return`<div class="item-row" style="align-items:flex-start;gap:9px">
+            <input type="checkbox" checked onchange="aiToggleItem(${i})" style="accent-color:var(--accent);width:15px;height:15px;margin-top:3px;cursor:pointer">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:700">\u{1F3E8} ${esc(it.name||'')}</div>
+              <div style="font-family:var(--mono);font-size:10.5px;color:var(--textm)">${esc(it.checkIn||'?')} \u2192 ${esc(it.checkOut||'?')}${it.dest?' \u00b7 '+esc(it.dest):''}</div>
+              ${it.conf?`<div style="font-size:10.5px;color:var(--textd)">#${esc(it.conf)}</div>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    if(btn){btn.textContent=`\u2705 ${isHe?'הוסף':'Add'}`;btn.disabled=false;btn.setAttribute('onclick','applyAIItems()');}
+  }
+  applyA11yLabels(el);
+}
+function aiTogglePlace(i){ if(aiExtracted[i]){aiExtracted[i].include=!aiExtracted[i].include;renderAIPreview();} }
+function aiToggleItem(i){ if(aiExtracted[i]){aiExtracted[i]._skip=!aiExtracted[i]._skip;} }
+
+// ── Apply ──
+function applyAIItems(){
+  const isHe=lang==='he';
+  const chosen=aiExtracted.filter(it=>!it._skip);
+  if(!chosen.length){toast('\u26A0\uFE0F '+(isHe?'לא נבחר דבר':'Nothing selected'));return;}
+  if(aiImportMode==='flight'){
+    if(!Array.isArray(tripData.flights))tripData.flights=[];
+    chosen.forEach(it=>{
+      const legs=(it.legs||[]).map(l=>({
+        from:(l.from||'').toUpperCase(),to:(l.to||'').toUpperCase(),
+        depTimeISO:l.depTimeISO||'',arrTimeISO:l.arrTimeISO||'',
+        flightNum:l.flightNum||'',airline:l.airline||'',
+        depTerminal:'',arrTerminal:'',aircraft:'',seats:'',meal:'',baggage:'',amenities:'',legNotes:''}));
+      tripData.flights.push({id:uid(),legs,cabin:it.cabin||'',legType:legs.length>1?'connecting':'direct',
+        conf:it.conf||'',cost:it.cost||'',airlinePhone:'',checkinHours:'24',entryRequirements:'',notes:''});
+    });
+  } else {
+    if(!Array.isArray(tripData.hotels))tripData.hotels=[];
+    chosen.forEach(it=>{
+      tripData.hotels.push({id:uid(),name:it.name||'',dest:it.dest||'',
+        checkIn:it.checkIn||'',checkOut:it.checkOut||'',conf:it.conf||'',cost:it.cost||'',notes:it.notes||''});
+    });
+  }
+  saveData(true);
+  closeModal('modal-add');
+  renderSec(aiImportMode==='flight'?'flights':'hotels');
+  toast('\u2705 '+(isHe?`נוספו ${chosen.length} \u2014 בדוק את הפרטים`:`Added ${chosen.length} \u2014 double-check the details`));
+}
+
+function applyAIPlaces(){
+  const isHe=lang==='he';
+  const numDays=aiPlannedDayCount();
+  const planned=planPlacesIntoDays(aiExtracted,numDays);
+  if(!planned.length){toast('\u26A0\uFE0F '+(isHe?'אין מה להוסיף':'Nothing to add'));return;}
+  if(!Array.isArray(tripData.days))tripData.days=[];
+  if(!Array.isArray(tripData.savedPlaces))tripData.savedPlaces=[];
+  const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+  const tripDates=enumerateDatesInRange(currentTrip?.start_date,currentTrip?.end_date);
+  let added=0;
+  planned.forEach((dayPlaces,di)=>{
+    let day=tripData.days[di];
+    if(!day){
+      day={id:uid(),num:di+1,date:tripDates[di]||'',title:'',city:'',blocks:[],note:''};
+      tripData.days.push(day);
+    }
+    if(!Array.isArray(day.blocks))day.blocks=[];
+    // Append after whatever is already scheduled rather than overwriting the user's plans
+    let cursor=AI_DAY_START_MIN;
+    day.blocks.forEach(b=>{
+      const r=blockTimeRange(b);
+      if(r&&r.end){const[h,m]=r.end.split(':').map(Number);cursor=Math.max(cursor,h*60+m+AI_TRAVEL_BUFFER_MIN);}
+    });
+    schedulePlacesForDay(dayPlaces,cursor).forEach(({place:p,startMin,endMin})=>{
+      const h=Math.floor(p.visitMinutes/60),m=p.visitMinutes%60;
+      day.blocks.push({id:uid(),start:fmt(startMin),end:fmt(endMin),time:`${fmt(startMin)}\u2013${fmt(endMin)}`,
+        text:p.name,dur:h>0?(m>0?`${h}h ${m}m`:`${h}h`):`${m}m`,category:p.category,
+        cost:'',confirmation:'',checklist:[],notes:p.note||'',
+        lat:p.lat,lon:p.lon,website:'',wikipedia:'',phone:'',openingHours:''});
+      added++;
+      if(!tripData.savedPlaces.some(sp=>(sp.name||'').trim().toLowerCase()===p.name.trim().toLowerCase())){
+        tripData.savedPlaces.push({id:uid(),name:p.name,category:p.category,lat:p.lat,lon:p.lon});
+      }
+    });
+  });
+  // Anything that didn't fit the available days still gets saved for later
+  const placedNames=new Set(planned.flat().map(p=>p.name));
+  let leftover=0;
+  aiExtracted.filter(p=>p.include&&!placedNames.has(p.name)).forEach(p=>{
+    if(!tripData.savedPlaces.some(sp=>(sp.name||'').trim().toLowerCase()===p.name.trim().toLowerCase())){
+      tripData.savedPlaces.push({id:uid(),name:p.name,category:p.category,lat:p.lat,lon:p.lon});
+      leftover++;
+    }
+  });
+  saveData(true);
+  closeModal('modal-add');
+  renderSec('itinerary');
+  toast('\u2705 '+(isHe?`נוספו ${added} פעילויות ל-${planned.length} ימים${leftover?` (+${leftover} נשמרו)`:''}`:`Added ${added} activities across ${planned.length} day(s)${leftover?` (+${leftover} saved for later)`:''}`));
 }
 
 // ══════════════ PACKING LIST ══════════════
@@ -5341,6 +5903,7 @@ function renderMapPage(){
   <div class="card">
     <div class="card-title">
       <div class="card-title-left">📍 ${isHe?'מקומות שמורים':'Saved Places'}</div>
+      <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAIImport('places')">✨ ${isHe?'סדר לימים':'Plan into days'}</button>
       <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAddModal('import')">📥 ${isHe?'ייבוא':'Import'}</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -6856,13 +7419,62 @@ function tzDiffLabel(fromCode,toCode,dateStr){
   const sign=diff>0?'+':'\u2212';
   return sign+(m?`${h}h${m}m`:`${h}h`);
 }
+
+// ── TIMEZONE-AWARE FLIGHT TIME MATH ──
+// depTimeISO/arrTimeISO hold LOCAL WALL-CLOCK time at each airport with no offset baked in
+// (e.g. "2026-07-26T21:30" means 21:30 in Tel Aviv). Formatting them for display is safe —
+// parsing and re-formatting in the browser's zone round-trips the same digits. But any math
+// that compares them to `now`, or subtracts one from the other, must convert to a real
+// instant first, or a TLV->NRT redeye reads as a 16h flight instead of ~11h.
+function wallClockPartsToUTCms(iso){
+  const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if(!m)return null;
+  return Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);
+}
+// Convert a wall-clock string at a given IANA zone into a true epoch ms.
+// The second pass settles DST boundaries (the offset can differ once shifted).
+function wallClockToEpochMs(iso,tz){
+  const base=wallClockPartsToUTCms(iso);
+  if(base===null||!tz)return null;
+  const off1=tzOffsetMinutes(tz,new Date(base));
+  if(off1===null)return null;
+  let epoch=base-off1*60000;
+  const off2=tzOffsetMinutes(tz,new Date(epoch));
+  if(off2!==null&&off2!==off1)epoch=base-off2*60000;
+  return epoch;
+}
+// True instant of departure/arrival. Falls back to treating the wall clock as browser-local
+// when the airport isn't in AIRPORT_TZ, which matches the old behaviour rather than breaking.
+function flightDepEpoch(f){
+  const iso=flightDepISO(f);if(!iso)return null;
+  const tz=AIRPORT_TZ[(flightFrom(f)||'').toUpperCase()];
+  const e=wallClockToEpochMs(iso,tz);
+  if(e!==null)return e;
+  const d=new Date(iso);return isNaN(d)?null:d.getTime();
+}
+function flightArrEpoch(f){
+  const iso=flightArrISO(f);if(!iso)return null;
+  const tz=AIRPORT_TZ[(flightTo(f)||'').toUpperCase()];
+  const e=wallClockToEpochMs(iso,tz);
+  if(e!==null)return e;
+  const d=new Date(iso);return isNaN(d)?null:d.getTime();
+}
+
 // Total journey duration (departure to arrival, door-to-door incl. any connections) as "Xh Ym"
 function flightDuration(f){
   const depIso=flightDepISO(f),arrIso=flightArrISO(f);
   if(!depIso||!arrIso)return null;
-  const dep=new Date(depIso),arr=new Date(arrIso);
-  if(isNaN(dep)||isNaN(arr))return null;
-  let mins=Math.round((arr-dep)/60000);
+  const depBase=wallClockPartsToUTCms(depIso),arrBase=wallClockPartsToUTCms(arrIso);
+  if(depBase===null||arrBase===null)return null;
+  const depTz=AIRPORT_TZ[(flightFrom(f)||'').toUpperCase()];
+  const arrTz=AIRPORT_TZ[(flightTo(f)||'').toUpperCase()];
+  const depE=wallClockToEpochMs(depIso,depTz);
+  const arrE=wallClockToEpochMs(arrIso,arrTz);
+  // Only trust the zone-corrected span when BOTH airports are known — mixing one corrected
+  // endpoint with one raw endpoint would be worse than the plain wall-clock fallback.
+  let mins=(depE!==null&&arrE!==null)
+    ?Math.round((arrE-depE)/60000)
+    :Math.round((arrBase-depBase)/60000);
   if(mins<=0)return null;
   const h=Math.floor(mins/60),m=mins%60;
   return m?`${h}h ${m}m`:`${h}h`;
@@ -6871,10 +7483,11 @@ function flightDuration(f){
 function checkinOpensLabel(f,isHe){
   const depIso=flightDepISO(f);
   if(!depIso)return null;
-  const dep=new Date(depIso);
-  if(isNaN(dep))return null;
+  const depMs=flightDepEpoch(f);
+  if(depMs===null)return null;
+  const dep=new Date(depMs);
   const hoursBefore=parseFloat(f.checkinHours)||24;
-  const opens=new Date(dep.getTime()-hoursBefore*3600000);
+  const opens=new Date(depMs-hoursBefore*3600000);
   const now=new Date();
   if(dep<now)return null; // flight already departed — not relevant anymore
   const label=opens.toLocaleString(isHe?'he-IL':'en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -7248,8 +7861,17 @@ function flightDateStr(f){
   }
   return null;
 }
-function openModal(id){document.getElementById(id).classList.add('show');}
-function closeModal(id){document.getElementById(id).classList.remove('show');}
+function openModal(id){
+  a11yLastFocus=document.activeElement;
+  document.getElementById(id).classList.add('show');
+  openModalA11y(id);
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('show');
+  // Return focus to whatever opened the dialog so keyboard users don't lose their place
+  if(a11yLastFocus&&document.contains(a11yLastFocus)){ try{a11yLastFocus.focus();}catch(e){} }
+  a11yLastFocus=null;
+}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   if(e.target===o){e.stopPropagation();closeModal(o.id);}
 }));
