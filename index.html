@@ -845,6 +845,7 @@ input:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
   <div class="nav-right">
     <button class="hamburger-btn" id="navbar-pin-btn" onclick="toggleNavLock()" title="Pin sidebar">📌</button>
     <span id="save-ind" style="font-size:11px;color:var(--textm);display:none">💾</span>
+    <button id="ai-btn" style="display:none;background:linear-gradient(135deg,rgba(55,198,186,.25),rgba(139,143,232,.2));border:1px solid rgba(55,198,186,.45);border-radius:100px;padding:5px 13px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:var(--accent);transition:all .2s;margin-inline-end:6px" onclick="openAIImport('flight')" title="AI Assistant">✨ AI</button>
     <button id="share-btn" style="display:none;background:rgba(55,198,186,.15);border:1px solid rgba(55,198,186,.3);border-radius:100px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--accent);transition:all .2s" onclick="openShareModal()">🔗 Share</button>
   </div>
 </nav>
@@ -1287,6 +1288,7 @@ async function doLogout(){
   const ntEl=document.getElementById('nav-trip-name');if(ntEl)ntEl.textContent='';
   const nsEl=document.getElementById('nav-sections');if(nsEl){nsEl.style.display='none';nsEl.innerHTML='';}
   const sbtnEl=document.getElementById('share-btn');if(sbtnEl)sbtnEl.style.display='none';
+  const aiHide=document.getElementById('ai-btn');if(aiHide)aiHide.style.display='none';
   const hbEl=document.getElementById('hamburger-btn');if(hbEl)hbEl.style.display='none';
   const homeBtnEl=document.getElementById('home-btn');if(homeBtnEl)homeBtnEl.style.display='none';
   const pbEl=document.getElementById('navbar-pin-btn');if(pbEl)pbEl.style.display='none';
@@ -1304,6 +1306,7 @@ function goHome(){
   const ntEl=document.getElementById('nav-trip-name');if(ntEl)ntEl.textContent='';
   const nsEl=document.getElementById('nav-sections');if(nsEl){nsEl.style.display='none';nsEl.innerHTML='';}
   const sbEl=document.getElementById('share-btn');if(sbEl)sbEl.style.display='none';
+  const aiHide=document.getElementById('ai-btn');if(aiHide)aiHide.style.display='none';
   const hbEl=document.getElementById('hamburger-btn');if(hbEl)hbEl.style.display='none';
   const homeBtnEl=document.getElementById('home-btn');if(homeBtnEl)homeBtnEl.style.display='none';
   const pbEl=document.getElementById('navbar-pin-btn');if(pbEl)pbEl.style.display='none';
@@ -1344,6 +1347,7 @@ function openTrip(trip,sec){
   buildNavSections();
   document.getElementById('nav-sections').style.display='flex';
   const sBtn=document.getElementById('share-btn');if(sBtn)sBtn.style.display='inline-flex';
+  const aiBtn=document.getElementById('ai-btn');if(aiBtn)aiBtn.style.display='inline-flex';
   document.getElementById('hamburger-btn').style.display='flex';
   const pbEl2=document.getElementById('navbar-pin-btn');if(pbEl2)pbEl2.style.display='flex';
   document.body.classList.add('in-trip');
@@ -1380,7 +1384,8 @@ function buildNavSections(){
   // Side nav items
   const si=document.getElementById('side-nav-items');
   if(si){
-    let out='',lastGroup=null;
+    let out=`<button class="snb" style="color:var(--accent);font-weight:700" onclick="openAIImport('flight');if(!navLocked)closeSideNav()"><span class="snb-icon">${ic('sparkles',17)}</span>${lang==='he'?'עוזר AI':'AI Assistant'}</button>`;
+    let lastGroup=null;
     SECTIONS.forEach(s=>{
       if(s.group!==lastGroup){out+=`<div class="snb-group">${(SECTION_GROUPS[s.group]||{})[lang==='he'?'he':'en']||s.group}</div>`;lastGroup=s.group;}
       out+=`<button class="snb${currentSec===s.id?' active':''}" onclick="showSec('${s.id}');if(!navLocked)closeSideNav()"><span class="snb-icon">${ic(s.icon,17)}</span>${t(s.key)}</button>`;
@@ -4969,47 +4974,34 @@ function swapCurr(){
 
 
 // ══════════════ AI PASTE-TO-IMPORT ══════════════
-function getAICfg(){
-  try{return JSON.parse(localStorage.getItem('lf-ai-cfg')||'{}');}catch(e){return{};}
-}
-function saveAICfg(cfg){localStorage.setItem('lf-ai-cfg',JSON.stringify(cfg));}
-function aiKeyHelp(){
-  const isHe=lang==='he';
-  alert(isHe
-    ?'Gemini (חינם): aistudio.google.com → Get API key\nClaude: console.anthropic.com → API Keys\nOpenAI: platform.openai.com → API Keys'
-    :'Gemini (free): aistudio.google.com → Get API key\nClaude: console.anthropic.com → API Keys\nOpenAI: platform.openai.com → API Keys');
-}
 async function callAIJson(prompt){
-  const provider=document.getElementById('ai-provider')?.value||'gemini';
-  const key=(document.getElementById('ai-key')?.value||'').trim();
-  if(!key)throw new Error(lang==='he'?'נדרש מפתח API':'API key required');
-  saveAICfg({provider,key});
-  let text='';
-  if(provider==='gemini'){
-    const r=await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0}})},30000);
-    const d=await r.json();
-    if(d.error)throw new Error(d.error.message||'Gemini error');
-    text=d.candidates?.[0]?.content?.parts?.[0]?.text||'';
-  } else if(provider==='anthropic'){
-    const r=await fetchWithTimeout('https://api.anthropic.com/v1/messages',
-      {method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-       body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1024,messages:[{role:'user',content:prompt}]})},30000);
-    const d=await r.json();
-    if(d.error)throw new Error(d.error.message||'Claude error');
-    text=(d.content||[]).map(c=>c.text||'').join('');
-  } else {
-    const r=await fetchWithTimeout('https://api.openai.com/v1/chat/completions',
-      {method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-       body:JSON.stringify({model:'gpt-4o-mini',temperature:0,messages:[{role:'user',content:prompt}]})},30000);
-    const d=await r.json();
-    if(d.error)throw new Error(d.error.message||'OpenAI error');
-    text=d.choices?.[0]?.message?.content||'';
+  const isHe=lang==='he';
+  // The NVIDIA API sends no CORS headers, so the browser never talks to it directly —
+  // everything goes through our own Supabase Edge Function, which holds the key.
+  let token='';
+  try{ const{data:{session}}=await sb.auth.getSession(); token=session?.access_token||''; }catch(e){}
+  if(!token)throw new Error(isHe?'צריך להתחבר כדי להשתמש ב-AI':'You need to be signed in to use AI');
+  let res;
+  try{
+    res=await fetchWithTimeout(`${SB_URL}/functions/v1/ai`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SB_KEY},
+      body:JSON.stringify({prompt})
+    },60000);
+  }catch(e){
+    throw new Error(isHe?'לא ניתן להגיע לשרת ה-AI':'Could not reach the AI service');
   }
-  const clean=text.replace(/```json|```/g,'').trim();
+  let data=null;
+  try{ data=await res.json(); }catch(e){}
+  if(!res.ok||!data||data.error){
+    if(res.status===429)throw new Error(data?.error||(isHe?'הגעת למכסת ה-AI היומית':'Daily AI limit reached'));
+    if(res.status===404)throw new Error(isHe?'פונקציית ה-AI לא פרוסה עדיין (supabase functions deploy ai)':'AI function not deployed yet \u2014 run: supabase functions deploy ai');
+    throw new Error(data?.error||(isHe?'שגיאת AI':'AI request failed'));
+  }
+  const clean=String(data.text||'').replace(/```json|```/g,'').trim();
   const m=clean.match(/\{[\s\S]*\}/);
-  return JSON.parse(m?m[0]:clean);
+  try{ return JSON.parse(m?m[0]:clean); }
+  catch(e){ throw new Error(isHe?'ה-AI החזיר תשובה לא תקינה — נסה שוב':'AI returned malformed data \u2014 try again'); }
 }
 
 
@@ -5044,7 +5036,6 @@ function aiPlaceholderFor(mode,isHe){
 }
 function renderAIImportModal(){
   const isHe=lang==='he';
-  const cfg=getAICfg();
   const inner=document.getElementById('modal-add-inner');
   if(!inner)return;
   inner.innerHTML=`<div class="modal-title">\u2728 ${isHe?'עוזר ה-AI':'AI Assistant'}</div>
@@ -5056,18 +5047,6 @@ function renderAIImportModal(){
         ?(isHe?'ה-AI יזהה כמה זמן דורש כל מקום, יאתר אותו על המפה, ויסדר את הכל לימים לפי קרבה גיאוגרפית והגיון של שעות היום.':'AI works out how long each place needs, locates it on the map, then arranges everything into days by geography and sensible time-of-day.')
         :(isHe?'הדבק את הטקסט — ה-AI יחלץ את הפרטים ותוכל לאשר לפני ההוספה.':'Paste the text \u2014 AI extracts the details and you confirm before anything is added.')
     }</div>
-    <div class="grid2" style="margin-bottom:10px">
-      <div><div class="field-label">${isHe?'ספק AI':'AI provider'}</div>
-        <select class="inp" id="ai-provider">
-          <option value="gemini" ${cfg.provider!=='openai'&&cfg.provider!=='anthropic'?'selected':''}>Google Gemini (${isHe?'חינם':'free'})</option>
-          <option value="anthropic" ${cfg.provider==='anthropic'?'selected':''}>Anthropic Claude</option>
-          <option value="openai" ${cfg.provider==='openai'?'selected':''}>OpenAI GPT</option>
-        </select>
-      </div>
-      <div><div class="field-label">API Key <a href="#" onclick="event.preventDefault();aiKeyHelp()" style="color:var(--accent);font-size:10.5px">${isHe?'איך משיגים?':'how to get one?'}</a></div>
-        <input class="inp" id="ai-key" type="password" placeholder="${isHe?'הדבק מפתח...':'Paste key...'}" value="${esc(cfg.key||'')}">
-      </div>
-    </div>
     <div class="field"><textarea class="inp" id="ai-paste-text" style="min-height:140px;font-size:12.5px" placeholder="${esc(aiPlaceholderFor(aiImportMode,isHe))}"></textarea></div>
     <div id="ai-import-status" style="font-size:12px;color:var(--textm);min-height:18px;margin-bottom:6px"></div>
     <div id="ai-preview"></div>
